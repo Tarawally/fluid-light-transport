@@ -1,0 +1,9 @@
+project:
+  title: "Hybrid Fluid-Light Transport"
+  output-dir: _site
+
+format:
+  html:
+    theme: cosmo
+    css: styles.css
+    toc: true
