@@ -1,0 +1,60 @@
+# The Main Loop
+
+We have the canvas, the memory, the math, and the physics. Now we need to bring it all to life.
+
+## Animation
+
+Animation is an illusion. By changing the image on the screen 60 times every second (60 Hz), we trick the human eye into seeing motion.
+
+In JavaScript, we use a special function called `requestAnimationFrame`. This tells the browser: "The next time you are ready to paint the screen, please call my function first."
+
+[Why not `setInterval`? Because `requestAnimationFrame` pauses when you switch tabs, saving battery!]{.aside}
+
+## System Architecture
+
+Before we look at the code, let us look at the "Big Picture". The engine runs in three distinct phases:
+
+```{mermaid}
+graph LR
+    A[Input Scene] -->|Ray Query| B(Injection Phase)
+    B -->|Energy| C{Fluid Solver}
+    C -->|Advection| C
+    C -->|Diffusion| C
+    C -->|State| D[Renderer]
+    D -->|Tone Map| E[Canvas]
+```
+
+## The Game Loop
+
+Our `mainSimulationLoop` function is the conductor of the orchestra. It runs continuously, coordinating all the parts we have discussed.
+
+```javascript
+function mainSimulationLoop() {
+  // 1. Handle Input (Keyboard/Mouse)
+  if (handleInput()) {
+      // If the user moved, we might need to reset
+  }
+
+  // 2. Injection Phase (Ray Tracing)
+  // We shoot rays for every pixel (or a subset)
+  // ...
+
+  // 3. Propagation Phase (Fluid Dynamics)
+  evolveSimulation();
+
+  // 4. Rendering Phase
+  // Draw the result to the Canvas
+  // ...
+
+  // 5. Repeat!
+  requestAnimationFrame(mainSimulationLoop);
+}
+```
+
+## Conclusion
+
+We have journeyed from the humble pixel up to a complex, hybrid fluid-light transport simulation.
+
+By treating light as a fluid, we can create beautiful, organic lighting effects that respond to the environment in real-time. We have optimised this by understanding how computer memory works (SoA) and by using simplified physics (Cellular Automata) instead of trying to calculate every single photon perfectly.
+
+This is the power of the **Hybrid Fluid-Light Transport Engine**.

@@ -1,0 +1,56 @@
+# Memory & Data
+
+Simulating the real world requires storing a massive amount of information. Every pixel needs to know its colour, how fast light is moving through it, and whether it's part of a wall or empty air.
+
+## The State
+
+We call the total sum of all this information the **State**. In our engine, the state is stored in `RAM` (Random Access Memory).
+
+## Arrays: The Shelf
+
+The most efficient way to store a list of things in a computer is an **Array**. Think of an array as a long shelf where every item has a number (an index).
+
+## Structure of Arrays (SoA)
+
+Typically, programmers might create an Object for every pixel:
+
+```javascript
+// Array of Structures (AoS) - SLOW
+let pixel = { red: 1.0, green: 0.5, velocityX: 0.1 };
+```
+
+However, creating 200,000 objects is very slow for the computer to manage. Every time the computer has to find a new object in memory, it might have to look in a completely different area. This is called a **Cache Miss**, and it’s one of the biggest reasons software can be slow.
+
+Instead, we use a single massive array of numbers and use **Offsets** to find what we need. This is called a **Structure of Arrays (SoA)** layout. This keeps all related data tightly packed together, which the CPU loves!
+
+::: {.callout-note collapse="true"}
+## Analogy: The Library Shelf
+Imagine a library.
+*   **AoS**: Books are organised by Author. If you want to find all red books, you have to walk through every aisle.
+*   **SoA**: Books are organised by Colour. All red books are on one shelf. You can grab them all instantly.
+:::
+
+In `src/engine.js`, we define these "shelves" using the `FIELD` constant.
+
+```javascript
+/**
+ * Memory layout offsets.
+ * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.
+ */
+const FIELD = {
+  R: 0,
+  G: 1,
+  B: 2, // Spectral Energy (Colour)
+  VEL_X: 4,
+  VEL_Y: 5, // Momentum Vector (Flow direction)
+  DEPTH: 7, // Distance from camera (Topology)
+};
+
+const STRIDE = 14; // Total slots per pixel
+```
+
+We allocate one giant block of memory for the entire universe:
+
+```javascript
+State.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);
+```

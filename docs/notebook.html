@@ -1,0 +1,1146 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en"><head>
+
+<meta charset="utf-8">
+<meta name="generator" content="quarto-1.8.26">
+
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+
+<meta name="author" content="Samuel Tarawally">
+
+<title>Hybrid Fluid-Light Transport: A Literate Analysis</title>
+<style>
+code{white-space: pre-wrap;}
+span.smallcaps{font-variant: small-caps;}
+div.columns{display: flex; gap: min(4vw, 1.5em);}
+div.column{flex: auto; overflow-x: auto;}
+div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+ul.task-list{list-style: none;}
+ul.task-list li input[type="checkbox"] {
+  width: 0.8em;
+  margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
+  vertical-align: middle;
+}
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
+</style>
+
+
+<script src="notebook_files/libs/clipboard/clipboard.min.js"></script>
+<script src="notebook_files/libs/quarto-html/quarto.js" type="module"></script>
+<script src="notebook_files/libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="notebook_files/libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="notebook_files/libs/quarto-html/popper.min.js"></script>
+<script src="notebook_files/libs/quarto-html/tippy.umd.min.js"></script>
+<script src="notebook_files/libs/quarto-html/anchor.min.js"></script>
+<link href="notebook_files/libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="notebook_files/libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" id="quarto-text-highlighting-styles">
+<script src="notebook_files/libs/bootstrap/bootstrap.min.js"></script>
+<link href="notebook_files/libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="notebook_files/libs/bootstrap/bootstrap-4d7f0bce1131f3e5f9547cd857cfbfc8.min.css" rel="stylesheet" append-hash="true" id="quarto-bootstrap" data-mode="light">
+<script type="module" src="notebook_files/libs/quarto-ojs/quarto-ojs-runtime.js"></script>
+<link href="notebook_files/libs/quarto-ojs/quarto-ojs.css" rel="stylesheet">
+<script src="notebook_files/libs/quarto-diagram/mermaid.min.js"></script>
+<script src="notebook_files/libs/quarto-diagram/mermaid-init.js"></script>
+<link href="notebook_files/libs/quarto-diagram/mermaid.css" rel="stylesheet">
+
+
+</head>
+
+<body class="quarto-light">
+
+<div id="quarto-content" class="page-columns page-rows-contents page-layout-article">
+<div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+  <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">Table of contents</h2>
+   
+  <ul>
+  <li><a href="#introduction" id="toc-introduction" class="nav-link active" data-scroll-target="#introduction"><span class="header-section-number">1</span> Introduction</a></li>
+  <li><a href="#system-architecture" id="toc-system-architecture" class="nav-link" data-scroll-target="#system-architecture"><span class="header-section-number">2</span> System Architecture</a>
+  <ul class="collapse">
+  <li><a href="#memory-layout-structure-of-arrays-soa" id="toc-memory-layout-structure-of-arrays-soa" class="nav-link" data-scroll-target="#memory-layout-structure-of-arrays-soa"><span class="header-section-number">2.1</span> Memory Layout: Structure of Arrays (SoA)</a></li>
+  </ul></li>
+  <li><a href="#the-physics-of-light-fluid" id="toc-the-physics-of-light-fluid" class="nav-link" data-scroll-target="#the-physics-of-light-fluid"><span class="header-section-number">3</span> The Physics of Light Fluid</a>
+  <ul class="collapse">
+  <li><a href="#simulation-parameters" id="toc-simulation-parameters" class="nav-link" data-scroll-target="#simulation-parameters"><span class="header-section-number">3.1</span> Simulation Parameters</a></li>
+  <li><a href="#d-propagation-visualisation" id="toc-d-propagation-visualisation" class="nav-link" data-scroll-target="#d-propagation-visualisation"><span class="header-section-number">3.2</span> 1D Propagation Visualisation</a></li>
+  </ul></li>
+  <li><a href="#code-implementation-details" id="toc-code-implementation-details" class="nav-link" data-scroll-target="#code-implementation-details"><span class="header-section-number">4</span> Code Implementation Details</a></li>
+  <li><a href="#conclusion" id="toc-conclusion" class="nav-link" data-scroll-target="#conclusion"><span class="header-section-number">5</span> Conclusion</a></li>
+  </ul>
+</nav>
+</div>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<div class="quarto-title-block"><div><h1 class="title">Hybrid Fluid-Light Transport: A Literate Analysis</h1><button type="button" class="btn code-tools-button dropdown-toggle" id="quarto-code-tools-menu" data-bs-toggle="dropdown" aria-expanded="false"><i class="bi"></i> Code</button><ul class="dropdown-menu dropdown-menu-end" aria-labelelledby="quarto-code-tools-menu"><li><a id="quarto-show-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Show All Code</a></li><li><a id="quarto-hide-all-code" class="dropdown-item" href="javascript:void(0)" role="button">Hide All Code</a></li><li><hr class="dropdown-divider"></li><li><a id="quarto-view-source" class="dropdown-item" href="javascript:void(0)" role="button">View Source</a></li></ul></div></div>
+</div>
+
+
+
+<div class="quarto-title-meta">
+
+    <div>
+    <div class="quarto-title-meta-heading">Author</div>
+    <div class="quarto-title-meta-contents">
+             <p>Samuel Tarawally </p>
+          </div>
+  </div>
+    
+  
+    
+  </div>
+  
+
+
+</header>
+
+
+<section id="introduction" class="level2" data-number="1">
+<h2 data-number="1" class="anchored" data-anchor-id="introduction"><span class="header-section-number">1</span> Introduction</h2>
+<p>In the domain of real-time computer graphics, we typically face a dichotomy: <strong>Ray Tracing</strong> offers precision but is computationally expensive for diffuse effects, whilst <strong>Rasterisation</strong> is fast but struggles with global illumination. This notebook explores a third way: treating light not merely as rays or radiant flux, but as a <strong>fluid substance</strong> that advects and diffuses across a surface topology.</p>
+<p>This <strong>Hybrid Fluid-Light Transport</strong> engine leverages a novel pipeline:</p>
+<ol type="1">
+<li><strong>Injection</strong>: Stochastic Ray Tracing injects energy (photons) into the scene.</li>
+<li><strong>Propagation</strong>: A Cellular Automata (CA) fluid solver propagates this energy as a viscous fluid.</li>
+<li><strong>Rendering</strong>: The resulting state is tone-mapped and displayed.</li>
+</ol>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>The Fluid Analogy
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>In this model, <strong>Light Intensity</strong> is treated analogously to <strong>Fluid Pressure</strong>, and <strong>Light Flux</strong> is treated as <strong>Fluid Velocity</strong>. This allows us to use simplified Navier-Stokes equations to model light bleeding and soft shadows naturally.</p>
+</div>
+</div>
+</section>
+<section id="system-architecture" class="level2" data-number="2">
+<h2 data-number="2" class="anchored" data-anchor-id="system-architecture"><span class="header-section-number">2</span> System Architecture</h2>
+<p>The architecture is designed for performance, bypassing high-level abstractions in favour of specific memory layouts that maximise CPU cache locality.</p>
+<div class="cell" data-layout-align="default">
+<div class="cell-output-display">
+<div id="fig-pipeline" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-pipeline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div>
+<pre class="mermaid mermaid-js" data-label="fig-pipeline">graph LR
+    A[Input Scene] --&gt;|Ray Query| B(Injection Phase)
+    B --&gt;|Energy| C{Fluid Solver}
+    C --&gt;|Advection| C
+    C --&gt;|Diffusion| C
+    C --&gt;|State| D[Renderer]
+    D --&gt;|Tone Map| E[Canvas]
+</pre>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-pipeline-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;1: The Hybrid Light Transport Pipeline
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<section id="memory-layout-structure-of-arrays-soa" class="level3" data-number="2.1">
+<h3 data-number="2.1" class="anchored" data-anchor-id="memory-layout-structure-of-arrays-soa"><span class="header-section-number">2.1</span> Memory Layout: Structure of Arrays (SoA)</h3>
+<p>To achieve 60 FPS in a JavaScript-based environment without WebGL shaders, we must be judicious with memory. We avoid the overhead of JavaScript Objects for individual pixels. Instead, we employ a <strong>Structure of Arrays (SoA)</strong> layout within a single <code>Float32Array</code>.</p>
+<p>Each pixel in the simulation grid is defined by a stride of specific floating-point values.</p>
+<div class="callout callout-style-default callout-important callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Important</span>Optimisation
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>Using a single flat array allows us to process 200,000+ pixels efficiently by keeping related data contiguous in memory, reducing cache misses.</p>
+</div>
+</div>
+<p>The memory offsets are defined as follows:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * Memory layout offsets for the Structure of Arrays (SoA).</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"> * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"> * </span><span class="an">@enum</span><span class="co"> </span><span class="cv">{number}</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> FIELD <span class="op">=</span> {</span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">R</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">G</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">B</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="co">// Spectral Energy (Colour)</span></span>
+<span id="cb1-10"><a href="#cb1-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">VEL_X</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb1-11"><a href="#cb1-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">VEL_Y</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span> <span class="co">// Momentum Vector (Flow direction)</span></span>
+<span id="cb1-12"><a href="#cb1-12" aria-hidden="true" tabindex="-1"></a>  <span class="dt">ROUGHNESS</span><span class="op">:</span> <span class="dv">6</span><span class="op">,</span> <span class="co">// Surface material property (Friction)</span></span>
+<span id="cb1-13"><a href="#cb1-13" aria-hidden="true" tabindex="-1"></a>  <span class="dt">DEPTH</span><span class="op">:</span> <span class="dv">7</span><span class="op">,</span> <span class="co">// Distance from camera (Topology)</span></span>
+<span id="cb1-14"><a href="#cb1-14" aria-hidden="true" tabindex="-1"></a>  <span class="dt">OBJECT_ID</span><span class="op">:</span> <span class="dv">11</span><span class="op">,</span> <span class="co">// Discrete ID to prevent bleeding across distinct objects</span></span>
+<span id="cb1-15"><a href="#cb1-15" aria-hidden="true" tabindex="-1"></a>  <span class="dt">SLEEP_TIMER</span><span class="op">:</span> <span class="dv">12</span><span class="op">,</span> <span class="co">// Activity monitor for optimisation</span></span>
+<span id="cb1-16"><a href="#cb1-16" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-17"><a href="#cb1-17" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-18"><a href="#cb1-18" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">14</span><span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+</section>
+<section id="the-physics-of-light-fluid" class="level2" data-number="3">
+<h2 data-number="3" class="anchored" data-anchor-id="the-physics-of-light-fluid"><span class="header-section-number">3</span> The Physics of Light Fluid</h2>
+<p>The core innovation is the propagation phase. Once light energy is injected into the grid (via ray tracing), it follows the rules of fluid dynamics.</p>
+<section id="simulation-parameters" class="level3" data-number="3.1">
+<h3 data-number="3.1" class="anchored" data-anchor-id="simulation-parameters"><span class="header-section-number">3.1</span> Simulation Parameters</h3>
+<p>We can model the behaviour of this “light fluid” using standard parameters. Adjust the controls below to observe how they alter the theoretical propagation in real-time.</p>
+<div class="panel-grid layout-sidebar ms-md-0 layout-sidebar-left">
+<div class="cell panel-sidebar card bg-light p-2 g-col-24 g-col-lg-7">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb2" data-startfrom="92" data-source-offset="-0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 91;"><span id="cb2-92"><a href="#cb2-92" aria-hidden="true" tabindex="-1"></a>viewof dissipation <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span>([<span class="fl">0.8</span><span class="op">,</span> <span class="fl">0.999</span>]<span class="op">,</span> {<span class="dt">value</span><span class="op">:</span> <span class="fl">0.97</span><span class="op">,</span> <span class="dt">step</span><span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"Dissipation (Entropy)"</span>})</span>
+<span id="cb2-93"><a href="#cb2-93" aria-hidden="true" tabindex="-1"></a>viewof advection <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span>([<span class="fl">0.0</span><span class="op">,</span> <span class="fl">5.0</span>]<span class="op">,</span> {<span class="dt">value</span><span class="op">:</span> <span class="fl">3.0</span><span class="op">,</span> <span class="dt">step</span><span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"Advection Strength"</span>})</span>
+<span id="cb2-94"><a href="#cb2-94" aria-hidden="true" tabindex="-1"></a>viewof diffusion <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span>([<span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span>]<span class="op">,</span> {<span class="dt">value</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dt">step</span><span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> <span class="dt">label</span><span class="op">:</span> <span class="st">"Diffusion (Spread)"</span>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-1-1" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-1-2" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div>
+<div id="ojs-cell-1-3" data-nodetype="declaration">
+
+</div>
+</div>
+</div>
+</div>
+<div class="panel-fill g-col-24 g-col-lg-17 pt-3 pt-lg-0">
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb3" data-startfrom="97" data-source-offset="0"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 96;"><span id="cb3-97"><a href="#cb3-97" aria-hidden="true" tabindex="-1"></a><span class="fu">md</span><span class="vs">`</span></span>
+<span id="cb3-98"><a href="#cb3-98" aria-hidden="true" tabindex="-1"></a><span class="vs">**Current Configuration:**</span></span>
+<span id="cb3-99"><a href="#cb3-99" aria-hidden="true" tabindex="-1"></a><span class="vs">*   **Energy Conservation:** </span><span class="sc">${</span>(dissipation <span class="op">*</span> <span class="dv">100</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs">% energy retained per tick</span></span>
+<span id="cb3-100"><a href="#cb3-100" aria-hidden="true" tabindex="-1"></a><span class="vs">*   **Flow Velocity:** </span><span class="sc">${</span>advection<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs"> pixels/tick impact</span></span>
+<span id="cb3-101"><a href="#cb3-101" aria-hidden="true" tabindex="-1"></a><span class="vs">*   **Scatter:** </span><span class="sc">${</span>(diffusion <span class="op">*</span> <span class="dv">100</span>)<span class="op">.</span><span class="fu">toFixed</span>(<span class="dv">1</span>)<span class="sc">}</span><span class="vs">% distribution to neighbours</span></span>
+<span id="cb3-102"><a href="#cb3-102" aria-hidden="true" tabindex="-1"></a><span class="vs">`</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div class="cell-output cell-output-display">
+<div id="ojs-cell-2" data-nodetype="expression">
+
+</div>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section id="d-propagation-visualisation" class="level3" data-number="3.2">
+<h3 data-number="3.2" class="anchored" data-anchor-id="d-propagation-visualisation"><span class="header-section-number">3.2</span> 1D Propagation Visualisation</h3>
+<p>Below is a live simulation of the fluid solver logic running in this notebook. It simulates a 1D slice of the light transport.</p>
+<div class="cell">
+<details class="code-fold">
+<summary>Code</summary>
+<div class="code-copy-outer-scaffold"><div class="sourceCode cell-code" id="cb4" data-startfrom="114" data-source-offset="-1"><pre class="sourceCode js code-with-copy"><code class="sourceCode javascript" style="counter-reset: source-line 113;"><span id="cb4-114"><a href="#cb4-114" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">simulate1D</span>(steps<span class="op">,</span> disp<span class="op">,</span> adv<span class="op">,</span> diff) {</span>
+<span id="cb4-115"><a href="#cb4-115" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> width <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb4-116"><a href="#cb4-116" aria-hidden="true" tabindex="-1"></a>  <span class="co">// State arrays: [Energy, Velocity]</span></span>
+<span id="cb4-117"><a href="#cb4-117" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> grid <span class="op">=</span>  <span class="kw">new</span> <span class="bu">Float32Array</span>(width <span class="op">*</span> <span class="dv">2</span>)<span class="op">.</span><span class="fu">fill</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-118"><a href="#cb4-118" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> nextGrid <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(width <span class="op">*</span> <span class="dv">2</span>)<span class="op">.</span><span class="fu">fill</span>(<span class="dv">0</span>)<span class="op">;</span></span>
+<span id="cb4-119"><a href="#cb4-119" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-120"><a href="#cb4-120" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Initial Impulse (The "Light Source")</span></span>
+<span id="cb4-121"><a href="#cb4-121" aria-hidden="true" tabindex="-1"></a>  grid[<span class="dv">20</span> <span class="op">*</span> <span class="dv">2</span>] <span class="op">=</span> <span class="fl">2.0</span><span class="op">;</span> <span class="co">// Energy</span></span>
+<span id="cb4-122"><a href="#cb4-122" aria-hidden="true" tabindex="-1"></a>  grid[<span class="dv">20</span> <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span>] <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span> <span class="co">// Initial Velocity</span></span>
+<span id="cb4-123"><a href="#cb4-123" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-124"><a href="#cb4-124" aria-hidden="true" tabindex="-1"></a>  <span class="kw">let</span> history <span class="op">=</span> []<span class="op">;</span></span>
+<span id="cb4-125"><a href="#cb4-125" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-126"><a href="#cb4-126" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span>(<span class="kw">let</span> t<span class="op">=</span><span class="dv">0</span><span class="op">;</span> t<span class="op">&lt;</span>steps<span class="op">;</span> t<span class="op">++</span>) {</span>
+<span id="cb4-127"><a href="#cb4-127" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span>(<span class="kw">let</span> x<span class="op">=</span><span class="dv">0</span><span class="op">;</span> x<span class="op">&lt;</span>width<span class="op">;</span> x<span class="op">++</span>) {</span>
+<span id="cb4-128"><a href="#cb4-128" aria-hidden="true" tabindex="-1"></a>      <span class="kw">const</span> idx <span class="op">=</span> x <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-129"><a href="#cb4-129" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> energy <span class="op">=</span> grid[idx]<span class="op">;</span></span>
+<span id="cb4-130"><a href="#cb4-130" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> velocity <span class="op">=</span> grid[idx<span class="op">+</span><span class="dv">1</span>]<span class="op">;</span></span>
+<span id="cb4-131"><a href="#cb4-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-132"><a href="#cb4-132" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span>(energy <span class="op">&lt;</span> <span class="fl">0.01</span> <span class="op">&amp;&amp;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(velocity) <span class="op">&lt;</span> <span class="fl">0.01</span>) <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb4-133"><a href="#cb4-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-134"><a href="#cb4-134" aria-hidden="true" tabindex="-1"></a>      <span class="co">// 1. Advection (Transport)</span></span>
+<span id="cb4-135"><a href="#cb4-135" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Light carries momentum, pushing it forward</span></span>
+<span id="cb4-136"><a href="#cb4-136" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> thrust <span class="op">=</span> velocity <span class="op">*</span> adv<span class="op">;</span></span>
+<span id="cb4-137"><a href="#cb4-137" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> targetX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span>(width<span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span>(<span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(x <span class="op">+</span> thrust)))<span class="op">;</span></span>
+<span id="cb4-138"><a href="#cb4-138" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> targetIdx <span class="op">=</span> targetX <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb4-139"><a href="#cb4-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-140"><a href="#cb4-140" aria-hidden="true" tabindex="-1"></a>      <span class="co">// 2. Diffusion (Scattering)</span></span>
+<span id="cb4-141"><a href="#cb4-141" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> remain <span class="op">=</span> energy <span class="op">*</span> (<span class="dv">1</span><span class="op">-</span>diff)<span class="op">;</span></span>
+<span id="cb4-142"><a href="#cb4-142" aria-hidden="true" tabindex="-1"></a>      <span class="kw">let</span> spread <span class="op">=</span> energy <span class="op">*</span> diff<span class="op">;</span></span>
+<span id="cb4-143"><a href="#cb4-143" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-144"><a href="#cb4-144" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Update Next State with Dissipation</span></span>
+<span id="cb4-145"><a href="#cb4-145" aria-hidden="true" tabindex="-1"></a>      nextGrid[targetIdx] <span class="op">+=</span> remain <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb4-146"><a href="#cb4-146" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span>(targetX<span class="op">+</span><span class="dv">1</span> <span class="op">&lt;</span> width) nextGrid[(targetX<span class="op">+</span><span class="dv">1</span>)<span class="op">*</span><span class="dv">2</span>] <span class="op">+=</span> (spread<span class="op">/</span><span class="dv">2</span>) <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb4-147"><a href="#cb4-147" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span>(targetX<span class="op">-</span><span class="dv">1</span> <span class="op">&gt;=</span> <span class="dv">0</span>)    nextGrid[(targetX<span class="op">-</span><span class="dv">1</span>)<span class="op">*</span><span class="dv">2</span>] <span class="op">+=</span> (spread<span class="op">/</span><span class="dv">2</span>) <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb4-148"><a href="#cb4-148" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-149"><a href="#cb4-149" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Decay Velocity (Viscosity)</span></span>
+<span id="cb4-150"><a href="#cb4-150" aria-hidden="true" tabindex="-1"></a>      nextGrid[targetIdx<span class="op">+</span><span class="dv">1</span>] <span class="op">+=</span> velocity <span class="op">*</span> <span class="fl">0.9</span><span class="op">;</span></span>
+<span id="cb4-151"><a href="#cb4-151" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-152"><a href="#cb4-152" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-153"><a href="#cb4-153" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Ping-pong buffers</span></span>
+<span id="cb4-154"><a href="#cb4-154" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span>(<span class="kw">let</span> i<span class="op">=</span><span class="dv">0</span><span class="op">;</span> i<span class="op">&lt;</span>width<span class="op">*</span><span class="dv">2</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<span id="cb4-155"><a href="#cb4-155" aria-hidden="true" tabindex="-1"></a>        grid[i] <span class="op">=</span> nextGrid[i]<span class="op">;</span></span>
+<span id="cb4-156"><a href="#cb4-156" aria-hidden="true" tabindex="-1"></a>        nextGrid[i] <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb4-157"><a href="#cb4-157" aria-hidden="true" tabindex="-1"></a>    }</span>
+<span id="cb4-158"><a href="#cb4-158" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-159"><a href="#cb4-159" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Store history for visualisation (just energy)</span></span>
+<span id="cb4-160"><a href="#cb4-160" aria-hidden="true" tabindex="-1"></a>    <span class="kw">let</span> row <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(width)<span class="op">;</span></span>
+<span id="cb4-161"><a href="#cb4-161" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span>(<span class="kw">let</span> i<span class="op">=</span><span class="dv">0</span><span class="op">;</span> i<span class="op">&lt;</span>width<span class="op">;</span> i<span class="op">++</span>) row[i] <span class="op">=</span> grid[i<span class="op">*</span><span class="dv">2</span>]<span class="op">;</span></span>
+<span id="cb4-162"><a href="#cb4-162" aria-hidden="true" tabindex="-1"></a>    history<span class="op">.</span><span class="fu">push</span>(<span class="bu">Array</span><span class="op">.</span><span class="fu">from</span>(row))<span class="op">;</span></span>
+<span id="cb4-163"><a href="#cb4-163" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb4-164"><a href="#cb4-164" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> history<span class="op">;</span></span>
+<span id="cb4-165"><a href="#cb4-165" aria-hidden="true" tabindex="-1"></a>}</span>
+<span id="cb4-166"><a href="#cb4-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-167"><a href="#cb4-167" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> <span class="fu">simulate1D</span>(<span class="dv">60</span><span class="op">,</span> dissipation<span class="op">,</span> advection<span class="op">,</span> diffusion)</span>
+<span id="cb4-168"><a href="#cb4-168" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb4-169"><a href="#cb4-169" aria-hidden="true" tabindex="-1"></a>Plot<span class="op">.</span><span class="fu">plot</span>({</span>
+<span id="cb4-170"><a href="#cb4-170" aria-hidden="true" tabindex="-1"></a>  <span class="dt">marks</span><span class="op">:</span> [</span>
+<span id="cb4-171"><a href="#cb4-171" aria-hidden="true" tabindex="-1"></a>    Plot<span class="op">.</span><span class="fu">raster</span>(data<span class="op">,</span> {</span>
+<span id="cb4-172"><a href="#cb4-172" aria-hidden="true" tabindex="-1"></a>        <span class="dt">width</span><span class="op">:</span> <span class="dv">100</span><span class="op">,</span></span>
+<span id="cb4-173"><a href="#cb4-173" aria-hidden="true" tabindex="-1"></a>        <span class="dt">height</span><span class="op">:</span> <span class="dv">60</span><span class="op">,</span></span>
+<span id="cb4-174"><a href="#cb4-174" aria-hidden="true" tabindex="-1"></a>        <span class="dt">imageRendering</span><span class="op">:</span> <span class="st">"pixelated"</span><span class="op">,</span></span>
+<span id="cb4-175"><a href="#cb4-175" aria-hidden="true" tabindex="-1"></a>        <span class="dt">fill</span><span class="op">:</span> d <span class="kw">=&gt;</span> d<span class="op">,</span></span>
+<span id="cb4-176"><a href="#cb4-176" aria-hidden="true" tabindex="-1"></a>        <span class="dt">interpolate</span><span class="op">:</span> <span class="st">"nearest"</span></span>
+<span id="cb4-177"><a href="#cb4-177" aria-hidden="true" tabindex="-1"></a>    })<span class="op">,</span></span>
+<span id="cb4-178"><a href="#cb4-178" aria-hidden="true" tabindex="-1"></a>    Plot<span class="op">.</span><span class="fu">frame</span>()</span>
+<span id="cb4-179"><a href="#cb4-179" aria-hidden="true" tabindex="-1"></a>  ]<span class="op">,</span></span>
+<span id="cb4-180"><a href="#cb4-180" aria-hidden="true" tabindex="-1"></a>  <span class="dt">color</span><span class="op">:</span> { <span class="dt">scheme</span><span class="op">:</span> <span class="st">"magma"</span> }<span class="op">,</span></span>
+<span id="cb4-181"><a href="#cb4-181" aria-hidden="true" tabindex="-1"></a>  <span class="dt">y</span><span class="op">:</span> { <span class="dt">label</span><span class="op">:</span> <span class="st">"Time (t) ↓"</span><span class="op">,</span> <span class="dt">reverse</span><span class="op">:</span> <span class="kw">true</span> }<span class="op">,</span></span>
+<span id="cb4-182"><a href="#cb4-182" aria-hidden="true" tabindex="-1"></a>  <span class="dt">x</span><span class="op">:</span> { <span class="dt">label</span><span class="op">:</span> <span class="st">"Space (x) →"</span> }<span class="op">,</span></span>
+<span id="cb4-183"><a href="#cb4-183" aria-hidden="true" tabindex="-1"></a>  <span class="dt">height</span><span class="op">:</span> <span class="dv">300</span></span>
+<span id="cb4-184"><a href="#cb4-184" aria-hidden="true" tabindex="-1"></a>})</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</details>
+<div id="fig-propagation" class="cell quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-float-fig figure">
+<div aria-describedby="fig-propagation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div class="cell-output cell-output-display">
+<div id="fig-propagation-1" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-propagation-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div id="ojs-cell-3-1" data-nodetype="declaration">
+
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-propagation-1-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(a)
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="fig-propagation-2" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-propagation-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div id="ojs-cell-3-2" data-nodetype="declaration">
+
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-propagation-2-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(b)
+</figcaption>
+</figure>
+</div>
+</div>
+<div class="cell-output cell-output-display">
+<div id="fig-propagation-3" class="quarto-float quarto-figure quarto-figure-center anchored">
+<figure class="quarto-float quarto-subfloat-fig figure">
+<div aria-describedby="fig-propagation-3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+<div id="ojs-cell-3-3" data-nodetype="expression">
+
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-subfloat-caption quarto-subfloat-fig" id="fig-propagation-3-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+(c)
+</figcaption>
+</figure>
+</div>
+</div>
+</div>
+<figcaption class="quarto-float-caption-bottom quarto-float-caption quarto-float-fig" id="fig-propagation-caption-0ceaefa1-69ba-4598-a22c-09a6ac19f8ca">
+Figure&nbsp;2: 1D Slice of Light Propagation over Time (t)
+</figcaption>
+</figure>
+</div>
+</div>
+<p>As illustrated above, light does not merely stop at a surface; it <em>flows</em> around it. The <strong>Advection</strong> parameter controls how much the light’s momentum carries it forward (creating directional shadows), whilst <strong>Diffusion</strong> controls how much it scatters into the surroundings (creating ambient occlusion).</p>
+</section>
+</section>
+<section id="code-implementation-details" class="level2" data-number="4">
+<h2 data-number="4" class="anchored" data-anchor-id="code-implementation-details"><span class="header-section-number">4</span> Code Implementation Details</h2>
+<p>The actual JavaScript implementation in <code>src/engine.js</code> uses a more complex 2D kernel. Here is the core update loop for the physics simulation, annotated for clarity.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb5"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb5-1"><a href="#cb5-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb5-2"><a href="#cb5-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * Evolves the simulation state by one timestep.</span></span>
+<span id="cb5-3"><a href="#cb5-3" aria-hidden="true" tabindex="-1"></a><span class="co"> * Uses Cellular Automata to flow light energy from pixel to pixel.</span></span>
+<span id="cb5-4"><a href="#cb5-4" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
+<span id="cb5-5"><a href="#cb5-5" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">evolveSimulation</span>() {</span>
+<span id="cb5-6"><a href="#cb5-6" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ... loop setup ...</span></span>
+<span id="cb5-7"><a href="#cb5-7" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-8"><a href="#cb5-8" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Advection step: Calculate where the energy moves to</span></span>
+<span id="cb5-9"><a href="#cb5-9" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dx <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(vx <span class="op">*</span> CONFIG<span class="op">.</span><span class="at">ADVECTION_STRENGTH</span> <span class="op">+</span> randX <span class="op">*</span> <span class="fl">0.5</span>)<span class="op">;</span></span>
+<span id="cb5-10"><a href="#cb5-10" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> dy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span>(vy <span class="op">*</span> CONFIG<span class="op">.</span><span class="at">ADVECTION_STRENGTH</span> <span class="op">+</span> randY <span class="op">*</span> <span class="fl">0.5</span>)<span class="op">;</span></span>
+<span id="cb5-11"><a href="#cb5-11" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> nx <span class="op">=</span> px <span class="op">+</span> dx<span class="op">;</span></span>
+<span id="cb5-12"><a href="#cb5-12" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> ny <span class="op">=</span> py <span class="op">+</span> dy<span class="op">;</span></span>
+<span id="cb5-13"><a href="#cb5-13" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-14"><a href="#cb5-14" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ... boundary checks ...</span></span>
+<span id="cb5-15"><a href="#cb5-15" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-16"><a href="#cb5-16" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Surface Continuity Check:</span></span>
+<span id="cb5-17"><a href="#cb5-17" aria-hidden="true" tabindex="-1"></a>  <span class="co">// We only flow energy if the depth difference is small (connected surface)</span></span>
+<span id="cb5-18"><a href="#cb5-18" aria-hidden="true" tabindex="-1"></a>  <span class="kw">const</span> depthDiff <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span>(</span>
+<span id="cb5-19"><a href="#cb5-19" aria-hidden="true" tabindex="-1"></a>    State<span class="op">.</span><span class="at">lattice</span>[ptr <span class="op">+</span> FIELD<span class="op">.</span><span class="at">DEPTH</span>] <span class="op">-</span> State<span class="op">.</span><span class="at">lattice</span>[nPtr <span class="op">+</span> FIELD<span class="op">.</span><span class="at">DEPTH</span>]</span>
+<span id="cb5-20"><a href="#cb5-20" aria-hidden="true" tabindex="-1"></a>  )<span class="op">;</span></span>
+<span id="cb5-21"><a href="#cb5-21" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb5-22"><a href="#cb5-22" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> (depthDiff <span class="op">&lt;</span> <span class="fl">0.5</span>) {</span>
+<span id="cb5-23"><a href="#cb5-23" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Flow logic...</span></span>
+<span id="cb5-24"><a href="#cb5-24" aria-hidden="true" tabindex="-1"></a>    State<span class="op">.</span><span class="at">lattice</span>[nPtr <span class="op">+</span> <span class="dv">0</span>] <span class="op">+=</span> State<span class="op">.</span><span class="at">lattice</span>[ptr <span class="op">+</span> <span class="dv">0</span>] <span class="op">*</span> eTransfer<span class="op">;</span></span>
+<span id="cb5-25"><a href="#cb5-25" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ...</span></span>
+<span id="cb5-26"><a href="#cb5-26" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="cb5-27"><a href="#cb5-27" aria-hidden="true" tabindex="-1"></a>}</span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>This logic ensures that light respects the 3D topology of the scene even though the simulation occurs in 2D screen space.</p>
+</section>
+<section id="conclusion" class="level2" data-number="5">
+<h2 data-number="5" class="anchored" data-anchor-id="conclusion"><span class="header-section-number">5</span> Conclusion</h2>
+<p>This hybrid approach allows us to achieve visually rich lighting effects such as soft shadows and colour bleeding in real-time on the web, without the massive computational cost of path tracing or the static nature of pre-baked lightmaps.</p>
+<!-- -->
+
+</section>
+
+</main>
+<!-- /main column -->
+<script type="ojs-module-contents">
+eyJjb250ZW50cyI6W3sibWV0aG9kTmFtZSI6ImludGVycHJldCIsImNlbGxOYW1lIjoib2pzLWNlbGwtMSIsImlubGluZSI6ZmFsc2UsInNvdXJjZSI6InZpZXdvZiBkaXNzaXBhdGlvbiA9IElucHV0cy5yYW5nZShbMC44LCAwLjk5OV0sIHt2YWx1ZTogMC45Nywgc3RlcDogMC4wMDEsIGxhYmVsOiBcIkRpc3NpcGF0aW9uIChFbnRyb3B5KVwifSlcbnZpZXdvZiBhZHZlY3Rpb24gPSBJbnB1dHMucmFuZ2UoWzAuMCwgNS4wXSwge3ZhbHVlOiAzLjAsIHN0ZXA6IDAuMSwgbGFiZWw6IFwiQWR2ZWN0aW9uIFN0cmVuZ3RoXCJ9KVxudmlld29mIGRpZmZ1c2lvbiA9IElucHV0cy5yYW5nZShbMC4wLCAxLjBdLCB7dmFsdWU6IDAuNSwgc3RlcDogMC4wNSwgbGFiZWw6IFwiRGlmZnVzaW9uIChTcHJlYWQpXCJ9KVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0IiwiY2VsbE5hbWUiOiJvanMtY2VsbC0yIiwiaW5saW5lIjpmYWxzZSwic291cmNlIjoibWRgXG4qKkN1cnJlbnQgQ29uZmlndXJhdGlvbjoqKlxuKiAgICoqRW5lcmd5IENvbnNlcnZhdGlvbjoqKiAkeyhkaXNzaXBhdGlvbiAqIDEwMCkudG9GaXhlZCgxKX0lIGVuZXJneSByZXRhaW5lZCBwZXIgdGlja1xuKiAgICoqRmxvdyBWZWxvY2l0eToqKiAke2FkdmVjdGlvbi50b0ZpeGVkKDEpfSBwaXhlbHMvdGljayBpbXBhY3RcbiogICAqKlNjYXR0ZXI6KiogJHsoZGlmZnVzaW9uICogMTAwKS50b0ZpeGVkKDEpfSUgZGlzdHJpYnV0aW9uIHRvIG5laWdoYm91cnNcbmBcbiJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldCIsImNlbGxOYW1lIjoib2pzLWNlbGwtMyIsImlubGluZSI6ZmFsc2UsInNvdXJjZSI6IlxuZnVuY3Rpb24gc2ltdWxhdGUxRChzdGVwcywgZGlzcCwgYWR2LCBkaWZmKSB7XG4gIGNvbnN0IHdpZHRoID0gMTAwO1xuICAvLyBTdGF0ZSBhcnJheXM6IFtFbmVyZ3ksIFZlbG9jaXR5XVxuICBsZXQgZ3JpZCA9ICBuZXcgRmxvYXQzMkFycmF5KHdpZHRoICogMikuZmlsbCgwKTtcbiAgbGV0IG5leHRHcmlkID0gbmV3IEZsb2F0MzJBcnJheSh3aWR0aCAqIDIpLmZpbGwoMCk7XG5cbiAgLy8gSW5pdGlhbCBJbXB1bHNlIChUaGUgXCJMaWdodCBTb3VyY2VcIilcbiAgZ3JpZFsyMCAqIDJdID0gMi4wOyAvLyBFbmVyZ3lcbiAgZ3JpZFsyMCAqIDIgKyAxXSA9IDEuMDsgLy8gSW5pdGlhbCBWZWxvY2l0eVxuXG4gIGxldCBoaXN0b3J5ID0gW107XG5cbiAgZm9yKGxldCB0PTA7IHQ8c3RlcHM7IHQrKykge1xuICAgIGZvcihsZXQgeD0wOyB4PHdpZHRoOyB4KyspIHtcbiAgICAgIGNvbnN0IGlkeCA9IHggKiAyO1xuICAgICAgbGV0IGVuZXJneSA9IGdyaWRbaWR4XTtcbiAgICAgIGxldCB2ZWxvY2l0eSA9IGdyaWRbaWR4KzFdO1xuXG4gICAgICBpZihlbmVyZ3kgPCAwLjAxICYmIE1hdGguYWJzKHZlbG9jaXR5KSA8IDAuMDEpIGNvbnRpbnVlO1xuXG4gICAgICAvLyAxLiBBZHZlY3Rpb24gKFRyYW5zcG9ydClcbiAgICAgIC8vIExpZ2h0IGNhcnJpZXMgbW9tZW50dW0sIHB1c2hpbmcgaXQgZm9yd2FyZFxuICAgICAgbGV0IHRocnVzdCA9IHZlbG9jaXR5ICogYWR2O1xuICAgICAgbGV0IHRhcmdldFggPSBNYXRoLm1pbih3aWR0aC0xLCBNYXRoLm1heCgwLCBNYXRoLnJvdW5kKHggKyB0aHJ1c3QpKSk7XG4gICAgICBsZXQgdGFyZ2V0SWR4ID0gdGFyZ2V0WCAqIDI7XG5cbiAgICAgIC8vIDIuIERpZmZ1c2lvbiAoU2NhdHRlcmluZylcbiAgICAgIGxldCByZW1haW4gPSBlbmVyZ3kgKiAoMS1kaWZmKTtcbiAgICAgIGxldCBzcHJlYWQgPSBlbmVyZ3kgKiBkaWZmO1xuXG4gICAgICAvLyBVcGRhdGUgTmV4dCBTdGF0ZSB3aXRoIERpc3NpcGF0aW9uXG4gICAgICBuZXh0R3JpZFt0YXJnZXRJZHhdICs9IHJlbWFpbiAqIGRpc3A7XG4gICAgICBpZih0YXJnZXRYKzEgPCB3aWR0aCkgbmV4dEdyaWRbKHRhcmdldFgrMSkqMl0gKz0gKHNwcmVhZC8yKSAqIGRpc3A7XG4gICAgICBpZih0YXJnZXRYLTEgPj0gMCkgICAgbmV4dEdyaWRbKHRhcmdldFgtMSkqMl0gKz0gKHNwcmVhZC8yKSAqIGRpc3A7XG5cbiAgICAgIC8vIERlY2F5IFZlbG9jaXR5IChWaXNjb3NpdHkpXG4gICAgICBuZXh0R3JpZFt0YXJnZXRJZHgrMV0gKz0gdmVsb2NpdHkgKiAwLjk7XG4gICAgfVxuXG4gICAgLy8gUGluZy1wb25nIGJ1ZmZlcnNcbiAgICBmb3IobGV0IGk9MDsgaTx3aWR0aCoyOyBpKyspIHtcbiAgICAgICAgZ3JpZFtpXSA9IG5leHRHcmlkW2ldO1xuICAgICAgICBuZXh0R3JpZFtpXSA9IDA7XG4gICAgfVxuXG4gICAgLy8gU3RvcmUgaGlzdG9yeSBmb3IgdmlzdWFsaXNhdGlvbiAoanVzdCBlbmVyZ3kpXG4gICAgbGV0IHJvdyA9IG5ldyBGbG9hdDMyQXJyYXkod2lkdGgpO1xuICAgIGZvcihsZXQgaT0wOyBpPHdpZHRoOyBpKyspIHJvd1tpXSA9IGdyaWRbaSoyXTtcbiAgICBoaXN0b3J5LnB1c2goQXJyYXkuZnJvbShyb3cpKTtcbiAgfVxuICByZXR1cm4gaGlzdG9yeTtcbn1cblxuZGF0YSA9IHNpbXVsYXRlMUQoNjAsIGRpc3NpcGF0aW9uLCBhZHZlY3Rpb24sIGRpZmZ1c2lvbilcblxuUGxvdC5wbG90KHtcbiAgbWFya3M6IFtcbiAgICBQbG90LnJhc3RlcihkYXRhLCB7XG4gICAgICAgIHdpZHRoOiAxMDAsXG4gICAgICAgIGhlaWdodDogNjAsXG4gICAgICAgIGltYWdlUmVuZGVyaW5nOiBcInBpeGVsYXRlZFwiLFxuICAgICAgICBmaWxsOiBkID0+IGQsXG4gICAgICAgIGludGVycG9sYXRlOiBcIm5lYXJlc3RcIlxuICAgIH0pLFxuICAgIFBsb3QuZnJhbWUoKVxuICBdLFxuICBjb2xvcjogeyBzY2hlbWU6IFwibWFnbWFcIiB9LFxuICB5OiB7IGxhYmVsOiBcIlRpbWUgKHQpIOKGk1wiLCByZXZlcnNlOiB0cnVlIH0sXG4gIHg6IHsgbGFiZWw6IFwiU3BhY2UgKHgpIOKGklwiIH0sXG4gIGhlaWdodDogMzAwXG59KVxuIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJzaGlueUlucHV0KCdkaXNzaXBhdGlvbicpIn0seyJtZXRob2ROYW1lIjoiaW50ZXJwcmV0UXVpZXQiLCJzb3VyY2UiOiJzaGlueUlucHV0KCdhZHZlY3Rpb24nKSJ9LHsibWV0aG9kTmFtZSI6ImludGVycHJldFF1aWV0Iiwic291cmNlIjoic2hpbnlJbnB1dCgnZGlmZnVzaW9uJykifV19
+</script>
+<script type="module">
+if (window.location.protocol === "file:") { alert("The OJS runtime does not work with file:// URLs. Please use a web server to view this document."); }
+window._ojs.paths.runtimeToDoc = "../../..";
+window._ojs.paths.runtimeToRoot = "../../..";
+window._ojs.paths.docToRoot = "";
+window._ojs.selfContained = false;
+window._ojs.runtime.interpretFromScriptTags();
+</script>
+<script id="quarto-html-after-body" type="application/javascript">
+  window.document.addEventListener("DOMContentLoaded", function (event) {
+    const icon = "";
+    const anchorJS = new window.AnchorJS();
+    anchorJS.options = {
+      placement: 'right',
+      icon: icon
+    };
+    anchorJS.add('.anchored');
+    const isCodeAnnotation = (el) => {
+      for (const clz of el.classList) {
+        if (clz.startsWith('code-annotation-')) {                     
+          return true;
+        }
+      }
+      return false;
+    }
+    const onCopySuccess = function(e) {
+      // button target
+      const button = e.trigger;
+      // don't keep focus
+      button.blur();
+      // flash "checked"
+      button.classList.add('code-copy-button-checked');
+      var currentTitle = button.getAttribute("title");
+      button.setAttribute("title", "Copied!");
+      let tooltip;
+      if (window.bootstrap) {
+        button.setAttribute("data-bs-toggle", "tooltip");
+        button.setAttribute("data-bs-placement", "left");
+        button.setAttribute("data-bs-title", "Copied!");
+        tooltip = new bootstrap.Tooltip(button, 
+          { trigger: "manual", 
+            customClass: "code-copy-button-tooltip",
+            offset: [0, -8]});
+        tooltip.show();    
+      }
+      setTimeout(function() {
+        if (tooltip) {
+          tooltip.hide();
+          button.removeAttribute("data-bs-title");
+          button.removeAttribute("data-bs-toggle");
+          button.removeAttribute("data-bs-placement");
+        }
+        button.setAttribute("title", currentTitle);
+        button.classList.remove('code-copy-button-checked');
+      }, 1000);
+      // clear code selection
+      e.clearSelection();
+    }
+    const getTextToCopy = function(trigger) {
+      const outerScaffold = trigger.parentElement.cloneNode(true);
+      const codeEl = outerScaffold.querySelector('code');
+      for (const childEl of codeEl.children) {
+        if (isCodeAnnotation(childEl)) {
+          childEl.remove();
+        }
+      }
+      return codeEl.innerText;
+    }
+    const clipboard = new window.ClipboardJS('.code-copy-button:not([data-in-quarto-modal])', {
+      text: getTextToCopy
+    });
+    clipboard.on('success', onCopySuccess);
+    if (window.document.getElementById('quarto-embedded-source-code-modal')) {
+      const clipboardModal = new window.ClipboardJS('.code-copy-button[data-in-quarto-modal]', {
+        text: getTextToCopy,
+        container: window.document.getElementById('quarto-embedded-source-code-modal')
+      });
+      clipboardModal.on('success', onCopySuccess);
+    }
+    const viewSource = window.document.getElementById('quarto-view-source') ||
+                       window.document.getElementById('quarto-code-tools-source');
+    if (viewSource) {
+      const sourceUrl = viewSource.getAttribute("data-quarto-source-url");
+      viewSource.addEventListener("click", function(e) {
+        if (sourceUrl) {
+          // rstudio viewer pane
+          if (/\bcapabilities=\b/.test(window.location)) {
+            window.open(sourceUrl);
+          } else {
+            window.location.href = sourceUrl;
+          }
+        } else {
+          const modal = new bootstrap.Modal(document.getElementById('quarto-embedded-source-code-modal'));
+          modal.show();
+        }
+        return false;
+      });
+    }
+    function toggleCodeHandler(show) {
+      return function(e) {
+        const detailsSrc = window.document.querySelectorAll(".cell > details > .sourceCode");
+        for (let i=0; i<detailsSrc.length; i++) {
+          const details = detailsSrc[i].parentElement;
+          if (show) {
+            details.open = true;
+          } else {
+            details.removeAttribute("open");
+          }
+        }
+        const cellCodeDivs = window.document.querySelectorAll(".cell > .sourceCode");
+        const fromCls = show ? "hidden" : "unhidden";
+        const toCls = show ? "unhidden" : "hidden";
+        for (let i=0; i<cellCodeDivs.length; i++) {
+          const codeDiv = cellCodeDivs[i];
+          if (codeDiv.classList.contains(fromCls)) {
+            codeDiv.classList.remove(fromCls);
+            codeDiv.classList.add(toCls);
+          } 
+        }
+        return false;
+      }
+    }
+    const hideAllCode = window.document.getElementById("quarto-hide-all-code");
+    if (hideAllCode) {
+      hideAllCode.addEventListener("click", toggleCodeHandler(false));
+    }
+    const showAllCode = window.document.getElementById("quarto-show-all-code");
+    if (showAllCode) {
+      showAllCode.addEventListener("click", toggleCodeHandler(true));
+    }
+      var localhostRegex = new RegExp(/^(?:http|https):\/\/localhost\:?[0-9]*\//);
+      var mailtoRegex = new RegExp(/^mailto:/);
+        var filterRegex = new RegExp('/' + window.location.host + '/');
+      var isInternal = (href) => {
+          return filterRegex.test(href) || localhostRegex.test(href) || mailtoRegex.test(href);
+      }
+      // Inspect non-navigation links and adorn them if external
+     var links = window.document.querySelectorAll('a[href]:not(.nav-link):not(.navbar-brand):not(.toc-action):not(.sidebar-link):not(.sidebar-item-toggle):not(.pagination-link):not(.no-external):not([aria-hidden]):not(.dropdown-item):not(.quarto-navigation-tool):not(.about-link)');
+      for (var i=0; i<links.length; i++) {
+        const link = links[i];
+        if (!isInternal(link.href)) {
+          // undo the damage that might have been done by quarto-nav.js in the case of
+          // links that we want to consider external
+          if (link.dataset.originalHref !== undefined) {
+            link.href = link.dataset.originalHref;
+          }
+        }
+      }
+    function tippyHover(el, contentFn, onTriggerFn, onUntriggerFn) {
+      const config = {
+        allowHTML: true,
+        maxWidth: 500,
+        delay: 100,
+        arrow: false,
+        appendTo: function(el) {
+            return el.parentElement;
+        },
+        interactive: true,
+        interactiveBorder: 10,
+        theme: 'quarto',
+        placement: 'bottom-start',
+      };
+      if (contentFn) {
+        config.content = contentFn;
+      }
+      if (onTriggerFn) {
+        config.onTrigger = onTriggerFn;
+      }
+      if (onUntriggerFn) {
+        config.onUntrigger = onUntriggerFn;
+      }
+      window.tippy(el, config); 
+    }
+    const noterefs = window.document.querySelectorAll('a[role="doc-noteref"]');
+    for (var i=0; i<noterefs.length; i++) {
+      const ref = noterefs[i];
+      tippyHover(ref, function() {
+        // use id or data attribute instead here
+        let href = ref.getAttribute('data-footnote-href') || ref.getAttribute('href');
+        try { href = new URL(href).hash; } catch {}
+        const id = href.replace(/^#\/?/, "");
+        const note = window.document.getElementById(id);
+        if (note) {
+          return note.innerHTML;
+        } else {
+          return "";
+        }
+      });
+    }
+    const xrefs = window.document.querySelectorAll('a.quarto-xref');
+    const processXRef = (id, note) => {
+      // Strip column container classes
+      const stripColumnClz = (el) => {
+        el.classList.remove("page-full", "page-columns");
+        if (el.children) {
+          for (const child of el.children) {
+            stripColumnClz(child);
+          }
+        }
+      }
+      stripColumnClz(note)
+      if (id === null || id.startsWith('sec-')) {
+        // Special case sections, only their first couple elements
+        const container = document.createElement("div");
+        if (note.children && note.children.length > 2) {
+          container.appendChild(note.children[0].cloneNode(true));
+          for (let i = 1; i < note.children.length; i++) {
+            const child = note.children[i];
+            if (child.tagName === "P" && child.innerText === "") {
+              continue;
+            } else {
+              container.appendChild(child.cloneNode(true));
+              break;
+            }
+          }
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(container);
+          }
+          return container.innerHTML
+        } else {
+          if (window.Quarto?.typesetMath) {
+            window.Quarto.typesetMath(note);
+          }
+          return note.innerHTML;
+        }
+      } else {
+        // Remove any anchor links if they are present
+        const anchorLink = note.querySelector('a.anchorjs-link');
+        if (anchorLink) {
+          anchorLink.remove();
+        }
+        if (window.Quarto?.typesetMath) {
+          window.Quarto.typesetMath(note);
+        }
+        if (note.classList.contains("callout")) {
+          return note.outerHTML;
+        } else {
+          return note.innerHTML;
+        }
+      }
+    }
+    for (var i=0; i<xrefs.length; i++) {
+      const xref = xrefs[i];
+      tippyHover(xref, undefined, function(instance) {
+        instance.disable();
+        let url = xref.getAttribute('href');
+        let hash = undefined; 
+        if (url.startsWith('#')) {
+          hash = url;
+        } else {
+          try { hash = new URL(url).hash; } catch {}
+        }
+        if (hash) {
+          const id = hash.replace(/^#\/?/, "");
+          const note = window.document.getElementById(id);
+          if (note !== null) {
+            try {
+              const html = processXRef(id, note.cloneNode(true));
+              instance.setContent(html);
+            } finally {
+              instance.enable();
+              instance.show();
+            }
+          } else {
+            // See if we can fetch this
+            fetch(url.split('#')[0])
+            .then(res => res.text())
+            .then(html => {
+              const parser = new DOMParser();
+              const htmlDoc = parser.parseFromString(html, "text/html");
+              const note = htmlDoc.getElementById(id);
+              if (note !== null) {
+                const html = processXRef(id, note);
+                instance.setContent(html);
+              } 
+            }).finally(() => {
+              instance.enable();
+              instance.show();
+            });
+          }
+        } else {
+          // See if we can fetch a full url (with no hash to target)
+          // This is a special case and we should probably do some content thinning / targeting
+          fetch(url)
+          .then(res => res.text())
+          .then(html => {
+            const parser = new DOMParser();
+            const htmlDoc = parser.parseFromString(html, "text/html");
+            const note = htmlDoc.querySelector('main.content');
+            if (note !== null) {
+              // This should only happen for chapter cross references
+              // (since there is no id in the URL)
+              // remove the first header
+              if (note.children.length > 0 && note.children[0].tagName === "HEADER") {
+                note.children[0].remove();
+              }
+              const html = processXRef(null, note);
+              instance.setContent(html);
+            } 
+          }).finally(() => {
+            instance.enable();
+            instance.show();
+          });
+        }
+      }, function(instance) {
+      });
+    }
+        let selectedAnnoteEl;
+        const selectorForAnnotation = ( cell, annotation) => {
+          let cellAttr = 'data-code-cell="' + cell + '"';
+          let lineAttr = 'data-code-annotation="' +  annotation + '"';
+          const selector = 'span[' + cellAttr + '][' + lineAttr + ']';
+          return selector;
+        }
+        const selectCodeLines = (annoteEl) => {
+          const doc = window.document;
+          const targetCell = annoteEl.getAttribute("data-target-cell");
+          const targetAnnotation = annoteEl.getAttribute("data-target-annotation");
+          const annoteSpan = window.document.querySelector(selectorForAnnotation(targetCell, targetAnnotation));
+          const lines = annoteSpan.getAttribute("data-code-lines").split(",");
+          const lineIds = lines.map((line) => {
+            return targetCell + "-" + line;
+          })
+          let top = null;
+          let height = null;
+          let parent = null;
+          if (lineIds.length > 0) {
+              //compute the position of the single el (top and bottom and make a div)
+              const el = window.document.getElementById(lineIds[0]);
+              top = el.offsetTop;
+              height = el.offsetHeight;
+              parent = el.parentElement.parentElement;
+            if (lineIds.length > 1) {
+              const lastEl = window.document.getElementById(lineIds[lineIds.length - 1]);
+              const bottom = lastEl.offsetTop + lastEl.offsetHeight;
+              height = bottom - top;
+            }
+            if (top !== null && height !== null && parent !== null) {
+              // cook up a div (if necessary) and position it 
+              let div = window.document.getElementById("code-annotation-line-highlight");
+              if (div === null) {
+                div = window.document.createElement("div");
+                div.setAttribute("id", "code-annotation-line-highlight");
+                div.style.position = 'absolute';
+                parent.appendChild(div);
+              }
+              div.style.top = top - 2 + "px";
+              div.style.height = height + 4 + "px";
+              div.style.left = 0;
+              let gutterDiv = window.document.getElementById("code-annotation-line-highlight-gutter");
+              if (gutterDiv === null) {
+                gutterDiv = window.document.createElement("div");
+                gutterDiv.setAttribute("id", "code-annotation-line-highlight-gutter");
+                gutterDiv.style.position = 'absolute';
+                const codeCell = window.document.getElementById(targetCell);
+                const gutter = codeCell.querySelector('.code-annotation-gutter');
+                gutter.appendChild(gutterDiv);
+              }
+              gutterDiv.style.top = top - 2 + "px";
+              gutterDiv.style.height = height + 4 + "px";
+            }
+            selectedAnnoteEl = annoteEl;
+          }
+        };
+        const unselectCodeLines = () => {
+          const elementsIds = ["code-annotation-line-highlight", "code-annotation-line-highlight-gutter"];
+          elementsIds.forEach((elId) => {
+            const div = window.document.getElementById(elId);
+            if (div) {
+              div.remove();
+            }
+          });
+          selectedAnnoteEl = undefined;
+        };
+          // Handle positioning of the toggle
+      window.addEventListener(
+        "resize",
+        throttle(() => {
+          elRect = undefined;
+          if (selectedAnnoteEl) {
+            selectCodeLines(selectedAnnoteEl);
+          }
+        }, 10)
+      );
+      function throttle(fn, ms) {
+      let throttle = false;
+      let timer;
+        return (...args) => {
+          if(!throttle) { // first call gets through
+              fn.apply(this, args);
+              throttle = true;
+          } else { // all the others get throttled
+              if(timer) clearTimeout(timer); // cancel #2
+              timer = setTimeout(() => {
+                fn.apply(this, args);
+                timer = throttle = false;
+              }, ms);
+          }
+        };
+      }
+        // Attach click handler to the DT
+        const annoteDls = window.document.querySelectorAll('dt[data-target-cell]');
+        for (const annoteDlNode of annoteDls) {
+          annoteDlNode.addEventListener('click', (event) => {
+            const clickedEl = event.target;
+            if (clickedEl !== selectedAnnoteEl) {
+              unselectCodeLines();
+              const activeEl = window.document.querySelector('dt[data-target-cell].code-annotation-active');
+              if (activeEl) {
+                activeEl.classList.remove('code-annotation-active');
+              }
+              selectCodeLines(clickedEl);
+              clickedEl.classList.add('code-annotation-active');
+            } else {
+              // Unselect the line
+              unselectCodeLines();
+              clickedEl.classList.remove('code-annotation-active');
+            }
+          });
+        }
+    const findCites = (el) => {
+      const parentEl = el.parentElement;
+      if (parentEl) {
+        const cites = parentEl.dataset.cites;
+        if (cites) {
+          return {
+            el,
+            cites: cites.split(' ')
+          };
+        } else {
+          return findCites(el.parentElement)
+        }
+      } else {
+        return undefined;
+      }
+    };
+    var bibliorefs = window.document.querySelectorAll('a[role="doc-biblioref"]');
+    for (var i=0; i<bibliorefs.length; i++) {
+      const ref = bibliorefs[i];
+      const citeInfo = findCites(ref);
+      if (citeInfo) {
+        tippyHover(citeInfo.el, function() {
+          var popup = window.document.createElement('div');
+          citeInfo.cites.forEach(function(cite) {
+            var citeDiv = window.document.createElement('div');
+            citeDiv.classList.add('hanging-indent');
+            citeDiv.classList.add('csl-entry');
+            var biblioDiv = window.document.getElementById('ref-' + cite);
+            if (biblioDiv) {
+              citeDiv.innerHTML = biblioDiv.innerHTML;
+            }
+            popup.appendChild(citeDiv);
+          });
+          return popup.innerHTML;
+        });
+      }
+    }
+  });
+  </script><div class="modal fade" id="quarto-embedded-source-code-modal" tabindex="-1" aria-labelledby="quarto-embedded-source-code-modal-label" aria-hidden="true"><div class="modal-dialog modal-dialog-scrollable"><div class="modal-content"><div class="modal-header"><h5 class="modal-title" id="quarto-embedded-source-code-modal-label">Source Code</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div class="">
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb6" data-shortcodes="false"><pre class="sourceCode markdown code-with-copy"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-2"><a href="#cb6-2" aria-hidden="true" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Hybrid Fluid-Light Transport: A Literate Analysis"</span></span>
+<span id="cb6-3"><a href="#cb6-3" aria-hidden="true" tabindex="-1"></a><span class="an">author:</span><span class="co"> "Samuel Tarawally"</span></span>
+<span id="cb6-4"><a href="#cb6-4" aria-hidden="true" tabindex="-1"></a><span class="an">format:</span></span>
+<span id="cb6-5"><a href="#cb6-5" aria-hidden="true" tabindex="-1"></a><span class="co">  html:</span></span>
+<span id="cb6-6"><a href="#cb6-6" aria-hidden="true" tabindex="-1"></a><span class="co">    code-fold: show</span></span>
+<span id="cb6-7"><a href="#cb6-7" aria-hidden="true" tabindex="-1"></a><span class="co">    code-tools: true</span></span>
+<span id="cb6-8"><a href="#cb6-8" aria-hidden="true" tabindex="-1"></a><span class="co">    toc: true</span></span>
+<span id="cb6-9"><a href="#cb6-9" aria-hidden="true" tabindex="-1"></a><span class="co">    number-sections: true</span></span>
+<span id="cb6-10"><a href="#cb6-10" aria-hidden="true" tabindex="-1"></a><span class="co">    theme: cosmo</span></span>
+<span id="cb6-11"><a href="#cb6-11" aria-hidden="true" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb6-12"><a href="#cb6-12" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-13"><a href="#cb6-13" aria-hidden="true" tabindex="-1"></a><span class="fu">## Introduction</span></span>
+<span id="cb6-14"><a href="#cb6-14" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-15"><a href="#cb6-15" aria-hidden="true" tabindex="-1"></a>In the domain of real-time computer graphics, we typically face a dichotomy: **Ray Tracing** offers precision but is computationally expensive for diffuse effects, whilst **Rasterisation** is fast but struggles with global illumination. This notebook explores a third way: treating light not merely as rays or radiant flux, but as a **fluid substance** that advects and diffuses across a surface topology.</span>
+<span id="cb6-16"><a href="#cb6-16" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-17"><a href="#cb6-17" aria-hidden="true" tabindex="-1"></a>This **Hybrid Fluid-Light Transport** engine leverages a novel pipeline:</span>
+<span id="cb6-18"><a href="#cb6-18" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-19"><a href="#cb6-19" aria-hidden="true" tabindex="-1"></a><span class="ss">1.  </span>**Injection**: Stochastic Ray Tracing injects energy (photons) into the scene.</span>
+<span id="cb6-20"><a href="#cb6-20" aria-hidden="true" tabindex="-1"></a><span class="ss">2.  </span>**Propagation**: A Cellular Automata (CA) fluid solver propagates this energy as a viscous fluid.</span>
+<span id="cb6-21"><a href="#cb6-21" aria-hidden="true" tabindex="-1"></a><span class="ss">3.  </span>**Rendering**: The resulting state is tone-mapped and displayed.</span>
+<span id="cb6-22"><a href="#cb6-22" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-23"><a href="#cb6-23" aria-hidden="true" tabindex="-1"></a>::: {.callout-note}</span>
+<span id="cb6-24"><a href="#cb6-24" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-25"><a href="#cb6-25" aria-hidden="true" tabindex="-1"></a><span class="fu">## The Fluid Analogy</span></span>
+<span id="cb6-26"><a href="#cb6-26" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-27"><a href="#cb6-27" aria-hidden="true" tabindex="-1"></a>In this model, **Light Intensity** is treated analogously to **Fluid Pressure**, and **Light Flux** is treated as **Fluid Velocity**. This allows us to use simplified Navier-Stokes equations to model light bleeding and soft shadows naturally.</span>
+<span id="cb6-28"><a href="#cb6-28" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-29"><a href="#cb6-29" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-30"><a href="#cb6-30" aria-hidden="true" tabindex="-1"></a><span class="fu">## System Architecture</span></span>
+<span id="cb6-31"><a href="#cb6-31" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-32"><a href="#cb6-32" aria-hidden="true" tabindex="-1"></a>The architecture is designed for performance, bypassing high-level abstractions in favour of specific memory layouts that maximise CPU cache locality.</span>
+<span id="cb6-33"><a href="#cb6-33" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-36"><a href="#cb6-36" aria-hidden="true" tabindex="-1"></a><span class="in">```{mermaid}</span></span>
+<span id="cb6-37"><a href="#cb6-37" aria-hidden="true" tabindex="-1"></a>%%| label: fig-pipeline</span>
+<span id="cb6-38"><a href="#cb6-38" aria-hidden="true" tabindex="-1"></a>%%| fig-cap: <span class="ot">"</span><span class="st">The Hybrid Light Transport Pipeline</span><span class="ot">"</span></span>
+<span id="cb6-39"><a href="#cb6-39" aria-hidden="true" tabindex="-1"></a>graph LR</span>
+<span id="cb6-40"><a href="#cb6-40" aria-hidden="true" tabindex="-1"></a>    A[Input Scene] --&gt;|Ray Query| B(Injection Phase)</span>
+<span id="cb6-41"><a href="#cb6-41" aria-hidden="true" tabindex="-1"></a>    B --&gt;|Energy| C{Fluid Solver}</span>
+<span id="cb6-42"><a href="#cb6-42" aria-hidden="true" tabindex="-1"></a>    C --&gt;|Advection| C</span>
+<span id="cb6-43"><a href="#cb6-43" aria-hidden="true" tabindex="-1"></a>    C --&gt;|Diffusion| C</span>
+<span id="cb6-44"><a href="#cb6-44" aria-hidden="true" tabindex="-1"></a>    C --&gt;|State| D[Renderer]</span>
+<span id="cb6-45"><a href="#cb6-45" aria-hidden="true" tabindex="-1"></a>    D --&gt;|Tone Map| E[Canvas]</span>
+<span id="cb6-46"><a href="#cb6-46" aria-hidden="true" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb6-47"><a href="#cb6-47" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-48"><a href="#cb6-48" aria-hidden="true" tabindex="-1"></a><span class="fu">### Memory Layout: Structure of Arrays (SoA)</span></span>
+<span id="cb6-49"><a href="#cb6-49" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-50"><a href="#cb6-50" aria-hidden="true" tabindex="-1"></a>To achieve 60 FPS in a JavaScript-based environment without WebGL shaders, we must be judicious with memory. We avoid the overhead of JavaScript Objects for individual pixels. Instead, we employ a **Structure of Arrays (SoA)** layout within a single <span class="in">`Float32Array`</span>.</span>
+<span id="cb6-51"><a href="#cb6-51" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-52"><a href="#cb6-52" aria-hidden="true" tabindex="-1"></a>Each pixel in the simulation grid is defined by a stride of specific floating-point values.</span>
+<span id="cb6-53"><a href="#cb6-53" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-54"><a href="#cb6-54" aria-hidden="true" tabindex="-1"></a>::: {.callout-important}</span>
+<span id="cb6-55"><a href="#cb6-55" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-56"><a href="#cb6-56" aria-hidden="true" tabindex="-1"></a><span class="fu">## Optimisation</span></span>
+<span id="cb6-57"><a href="#cb6-57" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-58"><a href="#cb6-58" aria-hidden="true" tabindex="-1"></a>Using a single flat array allows us to process 200,000+ pixels efficiently by keeping related data contiguous in memory, reducing cache misses.</span>
+<span id="cb6-59"><a href="#cb6-59" aria-hidden="true" tabindex="-1"></a>:::</span>
+<span id="cb6-60"><a href="#cb6-60" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-61"><a href="#cb6-61" aria-hidden="true" tabindex="-1"></a>The memory offsets are defined as follows:</span>
+<span id="cb6-62"><a href="#cb6-62" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-63"><a href="#cb6-63" aria-hidden="true" tabindex="-1"></a><span class="in">```javascript</span></span>
+<span id="cb6-64"><a href="#cb6-64" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb6-65"><a href="#cb6-65" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> Memory layout offsets for the Structure of Arrays <span class="co">(</span>SoA<span class="co">).</span></span>
+<span id="cb6-66"><a href="#cb6-66" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> Access a pixel<span class="co">'</span>s property by<span class="co">:</span> index <span class="co">=</span> <span class="co">(</span>y <span class="co">*</span> width <span class="co">+</span> x<span class="co">)</span> <span class="co">*</span> STRIDE <span class="co">+</span> OFFSET<span class="co">.</span></span>
+<span id="cb6-67"><a href="#cb6-67" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> <span class="co">@</span>enum <span class="co">{</span>number<span class="co">}</span></span>
+<span id="cb6-68"><a href="#cb6-68" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb6-69"><a href="#cb6-69" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> FIELD <span class="op">=</span> <span class="op">{</span></span>
+<span id="cb6-70"><a href="#cb6-70" aria-hidden="true" tabindex="-1"></a>  R<span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
+<span id="cb6-71"><a href="#cb6-71" aria-hidden="true" tabindex="-1"></a>  G<span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
+<span id="cb6-72"><a href="#cb6-72" aria-hidden="true" tabindex="-1"></a>  B<span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="co">// Spectral Energy (Colour)</span></span>
+<span id="cb6-73"><a href="#cb6-73" aria-hidden="true" tabindex="-1"></a>  VEL_X<span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
+<span id="cb6-74"><a href="#cb6-74" aria-hidden="true" tabindex="-1"></a>  VEL_Y<span class="op">:</span> <span class="dv">5</span><span class="op">,</span> <span class="co">// Momentum Vector (Flow direction)</span></span>
+<span id="cb6-75"><a href="#cb6-75" aria-hidden="true" tabindex="-1"></a>  ROUGHNESS<span class="op">:</span> <span class="dv">6</span><span class="op">,</span> <span class="co">// Surface material property (Friction)</span></span>
+<span id="cb6-76"><a href="#cb6-76" aria-hidden="true" tabindex="-1"></a>  DEPTH<span class="op">:</span> <span class="dv">7</span><span class="op">,</span> <span class="co">// Distance from camera (Topology)</span></span>
+<span id="cb6-77"><a href="#cb6-77" aria-hidden="true" tabindex="-1"></a>  OBJECT_ID<span class="op">:</span> <span class="dv">11</span><span class="op">,</span> <span class="co">// Discrete ID to prevent bleeding across distinct objects</span></span>
+<span id="cb6-78"><a href="#cb6-78" aria-hidden="true" tabindex="-1"></a>  SLEEP_TIMER<span class="op">:</span> <span class="dv">12</span><span class="op">,</span> <span class="co">// Activity monitor for optimisation</span></span>
+<span id="cb6-79"><a href="#cb6-79" aria-hidden="true" tabindex="-1"></a><span class="op">};</span></span>
+<span id="cb6-80"><a href="#cb6-80" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-81"><a href="#cb6-81" aria-hidden="true" tabindex="-1"></a><span class="dt">const</span> STRIDE <span class="op">=</span> <span class="dv">14</span><span class="op">;</span></span>
+<span id="cb6-82"><a href="#cb6-82" aria-hidden="true" tabindex="-1"></a>```</span>
+<span id="cb6-83"><a href="#cb6-83" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-84"><a href="#cb6-84" aria-hidden="true" tabindex="-1"></a>## The Physics of Light Fluid</span>
+<span id="cb6-85"><a href="#cb6-85" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-86"><a href="#cb6-86" aria-hidden="true" tabindex="-1"></a>The core innovation is the propagation phase<span class="op">.</span> <span class="fu">Once</span> light energy is injected into the <span class="fu">grid</span> <span class="op">(</span>via ray tracing<span class="op">),</span> it follows the rules of fluid dynamics<span class="op">.</span></span>
+<span id="cb6-87"><a href="#cb6-87" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-88"><a href="#cb6-88" aria-hidden="true" tabindex="-1"></a>### Simulation Parameters</span>
+<span id="cb6-89"><a href="#cb6-89" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-90"><a href="#cb6-90" aria-hidden="true" tabindex="-1"></a>We can model the behaviour of <span class="kw">this</span> <span class="st">"light fluid"</span> using standard parameters<span class="op">.</span> <span class="fu">Adjust</span> the controls below to observe how they alter the theoretical propagation in real<span class="op">-</span>time<span class="op">.</span></span>
+<span id="cb6-91"><a href="#cb6-91" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-94"><a href="#cb6-94" aria-hidden="true" tabindex="-1"></a><span class="in">```{ojs}</span></span>
+<span id="cb6-95"><a href="#cb6-95" aria-hidden="true" tabindex="-1"></a><span class="co">//| panel: sidebar</span></span>
+<span id="cb6-96"><a href="#cb6-96" aria-hidden="true" tabindex="-1"></a>viewof dissipation <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span><span class="op">([</span><span class="fl">0.8</span><span class="op">,</span> <span class="fl">0.999</span><span class="op">],</span> <span class="op">{</span>value<span class="op">:</span> <span class="fl">0.97</span><span class="op">,</span> step<span class="op">:</span> <span class="fl">0.001</span><span class="op">,</span> label<span class="op">:</span> <span class="st">"Dissipation (Entropy)"</span><span class="op">})</span></span>
+<span id="cb6-97"><a href="#cb6-97" aria-hidden="true" tabindex="-1"></a>viewof advection <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span><span class="op">([</span><span class="fl">0.0</span><span class="op">,</span> <span class="fl">5.0</span><span class="op">],</span> <span class="op">{</span>value<span class="op">:</span> <span class="fl">3.0</span><span class="op">,</span> step<span class="op">:</span> <span class="fl">0.1</span><span class="op">,</span> label<span class="op">:</span> <span class="st">"Advection Strength"</span><span class="op">})</span></span>
+<span id="cb6-98"><a href="#cb6-98" aria-hidden="true" tabindex="-1"></a>viewof diffusion <span class="op">=</span> Inputs<span class="op">.</span><span class="fu">range</span><span class="op">([</span><span class="fl">0.0</span><span class="op">,</span> <span class="fl">1.0</span><span class="op">],</span> <span class="op">{</span>value<span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span> step<span class="op">:</span> <span class="fl">0.05</span><span class="op">,</span> label<span class="op">:</span> <span class="st">"Diffusion (Spread)"</span><span class="op">})</span></span>
+<span id="cb6-99"><a href="#cb6-99" aria-hidden="true" tabindex="-1"></a>```</span>
+<span id="cb6-100"><a href="#cb6-100" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-103"><a href="#cb6-103" aria-hidden="true" tabindex="-1"></a><span class="in">```{ojs}</span></span>
+<span id="cb6-104"><a href="#cb6-104" aria-hidden="true" tabindex="-1"></a>md`</span>
+<span id="cb6-105"><a href="#cb6-105" aria-hidden="true" tabindex="-1"></a><span class="op">**</span><span class="bu">Current</span> <span class="bu">Configuration</span><span class="op">:**</span></span>
+<span id="cb6-106"><a href="#cb6-106" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>   <span class="op">**</span>Energy Conservation<span class="op">:**</span> $<span class="op">{(</span>dissipation <span class="op">*</span> <span class="dv">100</span><span class="op">).</span><span class="fu">toFixed</span><span class="op">(</span><span class="dv">1</span><span class="op">)}%</span> energy retained per tick</span>
+<span id="cb6-107"><a href="#cb6-107" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>   <span class="op">**</span>Flow Velocity<span class="op">:**</span> $<span class="op">{</span>advection<span class="op">.</span><span class="fu">toFixed</span><span class="op">(</span><span class="dv">1</span><span class="op">)}</span> pixels<span class="op">/</span>tick impact</span>
+<span id="cb6-108"><a href="#cb6-108" aria-hidden="true" tabindex="-1"></a><span class="op">*</span>   <span class="op">**</span>Scatter<span class="op">:**</span> $<span class="op">{(</span>diffusion <span class="op">*</span> <span class="dv">100</span><span class="op">).</span><span class="fu">toFixed</span><span class="op">(</span><span class="dv">1</span><span class="op">)}%</span> distribution to neighbours</span>
+<span id="cb6-109"><a href="#cb6-109" aria-hidden="true" tabindex="-1"></a>`</span>
+<span id="cb6-110"><a href="#cb6-110" aria-hidden="true" tabindex="-1"></a>```</span>
+<span id="cb6-111"><a href="#cb6-111" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-112"><a href="#cb6-112" aria-hidden="true" tabindex="-1"></a>### <span class="fl">1D</span> Propagation Visualisation</span>
+<span id="cb6-113"><a href="#cb6-113" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-114"><a href="#cb6-114" aria-hidden="true" tabindex="-1"></a>Below is a live simulation of the fluid solver logic running in <span class="kw">this</span> notebook<span class="op">.</span> <span class="fu">It</span> simulates a <span class="fl">1D</span> slice of the light transport<span class="op">.</span></span>
+<span id="cb6-115"><a href="#cb6-115" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-118"><a href="#cb6-118" aria-hidden="true" tabindex="-1"></a><span class="in">```{ojs}</span></span>
+<span id="cb6-119"><a href="#cb6-119" aria-hidden="true" tabindex="-1"></a><span class="co">//| label: fig-propagation</span></span>
+<span id="cb6-120"><a href="#cb6-120" aria-hidden="true" tabindex="-1"></a><span class="co">//| fig-cap: "1D Slice of Light Propagation over Time (t)"</span></span>
+<span id="cb6-121"><a href="#cb6-121" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-122"><a href="#cb6-122" aria-hidden="true" tabindex="-1"></a>function <span class="fu">simulate1D</span><span class="op">(</span>steps<span class="op">,</span> disp<span class="op">,</span> adv<span class="op">,</span> diff<span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-123"><a href="#cb6-123" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> width <span class="op">=</span> <span class="dv">100</span><span class="op">;</span></span>
+<span id="cb6-124"><a href="#cb6-124" aria-hidden="true" tabindex="-1"></a>  <span class="co">// State arrays: [Energy, Velocity]</span></span>
+<span id="cb6-125"><a href="#cb6-125" aria-hidden="true" tabindex="-1"></a>  let grid <span class="op">=</span>  <span class="kw">new</span> <span class="fu">Float32Array</span><span class="op">(</span>width <span class="op">*</span> <span class="dv">2</span><span class="op">).</span><span class="fu">fill</span><span class="op">(</span><span class="dv">0</span><span class="op">);</span></span>
+<span id="cb6-126"><a href="#cb6-126" aria-hidden="true" tabindex="-1"></a>  let nextGrid <span class="op">=</span> <span class="kw">new</span> <span class="fu">Float32Array</span><span class="op">(</span>width <span class="op">*</span> <span class="dv">2</span><span class="op">).</span><span class="fu">fill</span><span class="op">(</span><span class="dv">0</span><span class="op">);</span></span>
+<span id="cb6-127"><a href="#cb6-127" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-128"><a href="#cb6-128" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Initial Impulse (The "Light Source")</span></span>
+<span id="cb6-129"><a href="#cb6-129" aria-hidden="true" tabindex="-1"></a>  grid<span class="op">[</span><span class="dv">20</span> <span class="op">*</span> <span class="dv">2</span><span class="op">]</span> <span class="op">=</span> <span class="fl">2.0</span><span class="op">;</span> <span class="co">// Energy</span></span>
+<span id="cb6-130"><a href="#cb6-130" aria-hidden="true" tabindex="-1"></a>  grid<span class="op">[</span><span class="dv">20</span> <span class="op">*</span> <span class="dv">2</span> <span class="op">+</span> <span class="dv">1</span><span class="op">]</span> <span class="op">=</span> <span class="fl">1.0</span><span class="op">;</span> <span class="co">// Initial Velocity</span></span>
+<span id="cb6-131"><a href="#cb6-131" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-132"><a href="#cb6-132" aria-hidden="true" tabindex="-1"></a>  let history <span class="op">=</span> <span class="op">[];</span></span>
+<span id="cb6-133"><a href="#cb6-133" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-134"><a href="#cb6-134" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span><span class="op">(</span>let t<span class="op">=</span><span class="dv">0</span><span class="op">;</span> t<span class="op">&lt;</span>steps<span class="op">;</span> t<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb6-135"><a href="#cb6-135" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span>let x<span class="op">=</span><span class="dv">0</span><span class="op">;</span> x<span class="op">&lt;</span>width<span class="op">;</span> x<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb6-136"><a href="#cb6-136" aria-hidden="true" tabindex="-1"></a>      <span class="dt">const</span> idx <span class="op">=</span> x <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb6-137"><a href="#cb6-137" aria-hidden="true" tabindex="-1"></a>      let energy <span class="op">=</span> grid<span class="op">[</span>idx<span class="op">];</span></span>
+<span id="cb6-138"><a href="#cb6-138" aria-hidden="true" tabindex="-1"></a>      let velocity <span class="op">=</span> grid<span class="op">[</span>idx<span class="op">+</span><span class="dv">1</span><span class="op">];</span></span>
+<span id="cb6-139"><a href="#cb6-139" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-140"><a href="#cb6-140" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span><span class="op">(</span>energy <span class="op">&lt;</span> <span class="fl">0.01</span> <span class="op">&amp;&amp;</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span><span class="op">(</span>velocity<span class="op">)</span> <span class="op">&lt;</span> <span class="fl">0.01</span><span class="op">)</span> <span class="cf">continue</span><span class="op">;</span></span>
+<span id="cb6-141"><a href="#cb6-141" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-142"><a href="#cb6-142" aria-hidden="true" tabindex="-1"></a>      <span class="co">// 1. Advection (Transport)</span></span>
+<span id="cb6-143"><a href="#cb6-143" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Light carries momentum, pushing it forward</span></span>
+<span id="cb6-144"><a href="#cb6-144" aria-hidden="true" tabindex="-1"></a>      let thrust <span class="op">=</span> velocity <span class="op">*</span> adv<span class="op">;</span></span>
+<span id="cb6-145"><a href="#cb6-145" aria-hidden="true" tabindex="-1"></a>      let targetX <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">min</span><span class="op">(</span>width<span class="op">-</span><span class="dv">1</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">max</span><span class="op">(</span><span class="dv">0</span><span class="op">,</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span><span class="op">(</span>x <span class="op">+</span> thrust<span class="op">)));</span></span>
+<span id="cb6-146"><a href="#cb6-146" aria-hidden="true" tabindex="-1"></a>      let targetIdx <span class="op">=</span> targetX <span class="op">*</span> <span class="dv">2</span><span class="op">;</span></span>
+<span id="cb6-147"><a href="#cb6-147" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-148"><a href="#cb6-148" aria-hidden="true" tabindex="-1"></a>      <span class="co">// 2. Diffusion (Scattering)</span></span>
+<span id="cb6-149"><a href="#cb6-149" aria-hidden="true" tabindex="-1"></a>      let remain <span class="op">=</span> energy <span class="op">*</span> <span class="op">(</span><span class="dv">1</span><span class="op">-</span>diff<span class="op">);</span></span>
+<span id="cb6-150"><a href="#cb6-150" aria-hidden="true" tabindex="-1"></a>      let spread <span class="op">=</span> energy <span class="op">*</span> diff<span class="op">;</span></span>
+<span id="cb6-151"><a href="#cb6-151" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-152"><a href="#cb6-152" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Update Next State with Dissipation</span></span>
+<span id="cb6-153"><a href="#cb6-153" aria-hidden="true" tabindex="-1"></a>      nextGrid<span class="op">[</span>targetIdx<span class="op">]</span> <span class="op">+=</span> remain <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb6-154"><a href="#cb6-154" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span><span class="op">(</span>targetX<span class="op">+</span><span class="dv">1</span> <span class="op">&lt;</span> width<span class="op">)</span> nextGrid<span class="op">[(</span>targetX<span class="op">+</span><span class="dv">1</span><span class="op">)*</span><span class="dv">2</span><span class="op">]</span> <span class="op">+=</span> <span class="op">(</span>spread<span class="op">/</span><span class="dv">2</span><span class="op">)</span> <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb6-155"><a href="#cb6-155" aria-hidden="true" tabindex="-1"></a>      <span class="cf">if</span><span class="op">(</span>targetX<span class="op">-</span><span class="dv">1</span> <span class="op">&gt;=</span> <span class="dv">0</span><span class="op">)</span>    nextGrid<span class="op">[(</span>targetX<span class="op">-</span><span class="dv">1</span><span class="op">)*</span><span class="dv">2</span><span class="op">]</span> <span class="op">+=</span> <span class="op">(</span>spread<span class="op">/</span><span class="dv">2</span><span class="op">)</span> <span class="op">*</span> disp<span class="op">;</span></span>
+<span id="cb6-156"><a href="#cb6-156" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-157"><a href="#cb6-157" aria-hidden="true" tabindex="-1"></a>      <span class="co">// Decay Velocity (Viscosity)</span></span>
+<span id="cb6-158"><a href="#cb6-158" aria-hidden="true" tabindex="-1"></a>      nextGrid<span class="op">[</span>targetIdx<span class="op">+</span><span class="dv">1</span><span class="op">]</span> <span class="op">+=</span> velocity <span class="op">*</span> <span class="fl">0.9</span><span class="op">;</span></span>
+<span id="cb6-159"><a href="#cb6-159" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-160"><a href="#cb6-160" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-161"><a href="#cb6-161" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Ping-pong buffers</span></span>
+<span id="cb6-162"><a href="#cb6-162" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span>let i<span class="op">=</span><span class="dv">0</span><span class="op">;</span> i<span class="op">&lt;</span>width<span class="op">*</span><span class="dv">2</span><span class="op">;</span> i<span class="op">++)</span> <span class="op">{</span></span>
+<span id="cb6-163"><a href="#cb6-163" aria-hidden="true" tabindex="-1"></a>        grid<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> nextGrid<span class="op">[</span>i<span class="op">];</span></span>
+<span id="cb6-164"><a href="#cb6-164" aria-hidden="true" tabindex="-1"></a>        nextGrid<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> <span class="dv">0</span><span class="op">;</span></span>
+<span id="cb6-165"><a href="#cb6-165" aria-hidden="true" tabindex="-1"></a>    <span class="op">}</span></span>
+<span id="cb6-166"><a href="#cb6-166" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-167"><a href="#cb6-167" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Store history for visualisation (just energy)</span></span>
+<span id="cb6-168"><a href="#cb6-168" aria-hidden="true" tabindex="-1"></a>    let row <span class="op">=</span> <span class="kw">new</span> <span class="fu">Float32Array</span><span class="op">(</span>width<span class="op">);</span></span>
+<span id="cb6-169"><a href="#cb6-169" aria-hidden="true" tabindex="-1"></a>    <span class="cf">for</span><span class="op">(</span>let i<span class="op">=</span><span class="dv">0</span><span class="op">;</span> i<span class="op">&lt;</span>width<span class="op">;</span> i<span class="op">++)</span> row<span class="op">[</span>i<span class="op">]</span> <span class="op">=</span> grid<span class="op">[</span>i<span class="op">*</span><span class="dv">2</span><span class="op">];</span></span>
+<span id="cb6-170"><a href="#cb6-170" aria-hidden="true" tabindex="-1"></a>    history<span class="op">.</span><span class="fu">push</span><span class="op">(</span><span class="bu">Array</span><span class="op">.</span><span class="fu">from</span><span class="op">(</span>row<span class="op">));</span></span>
+<span id="cb6-171"><a href="#cb6-171" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb6-172"><a href="#cb6-172" aria-hidden="true" tabindex="-1"></a>  <span class="cf">return</span> history<span class="op">;</span></span>
+<span id="cb6-173"><a href="#cb6-173" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb6-174"><a href="#cb6-174" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-175"><a href="#cb6-175" aria-hidden="true" tabindex="-1"></a>data <span class="op">=</span> <span class="fu">simulate1D</span><span class="op">(</span><span class="dv">60</span><span class="op">,</span> dissipation<span class="op">,</span> advection<span class="op">,</span> diffusion<span class="op">)</span></span>
+<span id="cb6-176"><a href="#cb6-176" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-177"><a href="#cb6-177" aria-hidden="true" tabindex="-1"></a>Plot<span class="op">.</span><span class="fu">plot</span><span class="op">({</span></span>
+<span id="cb6-178"><a href="#cb6-178" aria-hidden="true" tabindex="-1"></a>  marks<span class="op">:</span> <span class="op">[</span></span>
+<span id="cb6-179"><a href="#cb6-179" aria-hidden="true" tabindex="-1"></a>    Plot<span class="op">.</span><span class="fu">raster</span><span class="op">(</span>data<span class="op">,</span> <span class="op">{</span></span>
+<span id="cb6-180"><a href="#cb6-180" aria-hidden="true" tabindex="-1"></a>        width<span class="op">:</span> <span class="dv">100</span><span class="op">,</span></span>
+<span id="cb6-181"><a href="#cb6-181" aria-hidden="true" tabindex="-1"></a>        height<span class="op">:</span> <span class="dv">60</span><span class="op">,</span></span>
+<span id="cb6-182"><a href="#cb6-182" aria-hidden="true" tabindex="-1"></a>        imageRendering<span class="op">:</span> <span class="st">"pixelated"</span><span class="op">,</span></span>
+<span id="cb6-183"><a href="#cb6-183" aria-hidden="true" tabindex="-1"></a>        fill<span class="op">:</span> d <span class="op">=&gt;</span> d<span class="op">,</span></span>
+<span id="cb6-184"><a href="#cb6-184" aria-hidden="true" tabindex="-1"></a>        interpolate<span class="op">:</span> <span class="st">"nearest"</span></span>
+<span id="cb6-185"><a href="#cb6-185" aria-hidden="true" tabindex="-1"></a>    <span class="op">}),</span></span>
+<span id="cb6-186"><a href="#cb6-186" aria-hidden="true" tabindex="-1"></a>    Plot<span class="op">.</span><span class="fu">frame</span><span class="op">()</span></span>
+<span id="cb6-187"><a href="#cb6-187" aria-hidden="true" tabindex="-1"></a>  <span class="op">],</span></span>
+<span id="cb6-188"><a href="#cb6-188" aria-hidden="true" tabindex="-1"></a>  color<span class="op">:</span> <span class="op">{</span> scheme<span class="op">:</span> <span class="st">"magma"</span> <span class="op">},</span></span>
+<span id="cb6-189"><a href="#cb6-189" aria-hidden="true" tabindex="-1"></a>  y<span class="op">:</span> <span class="op">{</span> label<span class="op">:</span> <span class="st">"Time (t) ↓"</span><span class="op">,</span> reverse<span class="op">:</span> <span class="kw">true</span> <span class="op">},</span></span>
+<span id="cb6-190"><a href="#cb6-190" aria-hidden="true" tabindex="-1"></a>  x<span class="op">:</span> <span class="op">{</span> label<span class="op">:</span> <span class="st">"Space (x) →"</span> <span class="op">},</span></span>
+<span id="cb6-191"><a href="#cb6-191" aria-hidden="true" tabindex="-1"></a>  height<span class="op">:</span> <span class="dv">300</span></span>
+<span id="cb6-192"><a href="#cb6-192" aria-hidden="true" tabindex="-1"></a><span class="op">})</span></span>
+<span id="cb6-193"><a href="#cb6-193" aria-hidden="true" tabindex="-1"></a>```</span>
+<span id="cb6-194"><a href="#cb6-194" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-195"><a href="#cb6-195" aria-hidden="true" tabindex="-1"></a>As illustrated above<span class="op">,</span> light does not merely stop at a surface<span class="op">;</span> it _flows_ around it<span class="op">.</span> <span class="fu">The</span> <span class="op">**</span>Advection<span class="op">**</span> parameter controls how much the light<span class="er">'</span>s momentum carries it <span class="fu">forward</span> <span class="op">(</span>creating directional shadows<span class="op">),</span> whilst <span class="op">**</span>Diffusion<span class="op">**</span> controls how much it scatters into the <span class="fu">surroundings</span> <span class="op">(</span>creating ambient occlusion<span class="op">).</span></span>
+<span id="cb6-196"><a href="#cb6-196" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-197"><a href="#cb6-197" aria-hidden="true" tabindex="-1"></a>## Code Implementation Details</span>
+<span id="cb6-198"><a href="#cb6-198" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-199"><a href="#cb6-199" aria-hidden="true" tabindex="-1"></a>The actual JavaScript implementation in `src<span class="op">/</span>engine<span class="op">.</span><span class="fu">js</span>` uses a more complex <span class="fl">2D</span> kernel<span class="op">.</span> <span class="fu">Here</span> is the core update loop <span class="cf">for</span> the physics simulation<span class="op">,</span> annotated <span class="cf">for</span> clarity<span class="op">.</span></span>
+<span id="cb6-200"><a href="#cb6-200" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-201"><a href="#cb6-201" aria-hidden="true" tabindex="-1"></a>```javascript</span>
+<span id="cb6-202"><a href="#cb6-202" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb6-203"><a href="#cb6-203" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> Evolves the simulation state by one timestep<span class="co">.</span></span>
+<span id="cb6-204"><a href="#cb6-204" aria-hidden="true" tabindex="-1"></a> <span class="co">*</span> Uses Cellular Automata to flow light energy from pixel to pixel<span class="co">.</span></span>
+<span id="cb6-205"><a href="#cb6-205" aria-hidden="true" tabindex="-1"></a> <span class="co">*/</span></span>
+<span id="cb6-206"><a href="#cb6-206" aria-hidden="true" tabindex="-1"></a>function <span class="fu">evolveSimulation</span><span class="op">()</span> <span class="op">{</span></span>
+<span id="cb6-207"><a href="#cb6-207" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ... loop setup ...</span></span>
+<span id="cb6-208"><a href="#cb6-208" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-209"><a href="#cb6-209" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Advection step: Calculate where the energy moves to</span></span>
+<span id="cb6-210"><a href="#cb6-210" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> dx <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span><span class="op">(</span>vx <span class="op">*</span> CONFIG<span class="op">.</span><span class="fu">ADVECTION_STRENGTH</span> <span class="op">+</span> randX <span class="op">*</span> <span class="fl">0.5</span><span class="op">);</span></span>
+<span id="cb6-211"><a href="#cb6-211" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> dy <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">round</span><span class="op">(</span>vy <span class="op">*</span> CONFIG<span class="op">.</span><span class="fu">ADVECTION_STRENGTH</span> <span class="op">+</span> randY <span class="op">*</span> <span class="fl">0.5</span><span class="op">);</span></span>
+<span id="cb6-212"><a href="#cb6-212" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> nx <span class="op">=</span> px <span class="op">+</span> dx<span class="op">;</span></span>
+<span id="cb6-213"><a href="#cb6-213" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> ny <span class="op">=</span> py <span class="op">+</span> dy<span class="op">;</span></span>
+<span id="cb6-214"><a href="#cb6-214" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-215"><a href="#cb6-215" aria-hidden="true" tabindex="-1"></a>  <span class="co">// ... boundary checks ...</span></span>
+<span id="cb6-216"><a href="#cb6-216" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-217"><a href="#cb6-217" aria-hidden="true" tabindex="-1"></a>  <span class="co">// Surface Continuity Check:</span></span>
+<span id="cb6-218"><a href="#cb6-218" aria-hidden="true" tabindex="-1"></a>  <span class="co">// We only flow energy if the depth difference is small (connected surface)</span></span>
+<span id="cb6-219"><a href="#cb6-219" aria-hidden="true" tabindex="-1"></a>  <span class="dt">const</span> depthDiff <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">abs</span><span class="op">(</span></span>
+<span id="cb6-220"><a href="#cb6-220" aria-hidden="true" tabindex="-1"></a>    <span class="bu">State</span><span class="op">.</span><span class="fu">lattice</span><span class="op">[</span>ptr <span class="op">+</span> FIELD<span class="op">.</span><span class="fu">DEPTH</span><span class="op">]</span> <span class="op">-</span> <span class="bu">State</span><span class="op">.</span><span class="fu">lattice</span><span class="op">[</span>nPtr <span class="op">+</span> FIELD<span class="op">.</span><span class="fu">DEPTH</span><span class="op">]</span></span>
+<span id="cb6-221"><a href="#cb6-221" aria-hidden="true" tabindex="-1"></a>  <span class="op">);</span></span>
+<span id="cb6-222"><a href="#cb6-222" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-223"><a href="#cb6-223" aria-hidden="true" tabindex="-1"></a>  <span class="cf">if</span> <span class="op">(</span>depthDiff <span class="op">&lt;</span> <span class="fl">0.5</span><span class="op">)</span> <span class="op">{</span></span>
+<span id="cb6-224"><a href="#cb6-224" aria-hidden="true" tabindex="-1"></a>    <span class="co">// Flow logic...</span></span>
+<span id="cb6-225"><a href="#cb6-225" aria-hidden="true" tabindex="-1"></a>    <span class="bu">State</span><span class="op">.</span><span class="fu">lattice</span><span class="op">[</span>nPtr <span class="op">+</span> <span class="dv">0</span><span class="op">]</span> <span class="op">+=</span> <span class="bu">State</span><span class="op">.</span><span class="fu">lattice</span><span class="op">[</span>ptr <span class="op">+</span> <span class="dv">0</span><span class="op">]</span> <span class="op">*</span> eTransfer<span class="op">;</span></span>
+<span id="cb6-226"><a href="#cb6-226" aria-hidden="true" tabindex="-1"></a>    <span class="co">// ...</span></span>
+<span id="cb6-227"><a href="#cb6-227" aria-hidden="true" tabindex="-1"></a>  <span class="op">}</span></span>
+<span id="cb6-228"><a href="#cb6-228" aria-hidden="true" tabindex="-1"></a><span class="op">}</span></span>
+<span id="cb6-229"><a href="#cb6-229" aria-hidden="true" tabindex="-1"></a>```</span>
+<span id="cb6-230"><a href="#cb6-230" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-231"><a href="#cb6-231" aria-hidden="true" tabindex="-1"></a>This logic ensures that light respects the <span class="fl">3D</span> topology of the scene even though the simulation occurs in <span class="fl">2D</span> screen space<span class="op">.</span></span>
+<span id="cb6-232"><a href="#cb6-232" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-233"><a href="#cb6-233" aria-hidden="true" tabindex="-1"></a>## Conclusion</span>
+<span id="cb6-234"><a href="#cb6-234" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb6-235"><a href="#cb6-235" aria-hidden="true" tabindex="-1"></a>This hybrid approach allows us to achieve visually rich lighting effects such as soft shadows and colour bleeding in real<span class="op">-</span>time on the web<span class="op">,</span> without the massive computational cost of path tracing or the <span class="dt">static</span> nature of pre<span class="op">-</span>baked lightmaps<span class="op">.</span></span>
+</code></pre></div><button title="Copy to Clipboard" class="code-copy-button" data-in-quarto-modal=""><i class="bi"></i></button></div>
+</div></div></div></div></div>
+</div> <!-- /content -->
+
+
+
+
+</body></html>

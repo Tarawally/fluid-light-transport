@@ -1,0 +1,63 @@
+# The Language of Logic
+
+To control the pixels, we must speak the language of the computer. In this project, that language is **JavaScript**.
+
+## Variables: The Boxes of Memory
+
+Imagine a warehouse full of empty boxes. We can label a box and put something inside it. In programming, we call this a **Variable**.
+
+*   `const`: A box whose contents **cannot** be changed (Constant).
+*   `let`: A box whose contents **can** be changed.
+
+```javascript
+/* Configuration constants for the simulation. */
+const CONFIG = {
+  TILE_SIZE: 4,      // We process pixels in 4x4 blocks
+  DISSIPATION: 0.97, // Energy lost per tick
+};
+
+let TOTAL_PIXELS = 0; // This will change when we resize the window
+```
+
+## Functions: The Recipes
+
+A **Function** is a set of instructions bundled together. It's like a recipe: you give it a name, and you can "call" it whenever you want to perform those instructions.
+
+In our engine, we have a function called `bootSystem` that sets everything up.
+
+```javascript
+/**
+ * Allocates memory and sets grid dimensions based on the current window size.
+ */
+function bootSystem() {
+  // 1. Calculate internal resolution
+  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE); // <1>
+  // ... more instructions ...
+}
+```
+
+1.  `Math.ceil` rounds the number up to the nearest integer. We can't have half a pixel!
+
+## Loops: doing It Again and Again
+
+Computers are excellent at doing boring tasks repeatedly without getting tired. We use a **Loop** to repeat instructions.
+
+The most common loop is the `for` loop. It says: "Start here, keep going whilst this is true, and do this after each step."
+
+```javascript
+// Iterate over every pixel in a row
+for (let x = 0; x < width; x++) {
+    // Process pixel at 'x'
+}
+```
+
+## Conditionals: Making Decisions
+
+We often need to do different things based on the situation. We use `if` statements for this.
+
+```javascript
+if (energy < 0.001) {
+    // If the energy is very low, stop processing to save battery
+    continue;
+}
+```

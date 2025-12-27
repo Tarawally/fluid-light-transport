@@ -1,0 +1,51 @@
+# Casting Rays
+
+Now that we have our grid (Canvas) and our math (Vectors), we can start the simulation. The first step is to figure out where the light *is*.
+
+## Reverse Ray Tracing
+
+In the real world, light travels from a bulb to your eye. In computer graphics, we do it in reverse. We shoot a ray from the "Camera" (your eye) through every pixel on the screen and see what it hits.
+
+```{mermaid}
+sequenceDiagram
+    participant Camera
+    participant Screen
+    participant Sphere
+
+    Camera->>Screen: Shoot Ray(x,y)
+    Screen->>Sphere: Check Intersection
+    alt Hit
+        Sphere-->>Screen: Return Colour
+    else Miss
+        Sphere-->>Screen: Return Black
+    end
+```
+
+## Intersection: The Sphere
+
+Our scene is composed of spheres. To check if a ray hits a sphere, we use algebra. A sphere is defined as all points that are distance $r$ from a centre point $C$.
+
+If we shoot a line, we can solve a quadratic equation to find if they intersect:
+
+$$ t = \frac{-b \pm \sqrt{b^2 - 4ac}}{2a} $$
+
+You can see this implemented in `Scene.trace` in `src/engine.js`.
+
+```javascript
+/* src/engine.js */
+trace: function(ro, rd) {
+    // ...
+    // The Discriminant (d) tells us if we hit.
+    const d = b * b - c;             // <1>
+    if (d > 0) {                     // <2>
+        // We hit the sphere!
+    }
+}
+```
+
+1.  Calculates the discriminant $b^2 - 4ac$.
+2.  If the result is positive, the line crosses the sphere. If negative, it misses.
+
+## Injection
+
+When a ray hits a light source, we take that energy and "inject" it into our fluid grid (`State.lattice`). This is the starting point for our fluid simulation.

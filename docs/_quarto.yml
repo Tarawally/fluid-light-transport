@@ -1,9 +1,32 @@
 project:
-  title: "Hybrid Fluid-Light Transport"
+  type: book
   output-dir: _site
+bibliography: references.bib
+
+book:
+  title: "Hybrid Fluid-Light Transport: A Zero-to-Hero Guide"
+  author: "Samuel Tarawally"
+  date: "2025-12-27"
+  repo-url: https://github.com/user/fluid-light-transport
+  repo-actions: [edit, issue]
+  sharing: [twitter, linkedin]
+  search: true
+  chapters:
+    - index.qmd
+    - 01_canvas.qmd
+    - 02_logic.qmd
+    - 03_memory.qmd
+    - 04_math.qmd
+    - 05_raytracing.qmd
+    - 06_fluids.qmd
+    - 07_mainloop.qmd
+    - references.qmd
 
 format:
   html:
     theme: cosmo
-    css: styles.css
+    code-fold: show
     toc: true
+    number-sections: false
+    code-annotations: hover
+    page-layout: full
