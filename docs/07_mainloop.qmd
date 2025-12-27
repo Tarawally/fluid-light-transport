@@ -6,7 +6,7 @@ We have the canvas, the memory, the math, and the physics. Now we need to bring 
 
 Animation is an illusion. By changing the image on the screen 60 times every second (60 Hz), we trick the human eye into seeing motion.
 
-In JavaScript, we use a special function called `requestAnimationFrame`. This tells the browser: "The next time you are ready to paint the screen, please call my function first."
+In JavaScript, we use a special function called [`requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame). This tells the browser: "The next time you are ready to paint the screen, please call my function first."
 
 [Why not `setInterval`? Because `requestAnimationFrame` pauses when you switch tabs, saving battery!]{.aside}
 

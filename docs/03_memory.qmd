@@ -54,3 +54,5 @@ We allocate one giant block of memory for the entire universe:
 ```javascript
 State.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);
 ```
+
+[`Float32Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array) is a [TypedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays) that only stores decimal numbers. It is extremely fast.

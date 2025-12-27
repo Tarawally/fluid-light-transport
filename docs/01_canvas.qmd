@@ -42,7 +42,7 @@ Plot.plot({
 
 ## The Canvas Element
 
-In our code, we access this grid using an HTML element called `<canvas>`.
+In our code, we access this grid using the HTML5 [Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API) via an element called `<canvas>`.
 
 ```html
 <!-- MAIN RENDERING SURFACE -->
@@ -59,3 +59,5 @@ const ctx = canvas.getContext('2d', {
   willReadFrequently: true,
 });
 ```
+
+The [context](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext) (`ctx`) is our tool to modify the canvas.

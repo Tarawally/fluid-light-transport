@@ -6,8 +6,8 @@ To control the pixels, we must speak the language of the computer. In this proje
 
 Imagine a warehouse full of empty boxes. We can label a box and put something inside it. In programming, we call this a **Variable**.
 
-*   `const`: A box whose contents **cannot** be changed (Constant).
-*   `let`: A box whose contents **can** be changed.
+*   [`const`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const): A box whose contents **cannot** be changed (Constant).
+*   [`let`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let): A box whose contents **can** be changed.
 
 ```javascript
 /* Configuration constants for the simulation. */
@@ -21,7 +21,7 @@ let TOTAL_PIXELS = 0; // This will change when we resize the window
 
 ## Functions: The Recipes
 
-A **Function** is a set of instructions bundled together. It's like a recipe: you give it a name, and you can "call" it whenever you want to perform those instructions.
+A [`function`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function) is a set of instructions bundled together. It's like a recipe: you give it a name, and you can "call" it whenever you want to perform those instructions.
 
 In our engine, we have a function called `bootSystem` that sets everything up.
 
