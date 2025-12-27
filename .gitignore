@@ -1,18 +1,71 @@
-# OS & IDE
+# --- OS Specific ---
 .DS_Store
-.vscode/
+.DS_Store?
+._*
+Thumbs.db
+desktop.ini
+
+# --- IDEs and Editors ---
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 .idea/
 *.swp
-*.log
+*.swo
+*~
+.project
+.settings/
+.classpath
 
-# Dependencies
+# --- Environment and Secrets ---
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+
+# --- Dependencies ---
 node_modules/
+jspm_packages/
+web_modules/
 package-lock.json
 yarn.lock
+pnpm-lock.yaml
 
-# Build Artifacts (Quarto)
+# --- Languages & Frameworks ---
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.venv
+venv/
+ENV/
+.python-version
+
+# R
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# --- Documentation & Quarto ---
 .quarto/
+_site/
 docs/_site/
 docs/site_libs/
 *_files/
 .quarto-web
+.ipynb_checkpoints/
+*.bak
+*.tmp
+
+# --- Build Artifacts ---
+dist/
+build/
+out/
+bin/
+obj/
