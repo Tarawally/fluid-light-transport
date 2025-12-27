@@ -907,7 +907,7 @@ window.addEventListener('keydown', (e) => {
 /**
  * Bootstraps the engine by fetching configuration data.
  */
-async function initializeEngine() {
+async function initialiseEngine() {
   const uiStatus = document.getElementById('statusIndicator');
 
   try {
@@ -953,4 +953,4 @@ async function initializeEngine() {
 }
 
 // Begin Data Flow
-initializeEngine();
+initialiseEngine();

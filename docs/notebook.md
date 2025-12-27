@@ -14,7 +14,7 @@ This approach allows for real-time soft shadows and colour bleeding by leveragin
 
 ## Simulation Parameters
 
-We can model the behavior of the light fluid using standard fluid dynamics parameters.
+We can model the behaviour of the light fluid using standard fluid dynamics parameters.
 Adjust the sliders below to see how they affect the theoretical propagation model.
 
 ```{ojs}
@@ -75,7 +75,7 @@ function simulate1D(steps, disp, adv, diff) {
       // Advection (move forward)
       let target = Math.min(width-1, Math.round(x + adv));
       
-      // Diffusion (spread to neighbors)
+      // Diffusion (spread to neighbours)
       let amount = val * disp;
       nextGrid[target] += amount * (1-diff);
       if(target+1 < width) nextGrid[target+1] += amount * (diff/2);

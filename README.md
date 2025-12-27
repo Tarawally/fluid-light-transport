@@ -7,7 +7,7 @@ A JavaScript-based simulation engine that models light as a fluid substance. It 
 *   **Hybrid Architecture**:
     *   **Injection Phase**: Uses stochastic ray tracing to probe the scene and inject "photons" into a 2D grid.
     *   **Propagation Phase**: Treats light as a fluid that advects and diffuses based on surface roughness and depth topology.
-*   **Real-time Performance**: Optimized to run in the browser using HTML5 Canvas and Typed Arrays.
+*   **Real-time Performance**: Optimised to run in the browser using HTML5 Canvas and Typed Arrays.
 *   **Dynamic Interactions**: Move the camera and light sources in real-time.
 *   **Visual Analysis**: Switch between Composite, Active Tile Map, and Velocity Vector Field views.
 

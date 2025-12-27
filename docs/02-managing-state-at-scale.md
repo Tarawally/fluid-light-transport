@@ -9,7 +9,7 @@ The challenge of handling large-scale data ("200,000 active pixels is too much f
 *   **Objects and Performance:** While JavaScript objects are fundamental containers for data, the performance section implicitly cautions against using overly complex data structures in critical paths,. Complex data structures and large JavaScript bundles increase load, parsing, compiling, and execution time, especially on less powerful devices,.
 *   **DOM Manipulation Overhead:** Direct DOM manipulation for every data update is described as expensive and slow,,, which is why frameworks abstract this interaction. The suggested strategy of moving the state "out of the DOM" aligns with best practices for achieving performance,,.
 
-### The Solution: Optimized Data Structures and Transformation
+### The Solution: Optimised Data Structures and Transformation
 
 The key components of your proposed solution—using a typed array and map-like transformations—are supported by information found in the sources:
 
@@ -26,4 +26,4 @@ The approach describes physics logic as a complex `.map()` function, which relat
 
 *   **Functional Array Methods:** The `Array.prototype.map()` method is explicitly mentioned as a highly useful technique for iterating through a collection, performing an operation on each item, and returning a *new* array of the results,,,,. The ability to create a new array based on transformations of the original supports the idea of frame-by-frame state evolution without destructive updates.
 *   **Encapsulating Logic in Functions:** Functions are defined as reusable blocks of code that perform a single task,. Defining the simulation rules within an `evolveSimulation()` function aligns with the fundamental programming concept of encapsulating logic,.
-*   **Optimization of Long Tasks:** For long computational tasks (like complex physics simulation suggested by "Fluid Dynamics" in the prior step), the sources recommend techniques such as breaking down the work into smaller tasks or moving them off the main thread using **Web Workers** to maintain a responsive application,,,,.
+*   **Optimisation of Long Tasks:** For long computational tasks (like complex physics simulation suggested by "Fluid Dynamics" in the prior step), the sources recommend techniques such as breaking down the work into smaller tasks or moving them off the main thread using **Web Workers** to maintain a responsive application,,,,.
