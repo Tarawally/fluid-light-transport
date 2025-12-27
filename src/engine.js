@@ -14,6 +14,7 @@
  * purely through 2D pixel-neighbour interactions, avoiding expensive global
  * illumination calculations.
  */
+"use strict";
 
 /**
  * Configuration constants for the simulation.
@@ -248,10 +249,25 @@ function bootSystem() {
   }
 }
 
+/**
+ * Debounce utility to limit function execution rate.
+ * @param {Function} func The function to debounce.
+ * @param {number} wait The delay in milliseconds.
+ * @return {Function} The debounced function.
+ */
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    const context = this;
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(context, args), wait);
+  };
+}
+
 // Debounced resize handler
-window.addEventListener('resize', () => {
+window.addEventListener('resize', debounce(() => {
   bootSystem();
-});
+}, 250));
 
 // ==========================================
 // MATHEMATICS & GEOMETRY
@@ -311,6 +327,7 @@ const Scene = {
    * Should be called when the scene loads or changes.
    */
   cacheLightSource: function() {
+    if (!this.spheres || this.spheres.length === 0) return;
     this.activeLight = this.spheres.find((s) => s.em > 0) ||
         this.spheres[this.spheres.length - 1];
   },
@@ -834,10 +851,17 @@ function updateTelemetry() {
     const avgTime = (
       State.profiler.accumulatedTime / State.profiler.frameCount
     ).toFixed(2);
+    const totalTiles = TILES_X * TILES_Y;
+    const sparsity = totalTiles > 0 ?
+        ((1.0 - (avgTiles / totalTiles)) * 100).toFixed(1) :
+        0;
 
     State.profiler.dom.fps.innerText = `${State.profiler.frameCount} FPS`;
     State.profiler.dom.activeBlocks.innerText = avgTiles;
     State.profiler.dom.physTime.innerText = `${avgTime}ms`;
+    if (State.profiler.dom.budget) {
+      State.profiler.dom.budget.innerText = `${sparsity}%`;
+    }
 
     const loadPct = (avgTime / CONFIG.TIMESTEP_BUDGET_MS) * 100;
     State.profiler.dom.loadBar.style.width = Math.min(loadPct, 100) + '%';
@@ -928,10 +952,8 @@ async function initialiseEngine() {
     const sceneData = await response.json();
 
     // 3. HYDRATE: Populate the Engine State
-    Scene.spheres = sceneData;
+    Scene.spheres = sceneData || [];
     Scene.cacheLightSource(); // Cache the light for performance
-    console.log(`Data Flow Complete: Loaded ${sceneData.length} ` +
-        `objects into simulation memory.`);
 
     // 4. BOOT: Start the Physics Loop
     if (uiStatus) {
@@ -944,11 +966,9 @@ async function initialiseEngine() {
   } catch (error) {
     console.error('Data Flow Interruption:', error);
     if (uiStatus) {
-      uiStatus.innerText = '● DATA ERROR';
+      uiStatus.innerText = '● DATA ERROR (See Console)';
       uiStatus.style.color = '#dc3545'; // Red
     }
-    alert('Error loading assets/scene.json. Ensure you are running via ' +
-        'a Local Server (http://), not file://');
   }
 }
 
