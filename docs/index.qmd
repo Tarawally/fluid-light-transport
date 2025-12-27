@@ -1,8 +1,8 @@
 # Preface {.unnumbered}
 
-Welcome to the **Zero-to-Hero Guide** for the Hybrid Fluid-Light Transport engine.
+This document provides a **Guided Technical Walkthrough** of the Hybrid Fluid-Light Transport engine.
 
-This book is written for the absolute beginner. You do not need a degree in Computer Science, Physics, or Mathematics to understand how this engine works. We will build our understanding from the ground up, starting with what a pixel is, and ending with a simulation of light fluid dynamics.
+Instead of focusing on surface-level jargon, we will perform a deep dive into the underlying architecture. We will build our understanding from the first principles of digital rasterisation to the complex simulation of non-linear light transport.
 
 ## The Graphics Dichotomy
 

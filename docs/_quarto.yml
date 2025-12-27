@@ -4,7 +4,7 @@ project:
 bibliography: references.bib
 
 book:
-  title: "Hybrid Fluid-Light Transport: A Zero-to-Hero Guide"
+  title: "Hybrid Fluid-Light Transport: A Guided Technical Walkthrough"
   author: "Samuel Tarawally"
   date: "2025-12-27"
   repo-url: https://github.com/user/fluid-light-transport
