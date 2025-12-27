@@ -1,10 +1,10 @@
-# The Math of Space
+# The Maths of Space
 
-To simulate light, we need to describe where things are and how they move. We use **Vectors** to do this.
+To simulate light, we must describe location and movement using **Vectors**.
 
 ## Vectors: Arrows in Space
 
-A **Vector** is simply an arrow. It has:
+A **Vector** is simply an arrow with:
 1.  **Origin**: Where it starts.
 2.  **Direction**: Which way it points.
 3.  **Magnitude**: How long it is.
@@ -17,9 +17,9 @@ In our 2D grid, a vector is often just two numbers: $(x, y)$.
 
 ### Normalisation
 
-Sometimes we only care about direction, not length. If we shrink a vector so its length is exactly $1.0$, we call it a **Unit Vector** or say it is **Normalised**.
+Sometimes we care only about direction, not length. If we shrink a vector so its length is exactly $1.0$, we call it a **Unit Vector** or say it is **Normalised**.
 
-[Normalising a vector is like keeping the direction the finger is pointing, but ignoring how long the finger is.]{.aside}
+[Normalising a vector is like noting the direction a finger points, whilst ignoring the finger's length.]{.aside}
 
 ```{ojs}
 //| echo: false
@@ -40,7 +40,7 @@ Plot.plot({
 
 ## Distance (Pythagoras)
 
-To know how far away a light source is, we use the Pythagorean Theorem:
+To determine the distance of a light source, we use the Pythagorean Theorem:
 
 $$ a^2 + b^2 = c^2 $$
 
@@ -50,4 +50,4 @@ Or in code:
 const dist = Math.sqrt(x*x + y*y);
 ```
 
-We use this in `Scene.shade` to calculate how much light falls off over distance (Inverse Square Law).
+We use this in `Scene.shade` to calculate light fall-off over distance (Inverse Square Law).

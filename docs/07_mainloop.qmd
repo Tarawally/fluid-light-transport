@@ -1,18 +1,18 @@
 # The Main Loop
 
-We have the canvas, the memory, the math, and the physics. Now we need to bring it all to life.
+We have the canvas, memory, mathematics, and physics. Now, we bring them to life.
 
 ## Animation
 
-Animation is an illusion. By changing the image on the screen 60 times every second (60 Hz), we trick the human eye into seeing motion.
+Animation is an illusion. By updating the screen 60 times per second (60 Hz), we trick the eye into seeing motion.
 
-In JavaScript, we use a special function called [`requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame). This tells the browser: "The next time you are ready to paint the screen, please call my function first."
+JavaScript provides [`requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame). This instructs the browser: "When ready to paint the screen, call my function first."
 
 [Why not `setInterval`? Because `requestAnimationFrame` pauses when you switch tabs, saving battery!]{.aside}
 
 ## System Architecture
 
-Before we look at the code, let us look at the "Big Picture". The engine runs in three distinct phases:
+Before viewing the code, let us observe the "Big Picture". The engine runs in three phases:
 
 ```{mermaid}
 graph LR
@@ -26,7 +26,7 @@ graph LR
 
 ## The Game Loop
 
-Our `mainSimulationLoop` function is the conductor of the orchestra. It runs continuously, coordinating all the parts we have discussed.
+Our `mainSimulationLoop` acts as the orchestra's conductor. It runs continuously, coordinating all discussed components.
 
 ```javascript
 function mainSimulationLoop() {
@@ -53,8 +53,10 @@ function mainSimulationLoop() {
 
 ## Conclusion
 
-We have journeyed from the humble pixel up to a complex, hybrid fluid-light transport simulation.
+We have journeyed from the humble pixel to a complex, hybrid fluid-light transport simulation.
 
-By treating light as a fluid, we can create beautiful, organic lighting effects that respond to the environment in real-time. We have optimised this by understanding how computer memory works (SoA) and by using simplified physics (Cellular Automata) instead of trying to calculate every single photon perfectly.
+By treating light as a fluid, we create beautiful, organic lighting effects that respond to the environment in real-time. We optimised this by understanding computer memory (SoA) and employing simplified physics (Cellular Automata) rather than calculating every single photon perfectly.
+
+Furthermore, our engine now monitors **Grid Sparsity**—the ratio of active light regions to empty space. This telemetry allows us to gauge efficiency and ensure we only process pixels that truly matter.
 
 This is the power of the **Hybrid Fluid-Light Transport Engine**.

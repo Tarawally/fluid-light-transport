@@ -1,10 +1,10 @@
 # The Digital Canvas
 
-Before we can paint with light, we must understand the canvas upon which we paint.
+Before painting with light, we must understand our canvas.
 
 ## The Pixel
 
-Your screen is composed of millions of tiny squares called **Pixels** (Picture Elements). Each pixel is not a single colour, but a combination of three primary lights: **Red**, **Green**, and **Blue** (RGB).
+Screens comprise millions of tiny squares called **Pixels** (Picture Elements). Each pixel is not a single colour but a blend of three primary lights: **Red**, **Green**, and **Blue** (RGB).
 
 ::: {.callout-note collapse="true"}
 ## Deep Dive: Additive Colour
@@ -17,9 +17,9 @@ Unlike mixing paint (where red + blue = purple), mixing light is **additive**.
 
 ## The Cartesian Grid
 
-In mathematics, you might be used to a graph where $(0,0)$ is in the centre, and $Y$ goes *up*. In computer graphics, we do things differently.
+In mathematics, graphs typically place $(0,0)$ in the centre with $Y$ increasing *upwards*. Computer graphics differ:
 
-*   The **Origin** $(0,0)$ is at the **Top-Left** corner of the screen.
+*   The **Origin** $(0,0)$ sits at the **Top-Left** corner.
 *   **X** increases to the **Right**.
 *   **Y** increases **Downwards**.
 
@@ -42,14 +42,14 @@ Plot.plot({
 
 ## The Canvas Element
 
-In our code, we access this grid using the HTML5 [Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API) via an element called `<canvas>`.
+We access this grid via the HTML5 [Canvas API](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API) using the `<canvas>` element.
 
 ```html
 <!-- MAIN RENDERING SURFACE -->
 <canvas id="canvas" tabindex="0"></canvas>
 ```
 
-In `src/engine.js`, we establish a connection to this element so we can draw on it later.
+In `src/engine.js`, we establish a connection to this element to draw upon it.
 
 ```javascript
 // Canvas Context configuration
@@ -60,4 +60,9 @@ const ctx = canvas.getContext('2d', {
 });
 ```
 
-The [context](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext) (`ctx`) is our tool to modify the canvas.
+The [context](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext) (`ctx`) is our tool for modifying the canvas.
+
+::: {.callout-tip}
+## Performance: Resizing
+Resizing the browser window is computationally expensive. Our engine employs a **debounce** function to ensure the grid is only recalculated once the user stops adjusting the window, preventing the simulation from freezing.
+:::

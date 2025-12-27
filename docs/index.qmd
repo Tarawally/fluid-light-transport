@@ -2,16 +2,16 @@
 
 This document provides a **Guided Technical Walkthrough** of the Hybrid Fluid-Light Transport engine.
 
-Instead of focusing on surface-level jargon, we will perform a deep dive into the underlying architecture. We will build our understanding from the first principles of digital rasterisation to the complex simulation of non-linear light transport.
+Rather than focusing on jargon, we explore the underlying architecture. We build our understanding from the first principles of digital rasterisation to the complex simulation of non-linear light transport.
 
 ## The Graphics Dichotomy
 
-In the domain of real-time computer graphics, we typically face a choice:
+In real-time computer graphics, we typically face a choice:
 
 1.  **Ray Tracing**: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.
 2.  **Rasterisation**: The standard for games; it is incredibly fast but struggles with complex "global illumination" (how light bounces around).
 
-This book explores a "third way": **Hybrid Fluid-Light Transport**. We treat light not merely as rays, but as a **fluid substance** that flows across the scene. This gives us beautiful, organic lighting at a fraction of the cost.
+This book explores a "third way": **Hybrid Fluid-Light Transport**. We treat light not merely as rays, but as a **fluid substance** that flows across the scene. This yields beautiful, organic lighting at a fraction of the cost.
 
 ## The Goal
 
@@ -32,7 +32,7 @@ By the end of this book, you will understand exactly what that means and how to 
 1.  **The Digital Canvas**: We start with the screen itself.
 2.  **The Logic**: We learn the grammar of JavaScript.
 3.  **The Memory**: We explore how computers remember things.
-4.  **The Math**: We discover how to measure space.
+4.  **The Maths**: We discover how to measure space.
 5.  **The Physics**: We simulate the behaviour of light.
 
 Let us begin our journey.

@@ -1,33 +1,33 @@
 # Memory & Data
 
-Simulating the real world requires storing a massive amount of information. Every pixel needs to know its colour, how fast light is moving through it, and whether it's part of a wall or empty air.
+Simulating reality requires storing vast amounts of information. Every pixel must know its colour, light velocity, and whether it represents a wall or empty air.
 
 ## The State
 
-We call the total sum of all this information the **State**. In our engine, the state is stored in `RAM` (Random Access Memory).
+We call the sum of this information the **State**. In our engine, state resides in `RAM` (Random Access Memory).
 
 ## Arrays: The Shelf
 
-The most efficient way to store a list of things in a computer is an **Array**. Think of an array as a long shelf where every item has a number (an index).
+The most efficient way to store a list in a computer is an **Array**. Picture an array as a long shelf where every item has a specific number (an index).
 
 ## Structure of Arrays (SoA)
 
-Typically, programmers might create an Object for every pixel:
+Programmers might typically create an Object for every pixel:
 
 ```javascript
 // Array of Structures (AoS) - SLOW
 let pixel = { red: 1.0, green: 0.5, velocityX: 0.1 };
 ```
 
-However, creating 200,000 objects is very slow for the computer to manage. Every time the computer has to find a new object in memory, it might have to look in a completely different area. This is called a **Cache Miss**, and it’s one of the biggest reasons software can be slow.
+However, managing 200,000 objects is slow. Every time the computer seeks a new object, it may look in a completely different memory location. This is a **Cache Miss**, a primary cause of software sluggishness.
 
-Instead, we use a single massive array of numbers and use **Offsets** to find what we need. This is called a **Structure of Arrays (SoA)** layout. This keeps all related data tightly packed together, which the CPU loves!
+Instead, we use a single massive array of numbers and use **Offsets** to locate data. This **Structure of Arrays (SoA)** layout keeps related data tightly packed, which the CPU prefers.
 
 ::: {.callout-note collapse="true"}
 ## Analogy: The Library Shelf
 Imagine a library.
-*   **AoS**: Books are organised by Author. If you want to find all red books, you have to walk through every aisle.
-*   **SoA**: Books are organised by Colour. All red books are on one shelf. You can grab them all instantly.
+*   **AoS**: Books are organised by Author. To find all red books, you must check every aisle.
+*   **SoA**: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.
 :::
 
 In `src/engine.js`, we define these "shelves" using the `FIELD` constant.
@@ -55,4 +55,4 @@ We allocate one giant block of memory for the entire universe:
 State.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);
 ```
 
-[`Float32Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array) is a [TypedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays) that only stores decimal numbers. It is extremely fast.
+[`Float32Array`](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array) is a [TypedArray](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays) that stores only decimal numbers. It is extremely fast.

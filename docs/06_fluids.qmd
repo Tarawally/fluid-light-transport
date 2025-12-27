@@ -1,15 +1,15 @@
 # Simulating Fluids
 
-This is the heart of the engine. Once we have injected light energy into the grid, we treat it like a fluid.
+This is the engine's heart. After injecting light energy into the grid, we treat it as a fluid.
 
 ## The Fluid Analogy
 
-*   **Light Intensity** $\approx$ **Fluid Pressure** (How much is there?)
-*   **Light Direction** $\approx$ **Fluid Velocity** (Where is it flowing?)
+*   **Light Intensity** $\approx$ **Fluid Pressure** (Quantity)
+*   **Light Direction** $\approx$ **Fluid Velocity** (Flow direction)
 
 ## Cellular Automata
 
-We use a technique called **Cellular Automata** (CA). Imagine a checkerboard where every square looks at its neighbours and decides what to do.
+We use **Cellular Automata** (CA). Imagine a checkerboard where every square observes its neighbours to determine its next state.
 
 ### 1. Advection (Movement)
 
@@ -17,7 +17,7 @@ If a pixel has velocity pointing Right, it pushes its energy to the Right neighb
 
 ### 2. Diffusion (Spreading)
 
-Even without velocity, energy tends to spread out. This creates soft shadows and ambient occlusion.
+Even without velocity, energy spreads. This creates soft shadows and ambient occlusion.
 
 ## Interactive Simulation
 
@@ -117,9 +117,9 @@ Inputs.table(data, { rows: 15 })
 
 ## Surface Continuity Check
 
-In a 2D grid, light might accidentally "bleed" from a foreground object onto a background object. To prevent this, we perform a **Surface Continuity Check**.
+In a 2D grid, light might accidentally "bleed" from a foreground object onto a background one. We prevent this with a **Surface Continuity Check**.
 
-We look at the **Depth** (distance from the camera) of the two pixels. If the difference is large, it means they are part of different objects, and we stop the light from flowing between them.
+We examine the **Depth** (distance from the camera) of two pixels. A large difference implies distinct objects, so we block the flow of light between them.
 
 ```javascript
 /* src/engine.js */
