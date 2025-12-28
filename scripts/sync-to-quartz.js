@@ -78,7 +78,7 @@ function processContent(content, filename) {
 
   if (hasOJS) {
     const htmlFilename = filename.replace('.qmd', '.html');
-    const iframeUrl = `/static/fluid-book/${htmlFilename}`;
+    const iframeUrl = `/digital-garden/static/fluid-book/${htmlFilename}?embedded=true`;
     
     // Return a page that embeds the full Quarto notebook
     return `--- 

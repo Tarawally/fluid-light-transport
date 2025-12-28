@@ -1,4 +1,3 @@
-<script>
 (function() {
   function applyTheme(theme) {
     if (theme === 'dark') {
@@ -35,4 +34,3 @@
   const observer = new ResizeObserver(reportHeight);
   observer.observe(document.body);
 })();
-</script>
