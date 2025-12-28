@@ -32,3 +32,4 @@ format:
     number-sections: false
     code-annotations: hover
     page-layout: full
+    include-after-body: theme-sync.js

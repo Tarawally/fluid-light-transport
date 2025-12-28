@@ -1,0 +1,15 @@
+name: Notify Digital Garden
+on:
+  push:
+    paths:
+      - "docs/**"
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Repository Dispatch
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GARDEN_DISPATCH_TOKEN }}
+          repository: Tarawally/digital-garden
+          event-type: docs_updated
