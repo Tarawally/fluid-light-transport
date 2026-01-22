@@ -73,7 +73,19 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
+  SCENE_URL: 'assets/scene.json',
 };
+
+// Expose CONFIG to window for OJS interaction
+if (typeof window !== 'undefined') {
+  // Determine the default scene URL based on current path
+  const isSubfolder = window.location.pathname.includes('/src/');
+  const defaultSceneUrl = isSubfolder ? '../assets/scene.json' : 'assets/scene.json';
+  
+  window.CONFIG = Object.assign({
+    SCENE_URL: defaultSceneUrl
+  }, CONFIG, window.CONFIG || {});
+}
 
 /**
  * Memory layout offsets for the Structure of Arrays (SoA).
@@ -1055,7 +1067,7 @@ async function initialiseEngine() {
     }
 
     // UPDATED: fetching from assets folder
-    const response = await fetch('assets/scene.json');
+    const response = await fetch(window.CONFIG.SCENE_URL);
 
     if (!response.ok) {
       throw new Error(`HTTP Error: ${response.status}`);
@@ -1079,6 +1091,8 @@ async function initialiseEngine() {
       bootSystem();
       requestAnimationFrame(mainSimulationLoop);
     }, 100);
+    // 5. Connect UI Controls
+    setupUIControlListeners();
   } catch (error) {
     console.error('Data Flow Interruption:', error);
     if (uiStatus) {
@@ -1086,6 +1100,34 @@ async function initialiseEngine() {
       uiStatus.style.color = '#dc3545'; // Red
     }
   }
+}
+
+/**
+ * Connects HTML sliders to the engine configuration.
+ */
+function setupUIControlListeners() {
+  const sliders = {
+    DISSIPATION: document.getElementById('dissipationSlider'),
+    ADVECTION_STRENGTH: document.getElementById('advectionSlider'),
+    MOMENTUM_DECAY: document.getElementById('decaySlider'),
+  };
+
+  Object.entries(sliders).forEach(([key, el]) => {
+    if (!el) return;
+
+    // Initialize slider value from current CONFIG
+    el.value = CONFIG[key];
+
+    // Sync CONFIG on change
+    el.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      CONFIG[key] = val;
+      // Also update window.CONFIG for external tools/OJS if still active
+      if (typeof window !== 'undefined' && window.CONFIG) {
+        window.CONFIG[key] = val;
+      }
+    });
+  });
 }
 
 // Begin Data Flow

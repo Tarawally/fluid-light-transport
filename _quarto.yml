@@ -10,8 +10,10 @@ website:
   favicon: assets/favicon.ico
   navbar:
     left:
-      - text: "Simulation"
+      - text: "Home"
         href: index.qmd
+      - text: "Scene"
+        href: app.qmd
       - text: "Documentation"
         href: docs/index.qmd
       - text: "Tutorial"
@@ -53,7 +55,7 @@ format:
     css: src/style.css
     toc: true
     code-copy: true
-    code-annotations: true
+    code-annotations: hover
     anchor-sections: true
     smooth-scroll: true
   # pdf:
