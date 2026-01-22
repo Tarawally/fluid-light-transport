@@ -15,10 +15,14 @@ html, body {
     Helvetica, Arial, sans-serif;
 }
 
-canvas {
+canvas#canvas {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: 100vw;
+  height: calc(100vh - 56px); /* Subtract approx Quarto navbar height */
+  margin-top: 56px;           /* Push down below navbar */
+  position: fixed;
+  top: 0;
+  left: 0;
   image-rendering: pixelated;
   image-rendering: crisp-edges;
   object-fit: fill;
@@ -27,7 +31,7 @@ canvas {
 
 #ui {
   position: absolute;
-  top: 20px;
+  top: 76px; /* 56px navbar + 20px buffer */
   left: 20px;
   width: 280px;
   background: rgba(255, 255, 255, 0.9);

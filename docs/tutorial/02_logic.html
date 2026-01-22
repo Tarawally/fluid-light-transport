@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>Hybrid Light Transport Engine – Fluid Light Transport</title>
+<title>logic – Fluid Light Transport</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -20,32 +20,67 @@ ul.task-list li input[type="checkbox"] {
   margin: 0 0.8em 0.2em -1em; /* quarto-specific, see https://github.com/quarto-dev/quarto-cli/issues/4556 */ 
   vertical-align: middle;
 }
+/* CSS for syntax highlighting */
+html { -webkit-text-size-adjust: 100%; }
+pre > code.sourceCode { white-space: pre; position: relative; }
+pre > code.sourceCode > span { display: inline-block; line-height: 1.25; }
+pre > code.sourceCode > span:empty { height: 1.2em; }
+.sourceCode { overflow: visible; }
+code.sourceCode > span { color: inherit; text-decoration: inherit; }
+div.sourceCode { margin: 1em 0; }
+pre.sourceCode { margin: 0; }
+@media screen {
+div.sourceCode { overflow: auto; }
+}
+@media print {
+pre > code.sourceCode { white-space: pre-wrap; }
+pre > code.sourceCode > span { text-indent: -5em; padding-left: 5em; }
+}
+pre.numberSource code
+  { counter-reset: source-line 0; }
+pre.numberSource code > span
+  { position: relative; left: -4em; counter-increment: source-line; }
+pre.numberSource code > span > a:first-child::before
+  { content: counter(source-line);
+    position: relative; left: -1em; text-align: right; vertical-align: baseline;
+    border: none; display: inline-block;
+    -webkit-touch-callout: none; -webkit-user-select: none;
+    -khtml-user-select: none; -moz-user-select: none;
+    -ms-user-select: none; user-select: none;
+    padding: 0 4px; width: 4em;
+  }
+pre.numberSource { margin-left: 3em;  padding-left: 4px; }
+div.sourceCode
+  {   }
+@media screen {
+pre > code.sourceCode > span > a:first-child::before { text-decoration: underline; }
+}
 </style>
 
 
-<script src="site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="site_libs/quarto-nav/headroom.min.js"></script>
-<script src="site_libs/clipboard/clipboard.min.js"></script>
-<script src="site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="site_libs/quarto-search/fuse.min.js"></script>
-<script src="site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="./">
-<link href="./assets/favicon.ico" rel="icon">
-<script src="site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="site_libs/quarto-html/popper.min.js"></script>
-<script src="site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="site_libs/quarto-html/anchor.min.js"></script>
-<link href="site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-dark-b758ccaa5987ceb1b75504551e579abf.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
-<script src="site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="site_libs/bootstrap/bootstrap-dark-4e9322a4d74dc49a65634a73bbd5d706.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../../">
+<link href="../../assets/favicon.ico" rel="icon">
+<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../../site_libs/quarto-html/popper.min.js"></script>
+<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-b758ccaa5987ceb1b75504551e579abf.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../../site_libs/bootstrap/bootstrap-dark-4e9322a4d74dc49a65634a73bbd5d706.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": true,
@@ -75,11 +110,10 @@ ul.task-list li input[type="checkbox"] {
 <style>html{ scroll-behavior: smooth; }</style>
 
 
-<link rel="stylesheet" href="docs/style.css">
-<link rel="stylesheet" href="src/style.css">
+<link rel="stylesheet" href="../../docs/style.css">
 </head>
 
-<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+<body class="nav-sidebar floating nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
     const toggleBodyColorMode = (bsSheetEl) => {
       const mode = bsSheetEl.getAttribute("data-mode");
       const bodyEl = window.document.querySelector("body");
@@ -248,7 +282,7 @@ ul.task-list li input[type="checkbox"] {
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="./index.html">
+    <a class="navbar-brand" href="../../index.html">
     <span class="navbar-title">Fluid Light Transport</span>
     </a>
   </div>
@@ -259,19 +293,19 @@ ul.task-list li input[type="checkbox"] {
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link active" href="./index.html" aria-current="page"> 
+    <a class="nav-link" href="../../index.html"> 
 <span class="menu-text">Simulation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./docs/index.html"> 
+    <a class="nav-link" href="../../docs/index.html"> 
 <span class="menu-text">Documentation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./docs/tutorial/01_canvas.html"> 
+    <a class="nav-link active" href="../../docs/tutorial/01_canvas.html" aria-current="page"> 
 <span class="menu-text">Tutorial</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="./docs/reference/api.html"> 
+    <a class="nav-link" href="../../docs/reference/api.html"> 
 <span class="menu-text">API Reference</span></a>
   </li>  
 </ul>
@@ -288,85 +322,182 @@ ul.task-list li input[type="checkbox"] {
 </div>
       </div> <!-- /container-fluid -->
     </nav>
+  <nav class="quarto-secondary-nav">
+    <div class="container-fluid d-flex">
+      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
+        <i class="bi bi-layout-text-sidebar-reverse"></i>
+      </button>
+        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../docs/tutorial/02_logic.html">The Language of Logic</a></li></ol></nav>
+        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
+        </a>
+    </div>
+  </nav>
 </header>
 <!-- content -->
-<div id="quarto-content" class="quarto-container page-layout-custom page-navbar">
+<div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
+  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
+    <div class="sidebar-menu-container"> 
+    <ul class="list-unstyled mt-1">
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/01_canvas.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">The Digital Canvas</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/02_logic.html" class="sidebar-item-text sidebar-link active">
+ <span class="menu-text">The Language of Logic</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/03_memory.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Memory &amp; Data</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/04_math.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">The Maths of Space</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/05_raytracing.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Casting Rays</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/06_fluids.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">Simulating Fluids</span></a>
+  </div>
+</li>
+        <li class="sidebar-item">
+  <div class="sidebar-item-container"> 
+  <a href="../../docs/tutorial/07_mainloop.html" class="sidebar-item-text sidebar-link">
+ <span class="menu-text">The Main Loop</span></a>
+  </div>
+</li>
+    </ul>
+    </div>
+</nav>
+<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
+    <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
+        <nav id="TOC" role="doc-toc" class="toc-active">
+    <h2 id="toc-title">On this page</h2>
+   
+  <ul>
+  <li><a href="#the-language-of-logic" id="toc-the-language-of-logic" class="nav-link active" data-scroll-target="#the-language-of-logic">The Language of Logic</a>
+  <ul class="collapse">
+  <li><a href="#variables-the-boxes-of-memory" id="toc-variables-the-boxes-of-memory" class="nav-link" data-scroll-target="#variables-the-boxes-of-memory">Variables: The Boxes of Memory</a></li>
+  <li><a href="#functions-the-recipes" id="toc-functions-the-recipes" class="nav-link" data-scroll-target="#functions-the-recipes">Functions: The Recipes</a></li>
+  <li><a href="#loops" id="toc-loops" class="nav-link" data-scroll-target="#loops">Loops: Repetition</a></li>
+  </ul></li>
+  </ul>
+</nav>
+    </div>
 <!-- main -->
+<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
 
 
 
 
 
-<div class="simulation-wrapper">
-<pre><code>&lt;!-- USER INTERFACE OVERLAY --&gt;
-&lt;div id="ui"&gt;
-  &lt;div class="header"&gt;
-    &lt;span&gt;SIMULATION STATUS&lt;/span&gt;
-    &lt;span id="statusIndicator"&gt;● INITIALISING&lt;/span&gt;
-  &lt;/div&gt;
+<section id="the-language-of-logic" class="level1">
+<h1>The Language of Logic</h1>
+<p>To control pixels, we must speak the computer’s language. Here, that language is <strong>JavaScript</strong>.</p>
+<section id="variables-the-boxes-of-memory" class="level2">
+<h2 class="anchored" data-anchor-id="variables-the-boxes-of-memory">Variables: The Boxes of Memory</h2>
+<p>Imagine a warehouse of empty boxes. We can label a box and store items inside. In programming, we call this a <strong>Variable</strong>.</p>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const"><code>const</code></a>: A box whose contents <strong>cannot</strong> be changed (Constant).</li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let"><code>let</code></a>: A box whose contents <strong>can</strong> be changed.</li>
+</ul>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="st">"use strict"</span><span class="op">;</span> <span class="co">/* Enforce stricter parsing and error handling */</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co">/* Configuration constants for the simulation. */</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> CONFIG <span class="op">=</span> {</span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a>  <span class="dt">TILE_SIZE</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span>      <span class="co">// We process pixels in 4x4 blocks</span></span>
+<span id="cb1-6"><a href="#cb1-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">DISSIPATION</span><span class="op">:</span> <span class="fl">0.97</span><span class="op">,</span> <span class="co">// Energy lost per tick</span></span>
+<span id="cb1-7"><a href="#cb1-7" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
+<span id="cb1-8"><a href="#cb1-8" aria-hidden="true" tabindex="-1"></a></span>
+<span id="cb1-9"><a href="#cb1-9" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> TOTAL_PIXELS <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> <span class="co">// This updates when the window resizes</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+</section>
+<section id="functions-the-recipes" class="level2">
+<h2 class="anchored" data-anchor-id="functions-the-recipes">Functions: The Recipes</h2>
+<p>A <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function"><code>function</code></a> is a bundle of instructions. Like a recipe, you give it a name and “call” it to execute those instructions.</p>
+<p>Our engine uses <code>bootSystem</code> to initialise the environment.</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="annotated-cell-2"><pre class="sourceCode javascript code-annotation-code code-with-copy code-annotated"><code class="sourceCode javascript"><span id="annotated-cell-2-1"><a href="#annotated-cell-2-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="annotated-cell-2-2"><a href="#annotated-cell-2-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * Allocates memory and sets grid dimensions based on the current window size.</span></span>
+<span id="annotated-cell-2-3"><a href="#annotated-cell-2-3" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
+<span id="annotated-cell-2-4"><a href="#annotated-cell-2-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">bootSystem</span>() {</span>
+<span id="annotated-cell-2-5"><a href="#annotated-cell-2-5" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 1. Calculate internal resolution</span></span>
+<a class="code-annotation-anchor" data-target-cell="annotated-cell-2" data-target-annotation="1" onclick="event.preventDefault();">1</a><span id="annotated-cell-2-6" class="code-annotation-target"><a href="#annotated-cell-2-6" aria-hidden="true" tabindex="-1"></a>  RESOLUTION<span class="op">.</span><span class="at">W</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">ceil</span>(<span class="bu">window</span><span class="op">.</span><span class="at">innerWidth</span> <span class="op">/</span> CONFIG<span class="op">.</span><span class="at">DOWNSAMPLE</span>)<span class="op">;</span></span>
+<span id="annotated-cell-2-7"><a href="#annotated-cell-2-7" aria-hidden="true" tabindex="-1"></a>  RESOLUTION<span class="op">.</span><span class="at">H</span> <span class="op">=</span> <span class="bu">Math</span><span class="op">.</span><span class="fu">ceil</span>(<span class="bu">window</span><span class="op">.</span><span class="at">innerHeight</span> <span class="op">/</span> CONFIG<span class="op">.</span><span class="at">DOWNSAMPLE</span>)<span class="op">;</span></span>
+<span id="annotated-cell-2-8"><a href="#annotated-cell-2-8" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="annotated-cell-2-9"><a href="#annotated-cell-2-9" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 2. Initialise buffers</span></span>
+<a class="code-annotation-anchor" data-target-cell="annotated-cell-2" data-target-annotation="2" onclick="event.preventDefault();">2</a><span id="annotated-cell-2-10" class="code-annotation-target"><a href="#annotated-cell-2-10" aria-hidden="true" tabindex="-1"></a>  GRID <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(RESOLUTION<span class="op">.</span><span class="at">W</span> <span class="op">*</span> RESOLUTION<span class="op">.</span><span class="at">H</span> <span class="op">*</span> TILE_TYPES)<span class="op">;</span></span>
+<span id="annotated-cell-2-11"><a href="#annotated-cell-2-11" aria-hidden="true" tabindex="-1"></a>  </span>
+<span id="annotated-cell-2-12"><a href="#annotated-cell-2-12" aria-hidden="true" tabindex="-1"></a>  <span class="co">// 3. Inform the UI</span></span>
+<a class="code-annotation-anchor" data-target-cell="annotated-cell-2" data-target-annotation="3" onclick="event.preventDefault();">3</a><span id="annotated-cell-2-13" class="code-annotation-target"><a href="#annotated-cell-2-13" aria-hidden="true" tabindex="-1"></a>  UI<span class="op">.</span><span class="fu">updateResolutionDisplay</span>(RESOLUTION<span class="op">.</span><span class="at">W</span><span class="op">,</span> RESOLUTION<span class="op">.</span><span class="at">H</span>)<span class="op">;</span></span>
+<span id="annotated-cell-2-14"><a href="#annotated-cell-2-14" aria-hidden="true" tabindex="-1"></a>}</span><div class="code-annotation-gutter-bg"></div><div class="code-annotation-gutter"></div></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<dl class="code-annotation-container-grid">
+<dt data-target-cell="annotated-cell-2" data-target-annotation="1">1</dt>
+<dd>
+<span data-code-cell="annotated-cell-2" data-code-lines="6,7" data-code-annotation="1">Calculate grid dimensions by dividing window size by a downsampling factor.</span>
+</dd>
+<dt data-target-cell="annotated-cell-2" data-target-annotation="2">2</dt>
+<dd>
+<span data-code-cell="annotated-cell-2" data-code-lines="10" data-code-annotation="2">Allocate a flat array in memory to hold pixel data.</span>
+</dd>
+<dt data-target-cell="annotated-cell-2" data-target-annotation="3">3</dt>
+<dd>
+<span data-code-cell="annotated-cell-2" data-code-lines="13" data-code-annotation="3">Update the on-screen display with the new coordinates.</span>
+</dd>
+</dl>
+</section>
+<section id="loops" class="level2">
+<h2 class="anchored" data-anchor-id="loops">Loops: Repetition</h2>
+<p>Computers excel at repetition. We use a <strong>Loop</strong> to repeat instructions for thousands of pixels at once.</p>
+<p>The common <code>for</code> loop states: “Start here, continue whilst this is true, and perform this action after each step.”</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="annotated-cell-3"><pre class="sourceCode javascript code-annotation-code code-with-copy code-annotated"><code class="sourceCode javascript"><span id="annotated-cell-3-1"><a href="#annotated-cell-3-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="annotated-cell-3-2"><a href="#annotated-cell-3-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * Zeroes out the entire light transport grid.</span></span>
+<span id="annotated-cell-3-3"><a href="#annotated-cell-3-3" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
+<span id="annotated-cell-3-4"><a href="#annotated-cell-3-4" aria-hidden="true" tabindex="-1"></a><span class="kw">function</span> <span class="fu">ClearGrid</span>() {</span>
+<a class="code-annotation-anchor" data-target-cell="annotated-cell-3" data-target-annotation="1" onclick="event.preventDefault();">1</a><span id="annotated-cell-3-5" class="code-annotation-target"><a href="#annotated-cell-3-5" aria-hidden="true" tabindex="-1"></a>  <span class="cf">for</span> (<span class="kw">let</span> i <span class="op">=</span> <span class="dv">0</span><span class="op">;</span> i <span class="op">&lt;</span> GRID<span class="op">.</span><span class="at">length</span><span class="op">;</span> i<span class="op">++</span>) {</span>
+<a class="code-annotation-anchor" data-target-cell="annotated-cell-3" data-target-annotation="2" onclick="event.preventDefault();">2</a><span id="annotated-cell-3-6" class="code-annotation-target"><a href="#annotated-cell-3-6" aria-hidden="true" tabindex="-1"></a>    GRID[i] <span class="op">=</span> <span class="fl">0.0</span><span class="op">;</span></span>
+<span id="annotated-cell-3-7"><a href="#annotated-cell-3-7" aria-hidden="true" tabindex="-1"></a>  }</span>
+<span id="annotated-cell-3-8"><a href="#annotated-cell-3-8" aria-hidden="true" tabindex="-1"></a>}</span><div class="code-annotation-gutter-bg"></div><div class="code-annotation-gutter"></div></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<dl class="code-annotation-container-grid">
+<dt data-target-cell="annotated-cell-3" data-target-annotation="1">1</dt>
+<dd>
+<span data-code-cell="annotated-cell-3" data-code-lines="5" data-code-annotation="1">Iterate from index <code>0</code> up to the total length of the array.</span>
+</dd>
+<dt data-target-cell="annotated-cell-3" data-target-annotation="2">2</dt>
+<dd>
+<span data-code-cell="annotated-cell-3" data-code-lines="6" data-code-annotation="2">Set every single value to zero, effectively “turning off the lights.” for (let x = 0; x &lt; width; x++) { // Process pixel at ‘x’ }</span>
+</dd>
+</dl>
+<pre><code>
+## Conditionals: Making Decisions
 
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Renderer:&lt;/span&gt;
-    &lt;span class="value"&gt;Hybrid Ray-Trace/CA&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Internal Grid:&lt;/span&gt;
-    &lt;span class="value" id="resDisplay"&gt;Loading...&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;View Mode:&lt;/span&gt;
-    &lt;span class="value" id="viewModeDisplay"&gt;Composite Output&lt;/span&gt;
-  &lt;/div&gt;
+We often adapt behaviour based on the situation using `if` statements.
 
-  &lt;div class="section-divider"&gt;Performance Telemetry&lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Frame Rate:&lt;/span&gt;
-    &lt;span class="value" id="fps"&gt;0 FPS&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Compute Time:&lt;/span&gt;
-    &lt;span class="value" id="physTime"&gt;0.0ms&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="perf-track"&gt;
-    &lt;div id="loadBar" class="perf-bar"&gt;&lt;/div&gt;
-  &lt;/div&gt;
-
-  &lt;div class="stat-row" style="margin-top: 10px;"&gt;
-    &lt;span class="label"&gt;Data Source:&lt;/span&gt;
-    &lt;span class="value"&gt;assets/scene.json&lt;/span&gt;
-  &lt;/div&gt;
-
-  &lt;div class="section-divider"&gt;Optimisation Metrics&lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Active Regions:&lt;/span&gt;
-    &lt;span class="value" id="activeBlocks"&gt;0&lt;/span&gt;
-  &lt;/div&gt;
-  &lt;div class="stat-row"&gt;
-    &lt;span class="label"&gt;Grid Sparsity:&lt;/span&gt;
-    &lt;span class="value" id="budget"&gt;0%&lt;/span&gt;
-  &lt;/div&gt;
-
-  &lt;div class="controls-hint"&gt;
-    &lt;strong&gt;CONTROLS:&lt;/strong&gt;&lt;br /&gt;
-    &lt;span class="key"&gt;WASD&lt;/span&gt; Movement &amp;nbsp;
-    &lt;span class="key"&gt;ARROWS&lt;/span&gt; Look&lt;br /&gt;
-    &lt;span class="key"&gt;L-CLICK&lt;/span&gt; Rotate &amp;nbsp;
-    &lt;span class="key"&gt;R-CLICK&lt;/span&gt; Move Light&lt;br /&gt;
-    &lt;span class="key"&gt;SPACE&lt;/span&gt; Cycle Visualisation Modes
-  &lt;/div&gt;
-&lt;/div&gt;
-
-&lt;!-- MAIN RENDERING SURFACE --&gt;
-&lt;canvas id="canvas" tabindex="0"&gt;&lt;/canvas&gt;</code></pre>
-</div>
-<script src="theme-sync.js"></script>
-<script src="src/engine.js"></script>
+```javascript
+if (energy &lt; 0.001) {
+    // If energy is negligible, stop processing to conserve battery
+    continue;
+}</code></pre>
 
 
+</section>
+</section>
 
-
+</main> <!-- /main -->
 <script id="quarto-html-after-body" type="application/javascript">
   window.document.addEventListener("DOMContentLoaded", function (event) {
     // Ensure there is a toggle, if there isn't float one in the top right
@@ -785,5 +916,5 @@ ul.task-list li input[type="checkbox"] {
 
 
 
-<script src="site_libs/quarto-html/zenscroll-min.js"></script>
+<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
 </body></html>

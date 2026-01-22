@@ -3,6 +3,7 @@ project:
   output-dir: _site
   pre-render: node docs/scripts/build-api.js
   render:
+    - index.qmd
     - docs/
     - "*.md"
 
@@ -13,10 +14,10 @@ website:
   favicon: assets/favicon.ico
   navbar:
     left:
-      - text: "Home"
+      - text: "Simulation"
+        href: index.qmd
+      - text: "Documentation"
         href: docs/index.qmd
-      - text: "App"
-        href: index.html
       - text: "Tutorial"
         href: docs/tutorial/01_canvas.qmd
       - text: "API Reference"
@@ -65,7 +66,6 @@ format:
   #   number-sections: true
   #   colorlinks: true
 resources:
-  - index.html
   - theme-sync.js
   - src/
   - assets/
