@@ -1,0 +1,72 @@
+# Performance Benchmarking {#sec-performance}
+
+This page allows you to evaluate how the Hybrid Fluid-Light Transport engine performs on your specific hardware.
+
+## Real-time Metrics
+
+The simulation below runs a standardized "Stress Test" to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.
+
+<iframe 
+  src="../../app.html" 
+  style="width: 100%; height: 60vh; border: 1px solid #eee; border-radius: 8px;"
+  title="Performance Benchmark">
+</iframe>
+
+## Understanding the Bottlenecks
+
+Treatment of light as a fluid is computationally demanding. Unlike standard GPU-based shaders, our engine currently runs entirely on the **CPU** within the JavaScript main thread.
+
+### The Stages of Execution
+
+```{mermaid}
+graph TD
+    A[Input Handling] --> B[Ray Tracing]
+    B --> C[Advection Stage]
+    C --> D[Diffusion Stage]
+    D --> E[Rendering Stage]
+    
+    style B fill:#f9f,stroke:#333
+    style C fill:#bbf,stroke:#333
+    style D fill:#bbf,stroke:#333
+```
+
+1.  **Ray Tracing**: Calculates where light enters the system. Scaling is $O(\text{Ray Count} \times \text{Resolution})$.
+2.  **Fluid Stages**: Moves energy across the grid. Scaling is $O(\text{Grid Width} \times \text{Grid Height})$.
+
+## Interactive Performance Sandbox
+
+Adjust the parameters below to see their theoretical impact on your frame budget (16.6ms for 60 FPS).
+
+```{ojs}
+//| echo: false
+viewof res = Inputs.select([
+  {label: "Low (160x90)", value: 14400},
+  {label: "Medium (320x180)", value: 57600},
+  {label: "High (640x360)", value: 230400}
+], {label: "Grid Resolution"})
+
+viewof rays = Inputs.range([8, 128], {value: 64, step: 8, label: "Rays per Frame"})
+
+msPerPixel = 0.00007 // Estimated CPU time per pixel advection/diffusion
+msPerRay = 0.05      // Estimated CPU time per ray cast
+
+totalTime = (res * msPerPixel) + (rays * msPerRay)
+fps = Math.min(60, 1000 / totalTime)
+
+md`
+### Predicted Frame Time: **${totalTime.toFixed(2)}ms**
+### Predicted FPS: **${fps.toFixed(1)}**
+
+${totalTime > 16.6 ? 
+    "⚠️ **Performance Warning**: This configuration exceeds the 16.6ms budget. Expect stuttering." : 
+    "✅ **Optimal**: This should run smoothly at 60 FPS."}
+`
+```
+
+## Potential Optimizations
+
+To improve performance in future versions, we are exploring:
+
+- **Web Workers**: Moving the Diffusion and Advection loops to background threads.
+- **SIMD (Single Instruction, Multiple Data)**: Using `Float32Array` with vectorized operations via WebAssembly.
+- **GPU Acceleration**: Ports of the CA logic to WebGL/WebGPU compute shaders.

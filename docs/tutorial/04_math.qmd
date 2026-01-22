@@ -17,7 +17,7 @@ In our 2D grid, a vector is often just two numbers: $(x, y)$.
 
 ::: {.callout-tip}
 ## API Reference
-See the complete vector implementation in [API Reference → Vec2](99_api_reference.qmd#vec2).
+See the complete vector implementation in [API Reference → Vec2](../reference/api.qmd#vec2).
 :::
 
 ### Normalisation
@@ -83,7 +83,7 @@ graph LR
 
 ::: {.callout-note}
 ## Implementation Details
-- **Vector addition**: Combines positions or velocities ([API Reference](99_api_reference.qmd#vec2))
+- **Vector addition**: Combines positions or velocities ([API Reference](../reference/api.qmd#vec2))
 - **Dot product**: Measures alignment between directions
 - **Normalisation**: Used in ray direction calculations
 :::

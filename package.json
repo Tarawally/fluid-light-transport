@@ -3,9 +3,11 @@
   "version": "1.0.0",
   "description": "Hybrid Fluid-Light Transport Engine",
   "scripts": {
-    "docs:api": "jsdoc2md src/engine.js > docs/api-reference-generated.md",
-    "docs:build": "npm run docs:api && cd docs && quarto render",
-    "docs:preview": "npm run docs:api && cd docs && quarto preview"
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs:api": "node docs/scripts/build-api.js",
+    "docs:build": "quarto render",
+    "docs:preview": "quarto preview"
   },
   "repository": {
     "type": "git",
@@ -14,6 +16,7 @@
   "author": "Samuel Tarawally",
   "license": "MIT",
   "devDependencies": {
-    "jsdoc-to-markdown": "^8.0.0"
+    "jsdoc-to-markdown": "^8.0.3",
+    "vitest": "^1.2.0"
   }
 }

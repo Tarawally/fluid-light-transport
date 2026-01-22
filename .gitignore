@@ -66,3 +66,6 @@ build/
 out/
 bin/
 obj/
+
+/.quarto/
+**/*.quarto_ipynb

@@ -25,13 +25,15 @@ jobs:
         
       - uses: quarto-dev/quarto-actions/setup@v2
         
+      - name: Run Unit Tests
+        run: npm test
+        
       - name: Render Quarto site (auto-generates JSDoc)
         run: |
-          cd docs
           quarto render
           
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_site
+          publish_dir: ./_site

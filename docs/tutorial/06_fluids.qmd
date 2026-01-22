@@ -31,6 +31,33 @@ graph TD
 
 Each cell updates based on its 4 or 8 neighbours, creating emergent behaviour from simple rules.
 
+### Interactive Diffusion Simulation
+
+Adjust the "Centre Brightness" to see how energy spreads to the 4 adjacent neighbours.
+
+```{ojs}
+//| echo: false
+viewof centerVal = Inputs.range([0, 100], {value: 100, step: 1, label: "Centre Brightness"})
+viewof diffusionRate = Inputs.range([0, 1], {value: 0.25, step: 0.05, label: "Diffusion Rate"})
+
+neighborVal = (centerVal * diffusionRate) / 4
+centerRemaining = centerVal - (centerVal * diffusionRate)
+
+html`<div style="display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;">
+  <div></div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div></div>
+  
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div style="background: rgba(255, 255, 0, ${centerRemaining/100}); border: 2px solid #333; padding: 10px; font-weight: bold;">${centerRemaining.toFixed(1)}</div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  
+  <div></div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div></div>
+</div>`
+```
+
 ### 1. Advection (Movement) {#advection}
 
 If a pixel has velocity pointing Right, it pushes its energy to the Right neighbour.
@@ -156,9 +183,9 @@ function tileDiffusion() {
 
 ::: {.callout-tip}
 ## API Reference
-- [Complete diffusion implementation](99_api_reference.qmd#diffuse)
-- [Tile-based optimisation](99_api_reference.qmd#tile-system)
-- [Active region tracking](99_api_reference.qmd#bitmask)
+- [Complete diffusion implementation](../reference/api.qmd#diffuse)
+- [Tile-based optimisation](../reference/api.qmd#tile-system)
+- [Active region tracking](../reference/api.qmd#bitmask)
 :::
 
 ## Interactive Simulation

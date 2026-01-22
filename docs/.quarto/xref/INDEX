@@ -43,5 +43,35 @@
   },
   "08_troubleshooting.qmd": {
     "08_troubleshooting.html": "386899c1"
+  },
+  "tutorial/01_canvas.qmd": {
+    "01_canvas.html": "11764f1b"
+  },
+  "tutorial/02_logic.qmd": {
+    "02_logic.html": "fcbe2bd9"
+  },
+  "tutorial/03_memory.qmd": {
+    "03_memory.html": "277dc8ee"
+  },
+  "tutorial/04_math.qmd": {
+    "04_math.html": "41e78ade"
+  },
+  "tutorial/05_raytracing.qmd": {
+    "05_raytracing.html": "464219a1"
+  },
+  "tutorial/06_fluids.qmd": {
+    "06_fluids.html": "7e492e4f"
+  },
+  "tutorial/07_mainloop.qmd": {
+    "07_mainloop.html": "1435ad15"
+  },
+  "reference/troubleshooting.qmd": {
+    "troubleshooting.html": "b3f5760c"
+  },
+  "reference/references.qmd": {
+    "references.html": "0f9d8d6c"
+  },
+  "reference/api.qmd": {
+    "api.html": "cff02ea0"
   }
 }

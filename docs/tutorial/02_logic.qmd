@@ -34,20 +34,39 @@ Our engine uses `bootSystem` to initialise the environment.
 function bootSystem() {
   // 1. Calculate internal resolution
   RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE); // <1>
-  // ... more instructions ...
+  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE); // <1>
+  
+  // 2. Initialise buffers
+  GRID = new Float32Array(RESOLUTION.W * RESOLUTION.H * TILE_TYPES); // <2>
+  
+  // 3. Inform the UI
+  UI.updateResolutionDisplay(RESOLUTION.W, RESOLUTION.H); // <3>
 }
 ```
 
-1.  `Math.ceil` rounds the number up to the nearest integer. We cannot have half a pixel!
+1.  Calculate grid dimensions by dividing window size by a downsampling factor.
+2.  Allocate a flat array in memory to hold pixel data.
+3.  Update the on-screen display with the new coordinates.
 
-## Loops: Repetition
+## Loops: Repetition {#loops}
 
-Computers excel at repetition. We use a **Loop** to repeat instructions.
+Computers excel at repetition. We use a **Loop** to repeat instructions for thousands of pixels at once.
 
 The common `for` loop states: "Start here, continue whilst this is true, and perform this action after each step."
 
 ```javascript
-// Iterate over every pixel in a row
+/**
+ * Zeroes out the entire light transport grid.
+ */
+function ClearGrid() {
+  for (let i = 0; i < GRID.length; i++) { // <1>
+    GRID[i] = 0.0; // <2>
+  }
+}
+```
+
+1.  Iterate from index `0` up to the total length of the array.
+2.  Set every single value to zero, effectively "turning off the lights."
 for (let x = 0; x < width; x++) {
     // Process pixel at 'x'
 }

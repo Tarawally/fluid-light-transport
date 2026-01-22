@@ -109,7 +109,7 @@ trace: function(ro, rd) {
 
 ::: {.callout-tip}
 ## API Reference
-See the complete implementation in [API Reference → Scene.trace](99_api_reference.qmd#scene-trace).
+See the complete implementation in [API Reference → Scene.trace](../reference/api.qmd#scene-trace).
 :::
 
 ## Ray Marching Visualization {#ray-marching}

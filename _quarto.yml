@@ -1,0 +1,69 @@
+project:
+  type: website
+  output-dir: _site
+  pre-render: node docs/scripts/build-api.js
+  render:
+    - index.qmd
+    - docs/tutorial/
+    - docs/reference/
+
+website:
+  title: "Fluid Light Transport"
+  description: "A guided technical walkthrough of a hybrid fluid-light simulation engine."
+  favicon: assets/favicon.ico
+  navbar:
+    left:
+      - text: "Home"
+        href: index.qmd
+      - text: "Tutorial"
+        href: docs/tutorial/01_canvas.qmd
+      - text: "API Reference"
+        href: docs/reference/api.qmd
+    right:
+      - icon: github
+        href: https://github.com/Tarawally/fluid-light-transport
+        aria-label: GitHub
+  sidebar:
+    - title: "Tutorial"
+      contents:
+        - docs/tutorial/01_canvas.qmd
+        - docs/tutorial/02_logic.qmd
+        - docs/tutorial/03_memory.qmd
+        - docs/tutorial/04_math.qmd
+        - docs/tutorial/05_raytracing.qmd
+        - docs/tutorial/06_fluids.qmd
+        - docs/tutorial/07_mainloop.qmd
+    - title: "Reference"
+      contents:
+        - docs/reference/api.qmd
+        - docs/reference/performance.qmd
+        - docs/reference/quality.qmd
+        - docs/reference/troubleshooting.qmd
+        - docs/reference/references.qmd
+  search:
+    location: navbar
+    type: overlay
+    copy-button: true
+
+bibliography: docs/reference/references.bib
+format:
+  html:
+    theme:
+      light: cosmo
+      dark: darkly
+    css: docs/style.css
+    toc: true
+    code-copy: true
+    code-annotations: true
+    anchor-sections: true
+    smooth-scroll: true
+  # pdf:
+  #   documentclass: report
+  #   toc: true
+  #   number-sections: true
+  #   colorlinks: true
+resources:
+  - theme-sync.js
+  - src/
+  - assets/
+  - app.html

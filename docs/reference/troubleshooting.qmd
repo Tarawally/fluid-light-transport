@@ -282,7 +282,7 @@ pie title Frame Time Budget (16.67ms)
 ::: {.callout-tip}
 ## Resources
 
-- **API Reference**: [Chapter 9](99_api_reference.qmd)
+- **API Reference**: [Chapter 9](api.qmd)
 - **GitHub Issues**: [Report bugs](https://github.com/Tarawally/fluid-light-transport/issues)
 - **Source Code**: [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js)
 :::
@@ -295,4 +295,4 @@ pie title Frame Time Budget (16.67ms)
 4. ✓ Review this troubleshooting guide
 5. ✓ Search [existing issues](https://github.com/Tarawally/fluid-light-transport/issues)
 
-[→ Next: API Reference](99_api_reference.qmd) | [← Previous: Main Loop](07_mainloop.qmd)
+[→ Next: API Reference](api.qmd) | [← Previous: Main Loop](../tutorial/07_mainloop.qmd)
