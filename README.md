@@ -1,62 +1,80 @@
 # Hybrid Fluid-Light Transport Engine
 
-A JavaScript-based simulation engine that models light as a fluid substance. It combines **Stochastic Ray Tracing** for photon injection with **Cellular Automata** for light propagation, creating soft shadows, colour bleeding, and ambient occlusion in real-time without expensive global illumination calculations.
+> A high-performance fluid simulation engine that models light transport, integrated with a comprehensive "Docs as Code" technical walkthrough.
+
+## Overview
+
+This repository acts as a unified workspace containing two integrated components:
+1.  **The Engine**: A JavaScript-based simulation that treats light as a fluid substance. It combines **Stochastic Ray Tracing** for photon injection with **Cellular Automata** for light propagation, creating soft shadows and ambient occlusion in real-time.
+2.  **The Documentation**: A full interactive website built with [Quarto](https://quarto.org/) that explains the architecture from first principles using live code samples, interactive implementations, and flowcharts.
 
 ## Features
 
 - **Hybrid Architecture**:
   - **Injection Phase**: Uses stochastic ray tracing to probe the scene and inject "photons" into a 2D grid.
-  - **Propagation Phase**: Treats light as a fluid that advects and diffuses based on surface roughness and depth topology.
-- **Real-time Performance**: Optimised to run in the browser using HTML5 Canvas and Typed Arrays.
-- **Dynamic Interactions**: Move the camera and light sources in real-time.
-- **Visual Analysis**: Switch between Composite, Active Tile Map, and Velocity Vector Field views.
+  - **Propagation Phase**: Treats light as a fluid that moves based on surface roughness and depth topology.
+- **Interactive "Docs as Code"**:
+  - The documentation serves as the project's landing page.
+  - Code snippets are annotated and linked directly to the source.
+  - Interactive OJS widgets allow users to "play" with the math concepts.
+- **Engineering Standards**: Includes automated unit testing with Vitest and CI/CD pipelines.
 
 ## Getting Started
 
 ### Prerequisites
 
-You need a modern web browser (Chrome, Firefox, Safari, Edge) with JavaScript enabled.
+- [Node.js](https://nodejs.org/) (v18+)
+- [Quarto CLI](https://quarto.org/docs/get-started/)
 
-### Installation & Running
+### Installation
 
-Since this project uses ES6 modules and `fetch` for loading assets, it **cannot** be run directly from the file system (e.g., `file:///path/to/index.html`) due to CORS security policies. You must serve it via a local web server.
+```bash
+git clone https://github.com/Tarawally/fluid-light-transport.git
+cd fluid-light-transport
+npm install
+```
 
-1.  **Clone the repository**:
+### Development Workflow
 
-    ```bash
-    git clone https://github.com/your-username/fluid-light-transport.git
-    cd fluid-light-transport
-    ```
+**1. Run the Integrated Environment**
+This launches the documentation site locally. The main simulation engine is embedded directly within the site.
 
-2.  **Start a local server**:
+```bash
+quarto preview
+```
 
-    - **Using Python 3**:
-      ```bash
-      python3 -m http.server
-      ```
-    - **Using Node.js (`http-server`)**:
-      ```bash
-      npx http-server
-      ```
-    - **Using VS Code**:
-      Install the "Live Server" extension and click "Go Live".
+**2. Run Unit Tests**
+Validate the mathematical core of the engine using Vitest.
 
-3.  **Open the application**:
-    Navigate to `http://localhost:8000` (or the port shown by your server) in your browser.
+```bash
+npm test
+```
 
-## Controls
+**3. Build for Production**
+Generates the static site in the `_site/` directory.
 
-| Key / Action           | Function                                                 |
-| :--------------------- | :------------------------------------------------------- |
-| **W A S D**            | Move Camera (Forward/Left/Back/Right)                    |
-| **Arrow Keys**         | Look Around (Yaw/Pitch)                                  |
-| **Space**              | Cycle Visualisation Modes (Composite, Heatmap, Velocity) |
-| **Left Click + Drag**  | Rotate Camera                                            |
-| **Right Click + Drag** | Move Light Source                                        |
+```bash
+quarto render
+```
+
+## Project Structure
+
+- **`index.qmd`**: The project landing page and documentation entry point.
+- **`app.html`**: The standalone "Full Screen" simulation application.
+- **`src/`**: Shared source code for the engine (logic, rendering, solver).
+- **`docs/tutorial/`**: Step-by-step technical walkthroughs (Fluid Dynamics, Ray Tracing).
+- **`docs/reference/`**: API documentation (auto-generated) and Performance benchmarks.
+- **`tests/`**: Unit tests ensuring engine reliability.
 
 ## Documentation
 
-Comprehensive documentation on the architecture, data pipeline, and performance constraints can be found in the [Guided Technical Walkthrough](docs/index.qmd).
+The technical walkthrough is designed to teach the concepts behind the code:
+
+1.  **The Digital Canvas**: Understanding pixel manipulation.
+2.  **The Logic**: Optimization patterns in JavaScript.
+3.  **The Mathematics**: Vector operations and spatial reasoning.
+4.  **Ray Tracing**: Geometric intersection and light injection.
+5.  **Fluid Simulation**: Cellular automata for light propagation.
 
 ## License
 
