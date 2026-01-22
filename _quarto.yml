@@ -2,10 +2,6 @@ project:
   type: website
   output-dir: _site
   pre-render: node docs/scripts/build-api.js
-  render:
-    - index.qmd
-    - docs/
-    - "*.md"
 
 website:
   title: "Fluid Light Transport"
@@ -54,7 +50,7 @@ format:
     theme:
       light: cosmo
       dark: darkly
-    css: docs/style.css
+    css: src/style.css
     toc: true
     code-copy: true
     code-annotations: true

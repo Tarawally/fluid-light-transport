@@ -4,7 +4,7 @@
  * The visual style is minimal and scientific. The canvas acts as a 
  * raw viewport into the simulation memory.
  */
-html, body {
+.simulation-root, .simulation-wrapper {
   margin: 0;
   padding: 0;
   width: 100%;
@@ -15,7 +15,7 @@ html, body {
     Helvetica, Arial, sans-serif;
 }
 
-canvas#canvas {
+.simulation-root canvas#canvas, .simulation-wrapper canvas#canvas {
   display: block;
   width: 100vw;
   height: calc(100vh - 56px); /* Subtract approx Quarto navbar height */

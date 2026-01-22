@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>memory – Fluid Light Transport</title>
+<title>index – Fluid Light Transport</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -58,29 +58,29 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </style>
 
 
-<script src="../../site_libs/quarto-nav/quarto-nav.js"></script>
-<script src="../../site_libs/quarto-nav/headroom.min.js"></script>
-<script src="../../site_libs/clipboard/clipboard.min.js"></script>
-<script src="../../site_libs/quarto-search/autocomplete.umd.js"></script>
-<script src="../../site_libs/quarto-search/fuse.min.js"></script>
-<script src="../../site_libs/quarto-search/quarto-search.js"></script>
-<meta name="quarto:offset" content="../../">
-<link href="../../assets/favicon.ico" rel="icon">
-<script src="../../site_libs/quarto-html/quarto.js" type="module"></script>
-<script src="../../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
-<script src="../../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
-<script src="../../site_libs/quarto-html/popper.min.js"></script>
-<script src="../../site_libs/quarto-html/tippy.umd.min.js"></script>
-<script src="../../site_libs/quarto-html/anchor.min.js"></script>
-<link href="../../site_libs/quarto-html/tippy.css" rel="stylesheet">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-dark-b758ccaa5987ceb1b75504551e579abf.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
-<link href="../../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
-<script src="../../site_libs/bootstrap/bootstrap.min.js"></script>
-<link href="../../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
-<link href="../../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
-<link href="../../site_libs/bootstrap/bootstrap-dark-4e9322a4d74dc49a65634a73bbd5d706.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
-<link href="../../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
+<script src="../site_libs/quarto-nav/quarto-nav.js"></script>
+<script src="../site_libs/quarto-nav/headroom.min.js"></script>
+<script src="../site_libs/clipboard/clipboard.min.js"></script>
+<script src="../site_libs/quarto-search/autocomplete.umd.js"></script>
+<script src="../site_libs/quarto-search/fuse.min.js"></script>
+<script src="../site_libs/quarto-search/quarto-search.js"></script>
+<meta name="quarto:offset" content="../">
+<link href="../assets/favicon.ico" rel="icon">
+<script src="../site_libs/quarto-html/quarto.js" type="module"></script>
+<script src="../site_libs/quarto-html/tabsets/tabsets.js" type="module"></script>
+<script src="../site_libs/quarto-html/axe/axe-check.js" type="module"></script>
+<script src="../site_libs/quarto-html/popper.min.js"></script>
+<script src="../site_libs/quarto-html/tippy.umd.min.js"></script>
+<script src="../site_libs/quarto-html/anchor.min.js"></script>
+<link href="../site_libs/quarto-html/tippy.css" rel="stylesheet">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-dark-b758ccaa5987ceb1b75504551e579abf.css" rel="stylesheet" class="quarto-color-scheme quarto-color-alternate" id="quarto-text-highlighting-styles">
+<link href="../site_libs/quarto-html/quarto-syntax-highlighting-587c61ba64f3a5504c4d52d930310e48.css" rel="stylesheet" class="quarto-color-scheme-extra" id="quarto-text-highlighting-styles">
+<script src="../site_libs/bootstrap/bootstrap.min.js"></script>
+<link href="../site_libs/bootstrap/bootstrap-icons.css" rel="stylesheet">
+<link href="../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme" id="quarto-bootstrap" data-mode="light">
+<link href="../site_libs/bootstrap/bootstrap-dark-4e9322a4d74dc49a65634a73bbd5d706.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme quarto-color-alternate" id="quarto-bootstrap" data-mode="dark">
+<link href="../site_libs/bootstrap/bootstrap-9859d952baf36b9a7db628bbb9f3169e.min.css" rel="stylesheet" append-hash="true" class="quarto-color-scheme-extra" id="quarto-bootstrap" data-mode="light">
 <script id="quarto-search-options" type="application/json">{
   "location": "navbar",
   "copy-button": true,
@@ -110,10 +110,10 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <style>html{ scroll-behavior: smooth; }</style>
 
 
-<link rel="stylesheet" href="../../docs/style.css">
+<link rel="stylesheet" href="../src/style.css">
 </head>
 
-<body class="nav-sidebar floating nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
+<body class="nav-fixed quarto-light"><script id="quarto-html-before-body" type="application/javascript">
     const toggleBodyColorMode = (bsSheetEl) => {
       const mode = bsSheetEl.getAttribute("data-mode");
       const bodyEl = window.document.querySelector("body");
@@ -282,7 +282,7 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
     <nav class="navbar navbar-expand-lg " data-bs-theme="dark">
       <div class="navbar-container container-fluid">
       <div class="navbar-brand-container mx-auto">
-    <a class="navbar-brand" href="../../index.html">
+    <a class="navbar-brand" href="../index.html">
     <span class="navbar-title">Fluid Light Transport</span>
     </a>
   </div>
@@ -293,19 +293,19 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
           <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav navbar-nav-scroll me-auto">
   <li class="nav-item">
-    <a class="nav-link" href="../../index.html"> 
+    <a class="nav-link" href="../index.html"> 
 <span class="menu-text">Simulation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../../docs/index.html"> 
+    <a class="nav-link active" href="../docs/index.html" aria-current="page"> 
 <span class="menu-text">Documentation</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link active" href="../../docs/tutorial/01_canvas.html" aria-current="page"> 
+    <a class="nav-link" href="../docs/tutorial/01_canvas.html"> 
 <span class="menu-text">Tutorial</span></a>
   </li>  
   <li class="nav-item">
-    <a class="nav-link" href="../../docs/reference/api.html"> 
+    <a class="nav-link" href="../docs/reference/api.html"> 
 <span class="menu-text">API Reference</span></a>
   </li>  
 </ul>
@@ -322,80 +322,27 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 </div>
       </div> <!-- /container-fluid -->
     </nav>
-  <nav class="quarto-secondary-nav">
-    <div class="container-fluid d-flex">
-      <button type="button" class="quarto-btn-toggle btn" data-bs-toggle="collapse" role="button" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">
-        <i class="bi bi-layout-text-sidebar-reverse"></i>
-      </button>
-        <nav class="quarto-page-breadcrumbs" aria-label="breadcrumb"><ol class="breadcrumb"><li class="breadcrumb-item"><a href="../../docs/tutorial/03_memory.html">Memory &amp; Data</a></li></ol></nav>
-        <a class="flex-grow-1" role="navigation" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item" aria-controls="quarto-sidebar" aria-expanded="false" aria-label="Toggle sidebar navigation" onclick="if (window.quartoToggleHeadroom) { window.quartoToggleHeadroom(); }">      
-        </a>
-    </div>
-  </nav>
 </header>
 <!-- content -->
 <div id="quarto-content" class="quarto-container page-columns page-rows-contents page-layout-article page-navbar">
 <!-- sidebar -->
-  <nav id="quarto-sidebar" class="sidebar collapse collapse-horizontal quarto-sidebar-collapse-item sidebar-navigation floating overflow-auto">
-    <div class="sidebar-menu-container"> 
-    <ul class="list-unstyled mt-1">
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/01_canvas.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">The Digital Canvas</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/02_logic.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">The Language of Logic</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/03_memory.html" class="sidebar-item-text sidebar-link active">
- <span class="menu-text">Memory &amp; Data</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/04_math.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">The Maths of Space</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/05_raytracing.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Casting Rays</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/06_fluids.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">Simulating Fluids</span></a>
-  </div>
-</li>
-        <li class="sidebar-item">
-  <div class="sidebar-item-container"> 
-  <a href="../../docs/tutorial/07_mainloop.html" class="sidebar-item-text sidebar-link">
- <span class="menu-text">The Main Loop</span></a>
-  </div>
-</li>
-    </ul>
-    </div>
-</nav>
-<div id="quarto-sidebar-glass" class="quarto-sidebar-collapse-item" data-bs-toggle="collapse" data-bs-target=".quarto-sidebar-collapse-item"></div>
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
         <nav id="TOC" role="doc-toc" class="toc-active">
     <h2 id="toc-title">On this page</h2>
    
   <ul>
-  <li><a href="#memory-data" id="toc-memory-data" class="nav-link active" data-scroll-target="#memory-data">Memory &amp; Data</a>
+  <li><a href="#preface" id="toc-preface" class="nav-link active" data-scroll-target="#preface">Preface</a>
   <ul class="collapse">
-  <li><a href="#the-state" id="toc-the-state" class="nav-link" data-scroll-target="#the-state">The State</a></li>
-  <li><a href="#arrays-the-shelf" id="toc-arrays-the-shelf" class="nav-link" data-scroll-target="#arrays-the-shelf">Arrays: The Shelf</a></li>
-  <li><a href="#structure-of-arrays-soa" id="toc-structure-of-arrays-soa" class="nav-link" data-scroll-target="#structure-of-arrays-soa">Structure of Arrays (SoA)</a></li>
+  <li><a href="#live-demo" id="toc-live-demo" class="nav-link" data-scroll-target="#live-demo">Live Demo</a>
+  <ul class="collapse">
+  <li><a href="#controls" id="toc-controls" class="nav-link" data-scroll-target="#controls">Controls</a></li>
+  </ul></li>
+  <li><a href="#the-graphics-dichotomy" id="toc-the-graphics-dichotomy" class="nav-link" data-scroll-target="#the-graphics-dichotomy">The Graphics Dichotomy</a></li>
+  <li><a href="#the-goal" id="toc-the-goal" class="nav-link" data-scroll-target="#the-goal">The Goal</a></li>
+  <li><a href="#how-to-read-this-book" id="toc-how-to-read-this-book" class="nav-link" data-scroll-target="#how-to-read-this-book">How to Read This Book</a></li>
+  <li><a href="#road-map-future-work" id="toc-road-map-future-work" class="nav-link" data-scroll-target="#road-map-future-work">Road Map &amp; Future Work</a></li>
+  <li><a href="#contributing" id="toc-contributing" class="nav-link" data-scroll-target="#contributing">Contributing</a></li>
   </ul></li>
   </ul>
 </nav>
@@ -407,58 +354,132 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<section id="memory-data" class="level1">
-<h1>Memory &amp; Data</h1>
-<p>Simulating reality requires storing vast amounts of information. Every pixel must know its colour, light velocity, and whether it represents a wall or empty air.</p>
-<section id="the-state" class="level2">
-<h2 class="anchored" data-anchor-id="the-state">The State</h2>
-<p>We call the sum of this information the <strong>State</strong>. In our engine, state resides in <code>RAM</code> (Random Access Memory).</p>
-</section>
-<section id="arrays-the-shelf" class="level2">
-<h2 class="anchored" data-anchor-id="arrays-the-shelf">Arrays: The Shelf</h2>
-<p>The most efficient way to store a list in a computer is an <strong>Array</strong>. Picture an array as a long shelf where every item has a specific number (an index).</p>
-</section>
-<section id="structure-of-arrays-soa" class="level2">
-<h2 class="anchored" data-anchor-id="structure-of-arrays-soa">Structure of Arrays (SoA)</h2>
-<p>Programmers might typically create an Object for every pixel:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">// Array of Structures (AoS) - SLOW</span></span>
-<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="kw">let</span> pixel <span class="op">=</span> { <span class="dt">red</span><span class="op">:</span> <span class="fl">1.0</span><span class="op">,</span> <span class="dt">green</span><span class="op">:</span> <span class="fl">0.5</span><span class="op">,</span> <span class="dt">velocityX</span><span class="op">:</span> <span class="fl">0.1</span> }<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>However, managing 200,000 objects is slow. Every time the computer seeks a new object, it may look in a completely different memory location. This is a <strong>Cache Miss</strong>, a primary cause of software sluggishness.</p>
-<p>Instead, we use a single massive array of numbers and use <strong>Offsets</strong> to locate data. This <strong>Structure of Arrays (SoA)</strong> layout keeps related data tightly packed, which the CPU prefers.</p>
-<div class="callout callout-style-default callout-note callout-titled">
-<div class="callout-header d-flex align-content-center collapsed" data-bs-toggle="collapse" data-bs-target=".callout-1-contents" aria-controls="callout-1" aria-expanded="false" aria-label="Toggle callout">
+<section id="preface" class="level1 unnumbered">
+<h1 class="unnumbered">Preface</h1>
+<p>This document provides a <strong>Guided Technical Walkthrough</strong> of the Hybrid Fluid-Light Transport engine.</p>
+<p>Rather than focusing on jargon, we explore the underlying architecture. We build our understanding from the first principles of digital rasterisation to the complex simulation of non-linear light transport.</p>
+<section id="live-demo" class="level2">
+<h2 class="anchored" data-anchor-id="live-demo">Live Demo</h2>
+<div class="callout callout-style-default callout-tip callout-titled">
+<div class="callout-header d-flex align-content-center">
 <div class="callout-icon-container">
 <i class="callout-icon"></i>
 </div>
 <div class="callout-title-container flex-fill">
-<span class="screen-reader-only">Note</span>Analogy: The Library Shelf
+<span class="screen-reader-only">Tip</span>Interactive Demo
 </div>
-<div class="callout-btn-toggle d-inline-block border-0 py-1 ps-1 pe-0 float-end"><i class="callout-toggle"></i></div>
 </div>
-<div id="callout-1" class="callout-1-contents callout-collapse collapse">
 <div class="callout-body-container callout-body">
-<p>Imagine a library. * <strong>AoS</strong>: Books are organised by Author. To find all red books, you must check every aisle. * <strong>SoA</strong>: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.</p>
+<p>Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.</p>
+<p><a href="../index.html" target="_blank"><strong>Open Full Screen Simulation →</strong></a></p>
+</div>
+</div>
+<iframe id="demo-iframe" src="../index.qmd" style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;" title="Fluid-Light Transport Demo" allowfullscreen="">
+</iframe>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Demo Troubleshooting
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>If the screen remains black, ensure you are viewing this through a web server (like <code>quarto preview</code> or GitHub Pages). The engine requires <code>fetch()</code> to load scene data, which is often blocked on local <code>file://</code> access.</p>
+</div>
+</div>
+<section id="controls" class="level3">
+<h3 class="anchored" data-anchor-id="controls">Controls</h3>
+<ul>
+<li><strong>WASD</strong>: Move camera</li>
+<li><strong>Arrow Keys</strong>: Look around</li>
+<li><strong>Left Click + Drag</strong>: Rotate view</li>
+<li><strong>Right Click</strong>: Move light source</li>
+<li><strong>Space</strong>: Cycle visualisation modes</li>
+</ul>
+</section>
+</section>
+<section id="the-graphics-dichotomy" class="level2">
+<h2 class="anchored" data-anchor-id="the-graphics-dichotomy">The Graphics Dichotomy</h2>
+<p>In real-time computer graphics, we typically face a choice:</p>
+<ol type="1">
+<li><strong>Ray Tracing</strong>: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.</li>
+<li><strong>Rasterisation</strong>: The standard for games; it is incredibly fast but struggles with complex “global illumination” (how light bounces around).</li>
+</ol>
+<p>This book explores a “third way”: <strong>Hybrid Fluid-Light Transport</strong>. We treat light not merely as rays, but as a <strong>fluid substance</strong> that flows across the scene. This yields beautiful, organic lighting at a fraction of the cost.</p>
+</section>
+<section id="the-goal" class="level2">
+<h2 class="anchored" data-anchor-id="the-goal">The Goal</h2>
+<p>We aim to demystify the following code:</p>
+<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb1"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
+<span id="cb1-2"><a href="#cb1-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * </span><span class="an">@fileoverview</span><span class="co"> Hybrid Fluid-Light Transport Engine.</span></span>
+<span id="cb1-3"><a href="#cb1-3" aria-hidden="true" tabindex="-1"></a><span class="co"> * This technique creates soft shadows, colour bleeding, and ambient occlusion</span></span>
+<span id="cb1-4"><a href="#cb1-4" aria-hidden="true" tabindex="-1"></a><span class="co"> * purely through 2D pixel-neighbour interactions.</span></span>
+<span id="cb1-5"><a href="#cb1-5" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
+<p>By the end of this book, you will understand exactly what that means and how to implement it.</p>
+</section>
+<section id="how-to-read-this-book" class="level2">
+<h2 class="anchored" data-anchor-id="how-to-read-this-book">How to Read This Book</h2>
+<p>This book offers two complementary paths through the material:</p>
+<div class="tabset-margin-container"></div><div class="panel-tabset">
+<ul class="nav nav-tabs" role="tablist"><li class="nav-item" role="presentation"><a class="nav-link active" id="tabset-1-1-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-1" role="tab" aria-controls="tabset-1-1" aria-selected="true" href="">Conceptual Journey</a></li><li class="nav-item" role="presentation"><a class="nav-link" id="tabset-1-2-tab" data-bs-toggle="tab" data-bs-target="#tabset-1-2" role="tab" aria-controls="tabset-1-2" aria-selected="false" href="">Quick Reference</a></li></ul>
+<div class="tab-content">
+<div id="tabset-1-1" class="tab-pane active" role="tabpanel" aria-labelledby="tabset-1-1-tab">
+<p>Learn the architecture and algorithms from first principles:</p>
+<p><strong>Foundation</strong> (Chapters 1-3) 1. <a href="../docs/tutorial/01_canvas.html"><strong>The Digital Canvas</strong></a> — Understanding the screen as a programmable grid 2. <a href="../docs/tutorial/02_logic.html"><strong>The Logic</strong></a> — JavaScript fundamentals for interactive graphics 3. <a href="../docs/tutorial/03_memory.html"><strong>The Memory</strong></a> — Efficient data structures for real-time simulation</p>
+<p><strong>Core Algorithms</strong> (Chapters 4-7) 4. <a href="../docs/tutorial/04_math.html"><strong>The Mathematics</strong></a> — Vector operations and spatial reasoning 5. <a href="../docs/tutorial/05_raytracing.html"><strong>Ray Tracing</strong></a> — Geometric intersection and light injection 6. <a href="../docs/tutorial/06_fluids.html"><strong>Fluid Simulation</strong></a> — Cellular automata for light propagation 7. <a href="../docs/tutorial/07_mainloop.html"><strong>The Main Loop</strong></a> — Orchestrating the complete system</p>
+<p><strong>Reference</strong> (Chapters 8-9) 8. <a href="../docs/reference/troubleshooting.html"><strong>Troubleshooting</strong></a> — Common issues and solutions 9. <a href="../docs/reference/api.html"><strong>API Reference</strong></a> — Complete 1:1 code documentation</p>
+</div>
+<div id="tabset-1-2" class="tab-pane" role="tabpanel" aria-labelledby="tabset-1-2-tab">
+<p>Browse by topic or problem:</p>
+<ul>
+<li><strong>Getting Started</strong>: <a href="../docs/tutorial/01_canvas.html">Chapter 1: Canvas</a></li>
+<li><strong>Understanding Vectors</strong>: <a href="../docs/tutorial/04_math.html#vectors-arrows-in-space">Chapter 4: Math</a></li>
+<li><strong>Ray Tracing Basics</strong>: <a href="../docs/tutorial/05_raytracing.html#reverse-ray-tracing">Chapter 5: Raytracing</a></li>
+<li><strong>Fluid Mechanics</strong>: <a href="../docs/tutorial/06_fluids.html#the-fluid-analogy">Chapter 6: Fluids</a></li>
+<li><strong>Performance Issues</strong>: <a href="../docs/reference/troubleshooting.html">Chapter 8: Troubleshooting</a></li>
+<li><strong>Complete API</strong>: <a href="../docs/reference/api.html">Chapter 9: API Reference</a></li>
+</ul>
 </div>
 </div>
 </div>
-<p>In <code>src/engine.js</code>, we define these “shelves” using the <code>FIELD</code> constant.</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb2"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb2-1"><a href="#cb2-1" aria-hidden="true" tabindex="-1"></a><span class="co">/**</span></span>
-<span id="cb2-2"><a href="#cb2-2" aria-hidden="true" tabindex="-1"></a><span class="co"> * Memory layout offsets.</span></span>
-<span id="cb2-3"><a href="#cb2-3" aria-hidden="true" tabindex="-1"></a><span class="co"> * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.</span></span>
-<span id="cb2-4"><a href="#cb2-4" aria-hidden="true" tabindex="-1"></a><span class="co"> */</span></span>
-<span id="cb2-5"><a href="#cb2-5" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> FIELD <span class="op">=</span> {</span>
-<span id="cb2-6"><a href="#cb2-6" aria-hidden="true" tabindex="-1"></a>  <span class="dt">R</span><span class="op">:</span> <span class="dv">0</span><span class="op">,</span></span>
-<span id="cb2-7"><a href="#cb2-7" aria-hidden="true" tabindex="-1"></a>  <span class="dt">G</span><span class="op">:</span> <span class="dv">1</span><span class="op">,</span></span>
-<span id="cb2-8"><a href="#cb2-8" aria-hidden="true" tabindex="-1"></a>  <span class="dt">B</span><span class="op">:</span> <span class="dv">2</span><span class="op">,</span> <span class="co">// Spectral Energy (Colour)</span></span>
-<span id="cb2-9"><a href="#cb2-9" aria-hidden="true" tabindex="-1"></a>  <span class="dt">VEL_X</span><span class="op">:</span> <span class="dv">4</span><span class="op">,</span></span>
-<span id="cb2-10"><a href="#cb2-10" aria-hidden="true" tabindex="-1"></a>  <span class="dt">VEL_Y</span><span class="op">:</span> <span class="dv">5</span><span class="op">,</span> <span class="co">// Momentum Vector (Flow direction)</span></span>
-<span id="cb2-11"><a href="#cb2-11" aria-hidden="true" tabindex="-1"></a>  <span class="dt">DEPTH</span><span class="op">:</span> <span class="dv">7</span><span class="op">,</span> <span class="co">// Distance from camera (Topology)</span></span>
-<span id="cb2-12"><a href="#cb2-12" aria-hidden="true" tabindex="-1"></a>}<span class="op">;</span></span>
-<span id="cb2-13"><a href="#cb2-13" aria-hidden="true" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" aria-hidden="true" tabindex="-1"></a><span class="kw">const</span> STRIDE <span class="op">=</span> <span class="dv">14</span><span class="op">;</span> <span class="co">// Total slots per pixel</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p>We allocate one giant block of memory for the entire universe:</p>
-<div class="code-copy-outer-scaffold"><div class="sourceCode" id="cb3"><pre class="sourceCode javascript code-with-copy"><code class="sourceCode javascript"><span id="cb3-1"><a href="#cb3-1" aria-hidden="true" tabindex="-1"></a>State<span class="op">.</span><span class="at">lattice</span> <span class="op">=</span> <span class="kw">new</span> <span class="bu">Float32Array</span>(TOTAL_PIXELS <span class="op">*</span> STRIDE)<span class="op">;</span></span></code></pre></div><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></div>
-<p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array"><code>Float32Array</code></a> is a <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays">TypedArray</a> that stores only decimal numbers. It is extremely fast.</p>
+<div class="callout callout-style-default callout-note callout-titled">
+<div class="callout-header d-flex align-content-center">
+<div class="callout-icon-container">
+<i class="callout-icon"></i>
+</div>
+<div class="callout-title-container flex-fill">
+<span class="screen-reader-only">Note</span>Documentation Sync
+</div>
+</div>
+<div class="callout-body-container callout-body">
+<p>The <a href="../docs/reference/api.html">API reference</a> is automatically regenerated from JSDoc comments in <a href="https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js"><code>src/engine.js</code></a> on every build, ensuring perfect synchronisation with the source code.</p>
+</div>
+</div>
+</section>
+<section id="road-map-future-work" class="level2">
+<h2 class="anchored" data-anchor-id="road-map-future-work">Road Map &amp; Future Work</h2>
+<p>The Hybrid Fluid-Light Transport engine is under active development. Planned features include:</p>
+<ul>
+<li><strong>Refraction Support</strong>: Bending light as it passes through different “fluid” densities.</li>
+<li><strong>Spectrum Simulation</strong>: Splitting light into RGB wavelengths for chromatic aberration.</li>
+<li><strong>WebWorker Offloading</strong>: Moving the heavy CA computation to a background thread to improve frame rates.</li>
+</ul>
+</section>
+<section id="contributing" class="level2">
+<h2 class="anchored" data-anchor-id="contributing">Contributing</h2>
+<p>We welcome contributions! This documentation is built with <a href="https://quarto.org/">Quarto</a>. To contribute:</p>
+<ol type="1">
+<li>Clone the repository.</li>
+<li>Install dependencies: <code>npm install</code>.</li>
+<li>Edit <code>.qmd</code> files or the engine source in <code>src/</code>.</li>
+<li>Preview changes: <code>quarto preview</code>.</li>
+<li>Open a Pull Request.</li>
+</ol>
+<hr>
+<p><a href="../docs/tutorial/01_canvas.html"><strong>Begin the Journey: Chapter 1 — The Digital Canvas →</strong></a></p>
+<p>Let us begin our journey.</p>
 
 
 </section>
@@ -883,5 +904,5 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 
 
 
-<script src="../../site_libs/quarto-html/zenscroll-min.js"></script>
+<script src="../site_libs/quarto-html/zenscroll-min.js"></script>
 </body></html>

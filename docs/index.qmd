@@ -15,7 +15,7 @@ Experience the engine in real-time! Move your mouse to control the light source.
 
 <iframe 
   id="demo-iframe"
-  src="../index.qmd" 
+  src="../app.html" 
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
@@ -67,36 +67,36 @@ This book offers two complementary paths through the material:
 Learn the architecture and algorithms from first principles:
 
 **Foundation** (Chapters 1-3)
-1.  [**The Digital Canvas**](docs/tutorial/01_canvas.qmd) — Understanding the screen as a programmable grid
-2.  [**The Logic**](docs/tutorial/02_logic.qmd) — JavaScript fundamentals for interactive graphics
-3.  [**The Memory**](docs/tutorial/03_memory.qmd) — Efficient data structures for real-time simulation
+1.  [**The Digital Canvas**](tutorial/01_canvas.qmd) — Understanding the screen as a programmable grid
+2.  [**The Logic**](tutorial/02_logic.qmd) — JavaScript fundamentals for interactive graphics
+3.  [**The Memory**](tutorial/03_memory.qmd) — Efficient data structures for real-time simulation
 
 **Core Algorithms** (Chapters 4-7)
-4.  [**The Mathematics**](docs/tutorial/04_math.qmd) — Vector operations and spatial reasoning
-5.  [**Ray Tracing**](docs/tutorial/05_raytracing.qmd) — Geometric intersection and light injection
-6.  [**Fluid Simulation**](docs/tutorial/06_fluids.qmd) — Cellular automata for light propagation
-7.  [**The Main Loop**](docs/tutorial/07_mainloop.qmd) — Orchestrating the complete system
+4.  [**The Mathematics**](tutorial/04_math.qmd) — Vector operations and spatial reasoning
+5.  [**Ray Tracing**](tutorial/05_raytracing.qmd) — Geometric intersection and light injection
+6.  [**Fluid Simulation**](tutorial/06_fluids.qmd) — Cellular automata for light propagation
+7.  [**The Main Loop**](tutorial/07_mainloop.qmd) — Orchestrating the complete system
 
 **Reference** (Chapters 8-9)
-8.  [**Troubleshooting**](docs/reference/troubleshooting.qmd) — Common issues and solutions
-9.  [**API Reference**](docs/reference/api.qmd) — Complete 1:1 code documentation
+8.  [**Troubleshooting**](reference/troubleshooting.qmd) — Common issues and solutions
+9.  [**API Reference**](reference/api.qmd) — Complete 1:1 code documentation
 
 ### Quick Reference
 
 Browse by topic or problem:
 
-- **Getting Started**: [Chapter 1: Canvas](docs/tutorial/01_canvas.qmd)
-- **Understanding Vectors**: [Chapter 4: Math](docs/tutorial/04_math.qmd#vectors-arrows-in-space)
-- **Ray Tracing Basics**: [Chapter 5: Raytracing](docs/tutorial/05_raytracing.qmd#reverse-ray-tracing)
-- **Fluid Mechanics**: [Chapter 6: Fluids](docs/tutorial/06_fluids.qmd#the-fluid-analogy)
-- **Performance Issues**: [Chapter 8: Troubleshooting](docs/reference/troubleshooting.qmd)
-- **Complete API**: [Chapter 9: API Reference](docs/reference/api.qmd)
+- **Getting Started**: [Chapter 1: Canvas](tutorial/01_canvas.qmd)
+- **Understanding Vectors**: [Chapter 4: Math](tutorial/04_math.qmd#vectors-arrows-in-space)
+- **Ray Tracing Basics**: [Chapter 5: Raytracing](tutorial/05_raytracing.qmd#reverse-ray-tracing)
+- **Fluid Mechanics**: [Chapter 6: Fluids](tutorial/06_fluids.qmd#the-fluid-analogy)
+- **Performance Issues**: [Chapter 8: Troubleshooting](reference/troubleshooting.qmd)
+- **Complete API**: [Chapter 9: API Reference](reference/api.qmd)
 
 :::
 
 ::: {.callout-note}
 ## Documentation Sync
-The [API reference](docs/reference/api.qmd) is automatically regenerated from JSDoc comments in [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js) on every build, ensuring perfect synchronisation with the source code.
+The [API reference](reference/api.qmd) is automatically regenerated from JSDoc comments in [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js) on every build, ensuring perfect synchronisation with the source code.
 :::
 
 ## Road Map & Future Work
