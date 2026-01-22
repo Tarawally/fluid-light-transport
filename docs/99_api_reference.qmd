@@ -1,0 +1,182 @@
+---
+title: "Complete API Reference"
+---
+
+::: {.callout-important}
+## Auto-Generated from Source Code
+This reference is **automatically generated** from JSDoc comments in [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js).
+
+- **Always Up-to-Date:** Re-generated on every `quarto render`
+- **1:1 Code Mapping:** Every function, class, and constant is documented
+- **Live Sync:** Changes to source code automatically appear here
+:::
+
+## How to Use This Reference {#how-to-use}
+
+This section provides a **complete 1:1 mapping** of every function, class, constant, and module in the source code. Use this as a technical reference while the earlier chapters provide conceptual understanding.
+
+### Quick Navigation
+
+| Category | Description | Chapter Link |
+|----------|-------------|--------------|
+| **Configuration** | `CONFIG` constants, resolution settings | [Chapter 1: Canvas](01_canvas.qmd) |
+| **Vector Math** | `Vec2`, math utilities | [Chapter 4: Math](04_math.qmd) |
+| **Ray Tracing** | `Scene.trace`, intersection tests | [Chapter 5: Raytracing](05_raytracing.qmd) |
+| **Fluid Simulation** | Diffusion, advection algorithms | [Chapter 6: Fluids](06_fluids.qmd) |
+| **Main Loop** | `bootSystem`, `mainLoop`, rendering | [Chapter 7: Main Loop](07_mainloop.qmd) |
+| **State Management** | `State` object, memory layout | [Chapter 3: Memory](03_memory.qmd) |
+
+### API by Complexity
+
+::: {.panel-tabset}
+
+#### Essential (Start Here)
+
+Core functions needed to understand the engine:
+
+- `CONFIG` - Configuration constants
+- `State` - Global state object
+- `bootSystem()` - Initialisation
+- `mainLoop()` - Main render loop
+- `Scene.trace()` - Ray tracing
+
+#### Intermediate
+
+Functions for implementing core algorithms:
+
+- Vector operations (`add`, `sub`, `dot`, etc.)
+- `diffuseLight()` - Light propagation
+- `advectLight()` - Light movement
+- `castRays()` - Ray injection
+
+#### Advanced
+
+Low-level optimisations and internal details:
+
+- Tile-based processing
+- Bitmask operations
+- Memory layout details
+- Performance profiling
+
+:::
+
+---
+
+## Auto-Generated Documentation {#api-docs}
+
+{{< include api-reference-generated.md >}}
+
+---
+
+## Cross-References by Topic {#cross-references}
+
+### Initialisation & Setup
+
+| API Element | Type | Described In | Purpose |
+|-------------|------|--------------|---------|
+| `bootSystem()` | Function | [Troubleshooting](08_troubleshooting.qmd#common-errors) | Allocates memory, initialises grid |
+| `CONFIG` | Constant | [Canvas](01_canvas.qmd) | Engine configuration |
+| `RESOLUTION` | Variable | [Memory](03_memory.qmd) | Current grid dimensions |
+
+### Mathematics & Vectors
+
+| API Element | Type | Described In | Purpose |
+|-------------|------|--------------|---------|
+| `Vec2` | Class | [Math](04_math.qmd#vectors-arrows-in-space) | 2D vector operations |
+| `MathLib.normalise()` | Function | [Math](04_math.qmd#normalisation) | Unit vector calculation |
+| `MathLib.distance()` | Function | [Math](04_math.qmd#distance) | Euclidean distance |
+
+### Ray Tracing
+
+| API Element | Type | Described In | Purpose |
+|-------------|------|--------------|---------|
+| `Scene.trace()` | Function | [Raytracing](05_raytracing.qmd#sphere-intersection) | Sphere intersection |
+| `castRays()` | Function | [Raytracing](05_raytracing.qmd#light-injection) | Inject light into grid |
+| `Scene.shade()` | Function | [Raytracing](05_raytracing.qmd) | Calculate surface lighting |
+
+### Fluid Simulation
+
+| API Element | Type | Described In | Purpose |
+|-------------|------|--------------|---------|
+| `diffuseLight()` | Function | [Fluids](06_fluids.qmd#diffusion) | Spread light energy |
+| `advectLight()` | Function | [Fluids](06_fluids.qmd#advection) | Move light via velocity |
+| `STRIDE` | Constant | [Memory](03_memory.qmd) | Floats per pixel |
+
+### Performance
+
+| API Element | Type | Described In | Purpose |
+|-------------|------|--------------|---------|
+| `CONFIG.TIMESTEP_BUDGET_MS` | Constant | [Troubleshooting](08_troubleshooting.qmd#low-framerate) | Frame time limit |
+| `State.maskRead` | Variable | [Fluids](06_fluids.qmd#performance) | Active tile tracking |
+| `State.profiler` | Object | [Troubleshooting](08_troubleshooting.qmd#performance-issues) | Performance metrics |
+
+## Implementation Examples {#examples}
+
+### Example 1: Basic Ray Cast
+
+```javascript
+// Cast a ray from camera through screen pixel
+const ray = {
+    origin: State.cam,
+    direction: pixelToWorldDirection(x, y)
+};
+
+const hit = Scene.trace(ray.origin, ray.direction);
+if (hit) {
+    // Inject light energy at hit point
+    injectLight(hit.position, hit.energy);
+}
+```
+
+Explained in [Chapter 5: Raytracing](05_raytracing.qmd#reverse-ray-tracing).
+
+### Example 2: Fluid Diffusion Step
+
+```javascript
+// Spread light energy to neighbours
+function diffuseStep(pixelIndex) {
+    const neighbours = [
+        pixelIndex - 1,      // left
+        pixelIndex + 1,      // right
+        pixelIndex - WIDTH,  // top
+        pixelIndex + WIDTH   // bottom
+    ];
+    
+    const transfer = CONFIG.DIFFUSION * lattice[pixelIndex];
+    for (const n of neighbours) {
+        lattice[n] += transfer / 4;
+    }
+    lattice[pixelIndex] -= transfer;
+}
+```
+
+Explained in [Chapter 6: Fluids](06_fluids.qmd#diffusion).
+
+### Example 3: Custom Configuration
+
+```javascript
+// Override default config for low-end device
+const CONFIG = {
+    DOWNSAMPLE: 8,           // Lower resolution
+    TILE_SIZE: 8,            // Larger tiles
+    TIMESTEP_BUDGET_MS: 10,  // Shorter budget
+    DISSIPATION: 0.96        // More energy loss
+};
+```
+
+Tuning guide in [Chapter 8: Troubleshooting](08_troubleshooting.qmd#tuning-guide).
+
+---
+
+::: {.callout-note}
+## Contributing to Documentation
+
+Found an error or want to improve this reference?
+
+1. **Source code**: Edit JSDoc comments in [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js)
+2. **Submit PR**: [GitHub repository](https://github.com/Tarawally/fluid-light-transport)
+3. **Auto-regeneration**: This page updates automatically on next build
+
+:::
+
+[← Previous: Troubleshooting](08_troubleshooting.qmd) | [→ Next: References](references.qmd)

@@ -1,2 +1,10 @@
 /.quarto/
 **/*.quarto_ipynb
+
+# Auto-generated API reference
+api-reference-generated.md
+
+# Synced demo files (copied from root during pre-render)
+demo.html
+src/
+assets/

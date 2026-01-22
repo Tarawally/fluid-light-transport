@@ -37,5 +37,11 @@
   },
   "references.qmd": {
     "references.html": "9e0f37e9"
+  },
+  "99_api_reference.qmd": {
+    "99_api_reference.html": "aca44d69"
+  },
+  "08_troubleshooting.qmd": {
+    "08_troubleshooting.html": "386899c1"
   }
 }

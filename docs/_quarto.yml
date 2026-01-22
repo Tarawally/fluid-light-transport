@@ -1,37 +1,70 @@
 project:
   type: book
   output-dir: _site
+  pre-render: scripts/generate-jsdoc.sh
 bibliography: references.bib
 
 book:
-  title: "Hybrid Fluid-Light Transport Engine"
+  title: "Fluid-Light Transport Engine"
   subtitle: "A Guided Technical Walkthrough"
   author: "Samuel Tarawally"
-  date: "2025-12-27"
+  date: today
+  description: |
+    A comprehensive guide to implementing hybrid fluid-light transport 
+    for real-time global illumination in JavaScript.
+  abstract: |
+    This book explores a novel approach to real-time lighting that treats
+    light as a fluid substance flowing through 2D space, achieving soft
+    shadows and colour bleeding at a fraction of traditional ray-tracing cost.
   repo-url: https://github.com/Tarawally/fluid-light-transport
   repo-subdir: docs
-  repo-actions: [edit, issue]
+  repo-actions: [edit, issue, source]
   sharing: [twitter, linkedin]
   search: true
+  
+  sidebar:
+    style: "docked"
+    collapse-level: 2
+  
   chapters:
     - index.qmd
-    - 01_canvas.qmd
-    - 02_logic.qmd
-    - 03_memory.qmd
-    - 04_math.qmd
-    - 05_raytracing.qmd
-    - 06_fluids.qmd
-    - 07_mainloop.qmd
-    - references.qmd
+    
+    - part: "Foundation"
+      chapters:
+        - 01_canvas.qmd
+        - 02_logic.qmd
+        - 03_memory.qmd
+    
+    - part: "Core Algorithms"
+      chapters:
+        - 04_math.qmd
+        - 05_raytracing.qmd
+        - 06_fluids.qmd
+        - 07_mainloop.qmd
+    
+    - part: "Reference"
+      chapters:
+        - 08_troubleshooting.qmd
+        - 99_api_reference.qmd
+        - references.qmd
 
 format:
   html:
-    theme: cosmo
-    code-fold: show
-    toc: true
-    number-sections: false
+    theme: 
+      light: cosmo
+      dark: darkly
+    code-fold: false
+    code-copy: true
+    code-link: true
     code-annotations: hover
+    toc: true
+    toc-depth: 3
+    number-sections: true
     page-layout: full
+    link-external-newwindow: true
     include-in-header: header.html
     resources:
       - theme-sync.js
+      - demo.html
+      - src/
+      - assets/
