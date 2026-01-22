@@ -10,12 +10,12 @@ Rather than focusing on jargon, we explore the underlying architecture. We build
 ## Interactive Demo
 Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.
 
-[**Open Full Screen Simulation →**](app.html){target="_blank"}
+[**Open Full Screen Simulation →**](../index.html){target="_blank"}
 :::
 
 <iframe 
   id="demo-iframe"
-  src="app.html" 
+  src="../index.html" 
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
@@ -119,6 +119,6 @@ We welcome contributions! This documentation is built with [Quarto](https://quar
 
 ---
 
-[**Begin the Journey: Chapter 1 — The Digital Canvas →**](docs/tutorial/01_canvas.qmd)
+[**Begin the Journey: Chapter 1 — The Digital Canvas →**](tutorial/01_canvas.qmd)
 
 Let us begin our journey.

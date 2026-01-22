@@ -17,6 +17,6 @@
   "license": "MIT",
   "devDependencies": {
     "jsdoc-to-markdown": "^8.0.3",
-    "vitest": "^1.2.0"
+    "vitest": "^4.0.17"
   }
 }

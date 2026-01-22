@@ -3,18 +3,20 @@ project:
   output-dir: _site
   pre-render: node docs/scripts/build-api.js
   render:
-    - index.qmd
-    - docs/tutorial/
-    - docs/reference/
+    - docs/
+    - "*.md"
 
 website:
   title: "Fluid Light Transport"
+  site-url: https://tarawally.github.io/fluid-light-transport
   description: "A guided technical walkthrough of a hybrid fluid-light simulation engine."
   favicon: assets/favicon.ico
   navbar:
     left:
       - text: "Home"
-        href: index.qmd
+        href: docs/index.qmd
+      - text: "App"
+        href: index.html
       - text: "Tutorial"
         href: docs/tutorial/01_canvas.qmd
       - text: "API Reference"
@@ -63,7 +65,7 @@ format:
   #   number-sections: true
   #   colorlinks: true
 resources:
+  - index.html
   - theme-sync.js
   - src/
   - assets/
-  - app.html

@@ -29,12 +29,11 @@ jobs:
       # Since we defined 'pre-render' in _quarto.yml, Quarto render will call it.
       # But the script is node.js, so we need node installed (which we did).
       
-      - name: Render Documentation
-        # This will trigger docs/scripts/generate-api.js due to _quarto.yml config
-        run: quarto render docs
+      - name: Render Quarto Project
+        run: quarto render
       
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./docs/_site
+          publish_dir: ./_site
