@@ -8,7 +8,7 @@ describe('Math Utilities', () => {
         expect(ny).toBeCloseTo(0.8);
     });
 
-    it('should handle zero-length vectors in normalization', () => {
+    it('should handle zero-length vectors in normalisation', () => {
         const [nx, ny] = normalize2D(0, 0);
         expect(nx).toBe(0);
         expect(ny).toBe(0);

@@ -4,7 +4,7 @@ To ensure the reliability of the light simulation, we employ automated testing a
 
 ## Automated Testing
 
-We use [Vitest](https://vitest.dev/) for unit testing our core mathematical utilities. This ensures that fundamental operations like vector normalization and light fall-off calculations remain accurate across changes.
+We use [Vitest](https://vitest.dev/) for unit testing our core mathematical utilities. This ensures that fundamental operations like vector normalisation and light fall-off calculations remain accurate across changes.
 
 ### Running Tests
 

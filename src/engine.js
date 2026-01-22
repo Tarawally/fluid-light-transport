@@ -382,8 +382,8 @@ const MathLib = {
    * 
    * @example
    * // Tone map HDR pixel values
-   * const hdrColor = 5.2;  // Bright light source
-   * const ldrColor = MathLib.aces(hdrColor);  // ~0.95
+   * const hdrColour = 5.2;  // Bright light source
+   * const ldrColour = MathLib.aces(hdrColour);  // ~0.95
    * 
    * @algorithm
    * Rational function approximation:
@@ -489,7 +489,7 @@ const Scene = {
    * const shading = Scene.shade(hit, ro, rd);
    * if (shading) {
    *   // Use shading.albedo, shading.emission, etc.
-   *   const finalColor = shading.albedo.map((c, i) => 
+   *   const finalColour = shading.albedo.map((c, i) => 
    *     c * shading.diffuse * shading.falloff + shading.emission[i]
    *   );
    * }
@@ -1115,7 +1115,7 @@ function setupUIControlListeners() {
   Object.entries(sliders).forEach(([key, el]) => {
     if (!el) return;
 
-    // Initialize slider value from current CONFIG
+    // Initialise slider value from current CONFIG
     el.value = CONFIG[key];
 
     // Sync CONFIG on change

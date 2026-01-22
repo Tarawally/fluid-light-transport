@@ -4,7 +4,7 @@ This page allows you to evaluate how the Hybrid Fluid-Light Transport engine per
 
 ## Real-time Metrics
 
-The simulation below runs a standardized "Stress Test" to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.
+The simulation below runs a standardised "Stress Test" to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.
 
 <iframe 
   src="../../src/index.html" 
@@ -63,7 +63,7 @@ ${totalTime > 16.6 ?
 `
 ```
 
-## Potential Optimizations
+## Potential Optimisations
 
 To improve performance in future versions, we are exploring:
 
