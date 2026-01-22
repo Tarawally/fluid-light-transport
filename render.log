@@ -1,31 +1,0 @@
-[1m[34mnode[39m[22m
-Running build-api.js
-Generating API docs...
-✅ API generated.
-✅ Source synced.
-
-[1m[34m[ 1/15] CONTRIBUTING.md[39m[22m
-[1m[34m[ 2/15] INTEGRATION.md[39m[22m
-[1m[34m[ 3/15] docs/tutorial/01_canvas.qmd[39m[22m
-[1m[34m[ 4/15] docs/tutorial/02_logic.qmd[39m[22m
-[1m[34m[ 5/15] docs/tutorial/03_memory.qmd[39m[22m
-[1m[34m[ 6/15] docs/tutorial/04_math.qmd[39m[22m
-[1m[34m[ 7/15] docs/tutorial/05_raytracing.qmd[39m[22m
-[1m[34m[ 8/15] docs/tutorial/06_fluids.qmd[39m[22m
-[1m[34m[ 9/15] docs/tutorial/07_mainloop.qmd[39m[22m
-[1m[34m[10/15] docs/reference/troubleshooting.qmd[39m[22m
-[1m[34m[11/15] docs/reference/references.qmd[39m[22m
-[1m[34m[12/15] docs/reference/api.qmd[39m[22m
-[1m[34m[13/15] SETUP_COMPLETE.md[39m[22m
-[1m[34m[14/15] IMPROVEMENTS_COMPLETE.md[39m[22m
-[33mWARN: Unable to resolve link target: docs/index.qmd[39m
-[33mWARN: Unable to resolve link target: docs/04_math.qmd[39m
-[33mWARN: Unable to resolve link target: docs/05_raytracing.qmd[39m
-[33mWARN: Unable to resolve link target: docs/06_fluids.qmd[39m
-[33mWARN: Unable to resolve link target: docs/08_troubleshooting.qmd[39m
-[33mWARN: Unable to resolve link target: docs/99_api_reference.qmd[39m
-[33mWARN: Unable to resolve link target: docs/api-reference-generated.md[39m
-[1m[34m[15/15] index.qmd[39m[22m
-
-Output created: _site/index.html
-
