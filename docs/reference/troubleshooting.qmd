@@ -1,0 +1,298 @@
+# Troubleshooting & FAQ {#sec-troubleshooting}
+
+This chapter addresses common issues, performance problems, and implementation questions.
+
+## Performance Issues {#performance-issues}
+
+### Problem: Low Frame Rate (< 30 FPS) {#low-framerate}
+
+**Symptoms**:
+- Stuttering or jerky animation
+- High CPU usage in browser profiler
+- Slow response to mouse movement
+
+**Diagnosis**:
+```javascript
+// Add to your console
+console.log(`FPS: ${State.profiler.fps}`);
+console.log(`Frame time: ${State.profiler.frameTime}ms`);
+console.log(`Active tiles: ${State.profiler.activeTiles}`);
+```
+
+**Solutions**:
+
+::: {.panel-tabset}
+
+#### Reduce Resolution
+
+```javascript
+// In CONFIG object
+const CONFIG = {
+    DOWNSAMPLE: 8,  // Increase from 5 (lower resolution)
+    // ...
+};
+```
+
+**Impact**: 64% fewer pixels to process
+**Visual quality**: Slightly more pixelated
+
+#### Decrease Ray Count
+
+```javascript
+// In ray casting function
+const RAY_SAMPLES = 32;  // Reduce from 64
+```
+
+**Impact**: 50% faster ray tracing
+**Visual quality**: Slightly noisier shadows
+
+#### Increase Pixel Size
+
+```javascript
+const CONFIG = {
+    TILE_SIZE: 8,  // Increase from 4
+    // ...
+};
+```
+
+**Impact**: Larger simulation blocks, fewer calculations
+**Visual quality**: Blockier light propagation
+
+#### Optimise Tile Budget
+
+```javascript
+const CONFIG = {
+    TIMESTEP_BUDGET_MS: 10,  // Reduce from 14
+    // ...
+};
+```
+
+**Impact**: Frame renders even if simulation incomplete
+**Visual quality**: Potentially incomplete light propagation
+
+:::
+
+### Problem: Memory Usage Too High {#memory-usage}
+
+**Symptoms**:
+- Browser tab crashes
+- Slow performance after running for a while
+- Console warnings about memory
+
+**Solution**:
+
+```javascript
+// Reduce memory footprint
+const CONFIG = {
+    WIDTH: 120,   // Reduce from 160
+    HEIGHT: 68,   // Reduce from 90
+    // ...
+};
+```
+
+**Memory calculation**:
+```
+bytes = WIDTH × HEIGHT × STRIDE × 4 (Float32Array)
+160×90×12×4 = 691KB (typical)
+120×68×12×4 = 391KB (optimised)
+```
+
+## Visual Artifacts {#visual-artifacts}
+
+### Problem: Flickering Shadows {#flickering}
+
+**Cause**: Insufficient diffusion iterations or energy dissipation too high
+
+**Fix**:
+```javascript
+const CONFIG = {
+    DISSIPATION: 0.98,  // Increase from 0.95 (retain more energy)
+    // ...
+};
+```
+
+### Problem: Light Bleeding Through Walls {#light-bleeding}
+
+**Cause**: Surface continuity check threshold too lenient
+
+**Fix**:
+```javascript
+// In surface continuity check
+const depthThreshold = 0.3;  // Reduce from 0.5
+if (Math.abs(depth1 - depth2) < depthThreshold) {
+    // Allow light transfer
+}
+```
+
+**Visual example**:
+
+```{mermaid}
+graph LR
+    A[Wall<br/>depth=5.0] -.->|❌ No transfer<br/>Δdepth=4.0| B[Background<br/>depth=9.0]
+    C[Surface<br/>depth=5.0] -->|✓ Transfer<br/>Δdepth=0.2| D[Adjacent<br/>depth=5.2]
+    
+    style A fill:#ff6b6b
+    style B fill:#4ecdc4
+    style C fill:#95e1d3
+    style D fill:#95e1d3
+```
+
+### Problem: Overly Bright or Dark Rendering {#brightness}
+
+**Cause**: Exposure/tone mapping incorrect
+
+**Fix**:
+```javascript
+// Adjust exposure in rendering
+const exposure = 1.2;  // Increase to brighten
+const colour = Math.pow(rawColour * exposure, 1.0 / 2.2);  // Gamma correction
+```
+
+## Common Errors {#common-errors}
+
+### Error: "Cannot read property 'lattice' of undefined"
+
+**Cause**: Attempting to access `State.lattice` before initialisation
+
+**Fix**:
+```javascript
+// Ensure bootSystem() is called first
+window.addEventListener('load', () => {
+    bootSystem();  // Allocates State.lattice
+    requestAnimationFrame(mainLoop);
+});
+```
+
+### Error: "Maximum call stack size exceeded"
+
+**Cause**: Infinite recursion in ray tracing or fluid propagation
+
+**Fix**:
+```javascript
+// Add depth limit to recursive functions
+function trace(ro, rd, depth = 0) {
+    if (depth > 5) return BLACK;  // Max 5 bounces
+    // ...
+}
+```
+
+### Error: Canvas appears black
+
+**Diagnostic checklist**:
+
+1. ✓ Canvas element exists in HTML
+2. ✓ Context acquired: `ctx !== null`
+3. ✓ `State.lattice` allocated
+4. ✓ Scene loaded: `Scene.objects.length > 0`
+5. ✓ Light source positioned correctly
+6. ✓ Rendering loop active
+
+```javascript
+// Debug check
+console.log('Canvas:', canvas);
+console.log('Context:', ctx);
+console.log('Lattice:', State.lattice ? 'allocated' : 'null');
+console.log('Scene objects:', Scene.objects.length);
+console.log('Main loop running:', State.profiler.frameCount > 0);
+```
+
+## Frequently Asked Questions {#faq}
+
+### Why fluid simulation instead of traditional ray tracing?
+
+**Traditional ray tracing**:
+- ✅ Physically accurate
+- ❌ O(rays × bounces × samples) = expensive for soft shadows
+- ❌ Difficult to implement global illumination in real-time
+
+**Fluid-based approach**:
+- ✅ O(pixels) = constant cost per frame
+- ✅ Natural soft shadows and colour bleeding
+- ✅ Emergent ambient occlusion
+- ❌ Less physically accurate (approximation)
+
+### Can this be GPU-accelerated?
+
+Yes! The cellular automata structure maps naturally to compute shaders:
+
+```glsl
+// WebGL compute shader pseudocode
+#version 310 es
+layout(local_size_x = 16, local_size_y = 16) in;
+
+uniform sampler2D currentState;
+layout(rgba32f) uniform image2D nextState;
+
+void main() {
+    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);
+    vec4 centre = texelFetch(currentState, pos, 0);
+    vec4 left = texelFetch(currentState, pos + ivec2(-1, 0), 0);
+    vec4 right = texelFetch(currentState, pos + ivec2(1, 0), 0);
+    // ... diffusion/advection logic
+    imageStore(nextState, pos, result);
+}
+```
+
+**Performance gain**: 10-100× faster (depending on GPU)
+
+### How do I add more light sources?
+
+```javascript
+// In Scene.objects array
+Scene.objects = [
+    {type: 'sphere', pos: {x: 0, y: 0, z: 0}, r: 1.0, emit: {r: 1, g: 1, b: 1}},
+    {type: 'sphere', pos: {x: 2, y: 1, z: 0}, r: 0.5, emit: {r: 1, g: 0, b: 0}},  // Red light
+    {type: 'sphere', pos: {x: -2, y: 1, z: 0}, r: 0.5, emit: {r: 0, g: 0, b: 1}}, // Blue light
+];
+```
+
+### Can I use this for 3D scenes?
+
+The current implementation is 2D (screen-space simulation). For true 3D:
+
+1. Use 3D lattice: `State.lattice = new Float32Array(WIDTH × HEIGHT × DEPTH × STRIDE)`
+2. Extend ray marching to 3D space
+3. Add 6-directional (instead of 4) fluid propagation
+4. **Warning**: Memory and computation cost increases cubically!
+
+## Performance Tuning Guide {#tuning-guide}
+
+### Target: 60 FPS (16.67ms frame budget)
+
+```{mermaid}
+%%| fig-cap: "Frame time budget allocation"
+pie title Frame Time Budget (16.67ms)
+    "Ray Tracing" : 40
+    "Fluid Simulation" : 30
+    "Rendering" : 15
+    "Overhead" : 15
+```
+
+### Recommended Settings by Hardware
+
+| Hardware | Resolution | Ray Samples | Tile Size | Expected FPS |
+|----------|-----------|-------------|-----------|--------------|
+| High-end desktop | 320×180 | 128 | 4 | 60 |
+| Mid-range laptop | 160×90 | 64 | 4 | 60 |
+| Low-end/older | 120×68 | 32 | 8 | 30 |
+| Mobile | 80×45 | 16 | 8 | 30 |
+
+## Getting Help {#getting-help}
+
+::: {.callout-tip}
+## Resources
+
+- **API Reference**: [Chapter 9](api.qmd)
+- **GitHub Issues**: [Report bugs](https://github.com/Tarawally/fluid-light-transport/issues)
+- **Source Code**: [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js)
+:::
+
+### Before Asking for Help
+
+1. ✓ Check browser console for errors
+2. ✓ Verify you're using a modern browser (Chrome, Firefox, Edge)
+3. ✓ Try reducing resolution/complexity
+4. ✓ Review this troubleshooting guide
+5. ✓ Search [existing issues](https://github.com/Tarawally/fluid-light-transport/issues)
+
+[→ Next: API Reference](api.qmd) | [← Previous: Main Loop](../tutorial/07_mainloop.qmd)

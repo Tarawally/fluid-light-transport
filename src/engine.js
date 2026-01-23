@@ -73,7 +73,25 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
+  SCENE_URL: 'assets/scene.json',
 };
+
+// Expose CONFIG to window for OJS interaction
+if (typeof window !== 'undefined') {
+  // Determine the default scene URL based on current path
+  const isSubfolder = window.location.pathname.includes('/src/');
+  const computedPath = isSubfolder ? '../assets/scene.json' : 'assets/scene.json';
+  
+  // Logic: 
+  // 1. window.CONFIG (manual override) takes highest precedence
+  // 2. computedPath (environment aware) takes next
+  // 3. CONFIG.SCENE_URL (base default) is fallback
+  const userConfig = window.CONFIG || {};
+  const finalSceneUrl = userConfig.SCENE_URL || computedPath;
+
+  window.CONFIG = Object.assign({}, CONFIG, userConfig);
+  window.CONFIG.SCENE_URL = finalSceneUrl;
+}
 
 /**
  * Memory layout offsets for the Structure of Arrays (SoA).
@@ -213,15 +231,46 @@ const State = {
 // ==========================================
 
 /**
- * Allocates memory and sets grid dimensions based on the current window size.
- * Called on load and resize.
+ * Initialises the simulation by allocating memory and computing grid dimensions.
+ * This function performs critical setup:
+ * 1. Calculates internal resolution based on window size and downsampling
+ * 2. Resizes canvas to match resolution
+ * 3. Computes tile grid dimensions for spatial optimisation
+ * 4. Allocates typed arrays for state storage
+ * 5. Creates image buffer for rendering
+ * 
+ * @function bootSystem
+ * @fires window#resize - Automatically called when window is resized (debounced)
+ * @modifies {RESOLUTION} - Updates global resolution dimensions
+ * @modifies {State.lattice} - Allocates new Float32Array for simulation state
+ * @modifies {State.maskRead} - Allocates bitmask for active tile tracking
+ * @modifies {State.maskWrite} - Allocates double-buffered bitmask
+ * @modifies {State.displayImage} - Creates ImageData for rendering
+ * 
+ * @example
+ * // Called automatically on page load
+ * window.addEventListener('load', bootSystem);
+ * 
+ * @example
+ * // Manually reinitialise after config change
+ * CONFIG.DOWNSAMPLE = 8;
+ * bootSystem();
  */
 function bootSystem() {
-  // 1. Calculate internal resolution
-  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE);
-  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE);
+  // 1. Determine base dimensions from container
+  const baseW = window.innerWidth;
+  const baseH = window.innerHeight;
+  
+  // 2. Calculate internal resolution as multiples of TILE_SIZE (4)
+  // This prevents black bars at the edges caused by integer division in loops
+  RESOLUTION.W = Math.floor(baseW / (CONFIG.DOWNSAMPLE * CONFIG.TILE_SIZE)) * CONFIG.TILE_SIZE;
+  RESOLUTION.H = Math.floor(baseH / (CONFIG.DOWNSAMPLE * CONFIG.TILE_SIZE)) * CONFIG.TILE_SIZE;
+  
+  // Enforce minimums
+  RESOLUTION.W = Math.max(CONFIG.TILE_SIZE * 10, RESOLUTION.W);
+  RESOLUTION.H = Math.max(CONFIG.TILE_SIZE * 10, RESOLUTION.H);
 
-  // 2. Resize canvas container
+  // 3. Set canvas buffer size (internal resolution)
   canvas.width = RESOLUTION.W;
   canvas.height = RESOLUTION.H;
 
@@ -264,10 +313,17 @@ function debounce(func, wait) {
   };
 }
 
-// Debounced resize handler
+// Debounced resize handler with state preservation check
+let lastWidth = window.innerWidth;
+let lastHeight = window.innerHeight;
+
 window.addEventListener('resize', debounce(() => {
-  bootSystem();
-}, 250));
+  if (window.innerWidth !== lastWidth || window.innerHeight !== lastHeight) {
+    lastWidth = window.innerWidth;
+    lastHeight = window.innerHeight;
+    bootSystem();
+  }
+}, 500));
 
 // ==========================================
 // MATHEMATICS & GEOMETRY
@@ -280,8 +336,25 @@ const MathLib = {
   seed: 1337,
 
   /**
-   * A fast, deterministic Linear Congruential Generator (LCG).
-   * @return {number} A float between 0 and 1.
+   * Fast pseudo-random number generator using Linear Congruential Generator (LCG).
+   * Provides deterministic random values based on internal seed state.
+   * Uses the same parameters as the POSIX rand48 family.
+   * 
+   * @memberof MathLib
+   * @returns {number} Pseudo-random float in range [0, 1)
+   * 
+   * @example
+   * // Generate random positions
+   * const x = MathLib.nextFloat() * width;
+   * const y = MathLib.nextFloat() * height;
+   * 
+   * @algorithm
+   * LCG formula: seed = (a × seed + c) mod m
+   * Where: a = 1664525, c = 1013904223, m = 2³²
+   * Output: seed / 2³² to normalise to [0, 1)
+   * 
+   * @performance O(1) - Single multiply-add operation
+   * @deterministic true - Same seed produces same sequence
    */
   nextFloat: function() {
     this.seed = (this.seed * 1664525 + 1013904223) | 0;
@@ -303,10 +376,26 @@ const MathLib = {
   },
 
   /**
-   * ACES Tone Mapping.
-   * Maps HDR values to LDR for display.
-   * @param {number} x Input colour value.
-   * @return {number} Tone mapped value.
+   * ACES (Academy Colour Encoding System) tone mapping curve.
+   * Maps High Dynamic Range (HDR) values to Low Dynamic Range (LDR)
+   * for display on standard monitors. Preserves colour relationships
+   * and provides smooth highlight rolloff.
+   * 
+   * @memberof MathLib
+   * @param {number} x - Input HDR colour value (unbounded range)
+   * @returns {number} Tone-mapped LDR value (typically [0, 1])
+   * 
+   * @example
+   * // Tone map HDR pixel values
+   * const hdrColour = 5.2;  // Bright light source
+   * const ldrColour = MathLib.aces(hdrColour);  // ~0.95
+   * 
+   * @algorithm
+   * Rational function approximation:
+   * f(x) = (x(ax + b)) / (x(cx + d) + e)
+   * Constants tuned for perceptually pleasing results
+   * 
+   * @see {@link https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/}
    */
   aces: function(x) {
     const a = 2.51, b = 0.03, c = 2.43, d = 0.59, e = 0.14;
@@ -333,10 +422,31 @@ const Scene = {
   },
 
   /**
-   * Performs basic Ray-Sphere intersection.
-   * @param {Array<number>} ro Ray origin [x, y, z].
-   * @param {Array<number>} rd Ray direction [x, y, z].
-   * @return {{t: number, obj: Object|null}} Intersection distance and object.
+   * Performs ray-sphere intersection using geometric algebra.
+   * Uses the discriminant method to solve the quadratic equation
+   * formed by substituting the ray equation into the sphere equation.
+   * 
+   * @memberof Scene
+   * @param {Array<number>} ro - Ray origin [x, y, z]
+   * @param {Array<number>} rd - Ray direction [x, y, z], should be normalised
+   * @returns {{t: number, obj: Object|null}} Intersection result
+   * @property {number} t - Distance along ray to intersection (1e9 if no hit)
+   * @property {Object|null} obj - The sphere object that was hit, or null
+   * 
+   * @example
+   * const ray = {origin: [0, 0, -5], direction: [0, 0, 1]};
+   * const hit = Scene.trace(ray.origin, ray.direction);
+   * if (hit.obj) {
+   *   console.log(`Hit sphere at distance ${hit.t}`);
+   * }
+   * 
+   * @algorithm
+   * Solves: |P(t) - C|² = r²
+   * Where: P(t) = O + tD (ray equation)
+   * Expands to: at² + bt + c = 0
+   * Discriminant: Δ = b² - 4ac
+   * If Δ > 0: two intersections (entry and exit)
+   * Takes nearest positive t value
    */
   trace: function(ro, rd) {
     let tMin = 1e9;
@@ -363,11 +473,31 @@ const Scene = {
   },
 
   /**
-   * Calculates shading for a hit point.
-   * @param {{t: number, obj: Object|null}} hit Intersection data.
-   * @param {Array<number>} ro Ray origin.
-   * @param {Array<number>} rd Ray direction.
-   * @return {Object|null} Shading data (albedo, emission, normal, position, etc.).
+   * Computes lighting and material properties at a ray intersection point.
+   * Implements basic Lambertian diffuse shading with distance attenuation.
+   * 
+   * @memberof Scene
+   * @param {{t: number, obj: Object|null}} hit - Intersection data from trace()
+   * @param {Array<number>} ro - Ray origin [x, y, z]
+   * @param {Array<number>} rd - Ray direction [x, y, z]
+   * @returns {Object|null} Shading information or null if no hit
+   * @property {Array<number>} albedo - Surface colour [r, g, b]
+   * @property {Array<number>} emission - Emitted light [r, g, b]
+   * @property {Array<number>} normal - Surface normal [x, y, z]
+   * @property {Array<number>} position - World-space position [x, y, z]
+   * @property {number} depth - Distance from camera
+   * @property {number} diffuse - Lambertian diffuse term (N·L)
+   * @property {number} falloff - Distance-based attenuation
+   * 
+   * @example
+   * const hit = Scene.trace(ro, rd);
+   * const shading = Scene.shade(hit, ro, rd);
+   * if (shading) {
+   *   // Use shading.albedo, shading.emission, etc.
+   *   const finalColour = shading.albedo.map((c, i) => 
+   *     c * shading.diffuse * shading.falloff + shading.emission[i]
+   *   );
+   * }
    */
   shade: function(hit, ro, rd) {
     if (!hit.obj) return null;
@@ -620,8 +750,8 @@ function mainSimulationLoop() {
 
   const W = RESOLUTION.W;
   const H = RESOLUTION.H;
-  const gridW = 4;
-  const gridH = 4;
+  const gridW = CONFIG.TILE_SIZE;
+  const gridH = CONFIG.TILE_SIZE;
   const cols = (W / gridW) | 0;
   const rows = (H / gridH) | 0;
   const invAlpha = State.input.dragging ? 0.5 : 0.94;
@@ -933,6 +1063,10 @@ window.addEventListener('keydown', (e) => {
  */
 async function initialiseEngine() {
   const uiStatus = document.getElementById('statusIndicator');
+  const sourceDisplay = document.getElementById('sceneSource');
+  if (sourceDisplay) {
+    sourceDisplay.textContent = window.CONFIG.SCENE_URL;
+  }
 
   try {
     // 1. FETCH: Get the raw data (The "Source")
@@ -942,7 +1076,7 @@ async function initialiseEngine() {
     }
 
     // UPDATED: fetching from assets folder
-    const response = await fetch('assets/scene.json');
+    const response = await fetch(window.CONFIG.SCENE_URL);
 
     if (!response.ok) {
       throw new Error(`HTTP Error: ${response.status}`);
@@ -961,8 +1095,13 @@ async function initialiseEngine() {
       uiStatus.style.color = '#28a745'; // Green
     }
 
-    bootSystem();
-    requestAnimationFrame(mainSimulationLoop);
+    // Small delay to ensure canvas is ready in iframes
+    setTimeout(() => {
+      bootSystem();
+      requestAnimationFrame(mainSimulationLoop);
+    }, 100);
+    // 5. Connect UI Controls
+    setupUIControlListeners();
   } catch (error) {
     console.error('Data Flow Interruption:', error);
     if (uiStatus) {
@@ -970,6 +1109,34 @@ async function initialiseEngine() {
       uiStatus.style.color = '#dc3545'; // Red
     }
   }
+}
+
+/**
+ * Connects HTML sliders to the engine configuration.
+ */
+function setupUIControlListeners() {
+  const sliders = {
+    DISSIPATION: document.getElementById('dissipationSlider'),
+    ADVECTION_STRENGTH: document.getElementById('advectionSlider'),
+    MOMENTUM_DECAY: document.getElementById('decaySlider'),
+  };
+
+  Object.entries(sliders).forEach(([key, el]) => {
+    if (!el) return;
+
+    // Initialise slider value from current CONFIG
+    el.value = CONFIG[key];
+
+    // Sync CONFIG on change
+    el.addEventListener('input', (e) => {
+      const val = parseFloat(e.target.value);
+      CONFIG[key] = val;
+      // Also update window.CONFIG for external tools/OJS if still active
+      if (typeof window !== 'undefined' && window.CONFIG) {
+        window.CONFIG[key] = val;
+      }
+    });
+  });
 }
 
 // Begin Data Flow

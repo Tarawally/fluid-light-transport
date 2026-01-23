@@ -1,0 +1,22 @@
+{
+  "name": "fluid-light-transport",
+  "version": "1.0.0",
+  "description": "Hybrid Fluid-Light Transport Engine",
+  "scripts": {
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "docs:api": "node docs/scripts/build-api.js",
+    "docs:build": "quarto render",
+    "docs:preview": "quarto preview"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Tarawally/fluid-light-transport.git"
+  },
+  "author": "Samuel Tarawally",
+  "license": "MIT",
+  "devDependencies": {
+    "jsdoc-to-markdown": "^8.0.3",
+    "vitest": "^4.0.17"
+  }
+}

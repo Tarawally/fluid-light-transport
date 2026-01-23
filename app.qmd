@@ -1,0 +1,13 @@
+---
+pagetitle: "Visualisation"
+page-layout: custom
+sidebar: false
+css: src/style.css
+---
+
+<iframe 
+  id="sim-frame"
+  src="src/index.html" 
+  style="width: 100%; height: calc(100vh - 60px); border: none; display: block; margin: 0; padding: 0;"
+  title="Fluid Light Transport Scene">
+</iframe>
