@@ -5,47 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Fluid Light Transport - Scene</title>
     <link rel="stylesheet" href="style.css" />
-    <style>
-      body,
-      html {
-        margin: 0;
-        padding: 0;
-        width: 100%;
-        height: 100%;
-        overflow: hidden;
-        background: #000;
-      }
-      .simulation-root {
-        width: 100%;
-        height: 100%;
-        position: relative;
-      }
-      #canvas {
-        width: 100%;
-        height: 100%;
-        display: block;
-      }
-      /* Reset UI position for full-screen standalone mode */
-      #ui {
-        position: absolute;
-        top: 20px;
-        left: 20px;
-        pointer-events: none;
-      }
-      #ui * {
-        pointer-events: auto;
-      }
-      .control-row {
-        margin-top: 8px;
-        display: flex;
-        align-items: center;
-        gap: 10px;
-      }
-      .control-row input[type="range"] {
-        flex: 1;
-        cursor: pointer;
-      }
-    </style>
   </head>
   <body>
     <div class="simulation-root">
@@ -85,7 +44,7 @@
 
           <div class="stat-row" style="margin-top: 10px">
             <span class="label">Data Source:</span>
-            <span class="value">assets/scene.json</span>
+            <span class="value" id="sceneSource">Loading...</span>
           </div>
 
           <div class="section-divider">Optimisation Metrics</div>
@@ -148,13 +107,6 @@
       </div>
     </div>
 
-    <!-- Configuration for Standalone Mode -->
-    <script>
-      // Pre-configure the engine to find assets relative to src/
-      window.CONFIG = {
-        SCENE_URL: "../assets/scene.json",
-      };
-    </script>
     <script src="../theme-sync.js"></script>
     <script src="engine.js"></script>
   </body>

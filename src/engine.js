@@ -315,7 +315,6 @@ window.addEventListener('resize', debounce(() => {
   if (window.innerWidth !== lastWidth || window.innerHeight !== lastHeight) {
     lastWidth = window.innerWidth;
     lastHeight = window.innerHeight;
-    // console.log('📐 Engine: Viewport changed, rebooting system...');
     bootSystem();
   }
 }, 500));
@@ -1058,6 +1057,10 @@ window.addEventListener('keydown', (e) => {
  */
 async function initialiseEngine() {
   const uiStatus = document.getElementById('statusIndicator');
+  const sourceDisplay = document.getElementById('sceneSource');
+  if (sourceDisplay) {
+    sourceDisplay.textContent = window.CONFIG.SCENE_URL;
+  }
 
   try {
     // 1. FETCH: Get the raw data (The "Source")

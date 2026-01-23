@@ -134,3 +134,20 @@
 .code-copy-button {
   display: none !important;
 }
+
+/* Controls and UI Overrides */
+#ui * {
+  pointer-events: auto;
+}
+
+.control-row {
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.control-row input[type="range"] {
+  flex: 1;
+  cursor: pointer;
+}

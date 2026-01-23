@@ -67,6 +67,8 @@ function ClearGrid() {
 
 1.  Iterate from index `0` up to the total length of the array.
 2.  Set every single value to zero, effectively "turning off the lights."
+
+```javascript
 for (let x = 0; x < width; x++) {
     // Process pixel at 'x'
 }
