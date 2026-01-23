@@ -3,6 +3,14 @@ name: Publish Documentation
 on:
   push:
     branches: [main, feat/quarto-website]
+    paths:
+      - "docs/**"
+      - "src/**"
+      - ".github/workflows/publish-docs.yml"
+      - "_quarto.yml"
+      - "*.qmd"
+      - "assets/**"
+      - "theme-sync.js"
   workflow_dispatch:
 
 permissions:
@@ -15,23 +23,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
-          
+          node-version: "20"
+
       - name: Install npm dependencies
-        run: npm install
-        
+        run: npm ci
+
       - uses: quarto-dev/quarto-actions/setup@v2
-        
+
       - name: Run Unit Tests
         run: npm test
-        
+
       - name: Render Quarto site (auto-generates JSDoc)
         run: |
           quarto render
-          
+
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:

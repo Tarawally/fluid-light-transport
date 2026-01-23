@@ -3,7 +3,7 @@
  */
 
 /**
- * Normalises a 2D vector in-place.
+ * Returns a normalised 2D vector.
  * @param {number} x 
  * @param {number} y 
  * @returns {number[]} The normalised vector [x, y]

@@ -315,7 +315,7 @@ window.addEventListener('resize', debounce(() => {
   if (window.innerWidth !== lastWidth || window.innerHeight !== lastHeight) {
     lastWidth = window.innerWidth;
     lastHeight = window.innerHeight;
-    console.log('📐 Engine: Viewport changed, rebooting system...');
+    // console.log('📐 Engine: Viewport changed, rebooting system...');
     bootSystem();
   }
 }, 500));
