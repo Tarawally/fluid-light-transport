@@ -1,0 +1,931 @@
+[
+  {
+    "objectID": "docs/tutorial/01_canvas.html",
+    "href": "docs/tutorial/01_canvas.html",
+    "title": "The Digital Canvas",
+    "section": "",
+    "text": "Before painting with light, we must understand our canvas.\n\n\nScreens comprise millions of tiny squares called Pixels (Picture Elements). Each pixel is not a single colour but a blend of three primary lights: Red, Green, and Blue (RGB).\n\n\n\n\n\n\nNoteDeep Dive: Additive Colour\n\n\n\n\n\nUnlike mixing paint (where red + blue = purple), mixing light is additive. * Red + Green = Yellow * Red + Blue = Magenta * Green + Blue = Cyan * Red + Green + Blue = White\n\n\n\n\n\n\nIn mathematics, graphs typically place \\((0,0)\\) in the centre with \\(Y\\) increasing upwards. Computer graphics differ:\n\nThe Origin \\((0,0)\\) sits at the Top-Left corner.\nX increases to the Right.\nY increases Downwards.\n\n\nPlot.plot({\n  grid: true,\n  x: {axis: \"top\", label: \"X Axis →\"},\n  y: {axis: \"left\", label: \"↓ Y Axis\"},\n  domain: [0, 10],\n  marks: [\n    Plot.frame(),\n    Plot.text([{x: 1, y: 1}], {text: \"(1, 1)\", x: \"x\", y: \"y\", dx: 15, dy: 15}),\n    Plot.dot([{x: 1, y: 1}], {x: \"x\", y: \"y\", fill: \"red\", r: 5}),\n    Plot.text([{x: 5, y: 5}], {text: \"(5, 5)\", x: \"x\", y: \"y\", dx: 15, dy: 15}),\n    Plot.dot([{x: 5, y: 5}], {x: \"x\", y: \"y\", fill: \"blue\", r: 5})\n  ]\n})\n\n\n\n\n\n\n\n\n\nWe access this grid via the HTML5 Canvas API using the &lt;canvas&gt; element.\n&lt;!-- MAIN RENDERING SURFACE --&gt;\n&lt;canvas id=\"canvas\" tabindex=\"0\"&gt;&lt;/canvas&gt;\nIn src/engine.js, we establish a connection to this element to draw upon it.\n// Canvas Context configuration\nconst canvas = document.getElementById('canvas');\nconst ctx = canvas.getContext('2d', {\n  alpha: false,\n  willReadFrequently: true,\n});\nThe context (ctx) is our tool for modifying the canvas.\n\n\n\n\n\n\nTipPerformance: Resizing\n\n\n\nResizing the browser window is computationally expensive. Our engine employs a debounce function to ensure the grid is only recalculated once the user stops adjusting the window, preventing the simulation from freezing.",
+    "crumbs": [
+      "Tutorial",
+      "The Digital Canvas"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/01_canvas.html#the-pixel",
+    "href": "docs/tutorial/01_canvas.html#the-pixel",
+    "title": "The Digital Canvas",
+    "section": "",
+    "text": "Screens comprise millions of tiny squares called Pixels (Picture Elements). Each pixel is not a single colour but a blend of three primary lights: Red, Green, and Blue (RGB).\n\n\n\n\n\n\nNoteDeep Dive: Additive Colour\n\n\n\n\n\nUnlike mixing paint (where red + blue = purple), mixing light is additive. * Red + Green = Yellow * Red + Blue = Magenta * Green + Blue = Cyan * Red + Green + Blue = White",
+    "crumbs": [
+      "Tutorial",
+      "The Digital Canvas"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/01_canvas.html#the-cartesian-grid",
+    "href": "docs/tutorial/01_canvas.html#the-cartesian-grid",
+    "title": "The Digital Canvas",
+    "section": "",
+    "text": "In mathematics, graphs typically place \\((0,0)\\) in the centre with \\(Y\\) increasing upwards. Computer graphics differ:\n\nThe Origin \\((0,0)\\) sits at the Top-Left corner.\nX increases to the Right.\nY increases Downwards.\n\n\nPlot.plot({\n  grid: true,\n  x: {axis: \"top\", label: \"X Axis →\"},\n  y: {axis: \"left\", label: \"↓ Y Axis\"},\n  domain: [0, 10],\n  marks: [\n    Plot.frame(),\n    Plot.text([{x: 1, y: 1}], {text: \"(1, 1)\", x: \"x\", y: \"y\", dx: 15, dy: 15}),\n    Plot.dot([{x: 1, y: 1}], {x: \"x\", y: \"y\", fill: \"red\", r: 5}),\n    Plot.text([{x: 5, y: 5}], {text: \"(5, 5)\", x: \"x\", y: \"y\", dx: 15, dy: 15}),\n    Plot.dot([{x: 5, y: 5}], {x: \"x\", y: \"y\", fill: \"blue\", r: 5})\n  ]\n})",
+    "crumbs": [
+      "Tutorial",
+      "The Digital Canvas"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/01_canvas.html#the-canvas-element",
+    "href": "docs/tutorial/01_canvas.html#the-canvas-element",
+    "title": "The Digital Canvas",
+    "section": "",
+    "text": "We access this grid via the HTML5 Canvas API using the &lt;canvas&gt; element.\n&lt;!-- MAIN RENDERING SURFACE --&gt;\n&lt;canvas id=\"canvas\" tabindex=\"0\"&gt;&lt;/canvas&gt;\nIn src/engine.js, we establish a connection to this element to draw upon it.\n// Canvas Context configuration\nconst canvas = document.getElementById('canvas');\nconst ctx = canvas.getContext('2d', {\n  alpha: false,\n  willReadFrequently: true,\n});\nThe context (ctx) is our tool for modifying the canvas.\n\n\n\n\n\n\nTipPerformance: Resizing\n\n\n\nResizing the browser window is computationally expensive. Our engine employs a debounce function to ensure the grid is only recalculated once the user stops adjusting the window, preventing the simulation from freezing.",
+    "crumbs": [
+      "Tutorial",
+      "The Digital Canvas"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/02_logic.html",
+    "href": "docs/tutorial/02_logic.html",
+    "title": "The Language of Logic",
+    "section": "",
+    "text": "To control pixels, we must speak the computer’s language. Here, that language is JavaScript.\n\n\nImagine a warehouse of empty boxes. We can label a box and store items inside. In programming, we call this a Variable.\n\nconst: A box whose contents cannot be changed (Constant).\nlet: A box whose contents can be changed.\n\n\"use strict\"; /* Enforce stricter parsing and error handling */\n\n/* Configuration constants for the simulation. */\nconst CONFIG = {\n  TILE_SIZE: 4,      // We process pixels in 4x4 blocks\n  DISSIPATION: 0.97, // Energy lost per tick\n};\n\nlet TOTAL_PIXELS = 0; // This updates when the window resizes\n\n\n\nA function is a bundle of instructions. Like a recipe, you give it a name and “call” it to execute those instructions.\nOur engine uses bootSystem to initialise the environment.\n/**\n * Allocates memory and sets grid dimensions based on the current window size.\n */\nfunction bootSystem() {\n  // 1. Calculate internal resolution\n1  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE);\n  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE);\n  \n  // 2. Initialise buffers\n2  GRID = new Float32Array(RESOLUTION.W * RESOLUTION.H * TILE_TYPES);\n  \n  // 3. Inform the UI\n3  UI.updateResolutionDisplay(RESOLUTION.W, RESOLUTION.H);\n}\n\n1\n\nCalculate grid dimensions by dividing window size by a downsampling factor.\n\n2\n\nAllocate a flat array in memory to hold pixel data.\n\n3\n\nUpdate the on-screen display with the new coordinates.\n\n\n\n\n\nComputers excel at repetition. We use a Loop to repeat instructions for thousands of pixels at once.\nThe common for loop states: “Start here, continue whilst this is true, and perform this action after each step.”\n/**\n * Zeroes out the entire light transport grid.\n */\nfunction ClearGrid() {\n1  for (let i = 0; i &lt; GRID.length; i++) {\n2    GRID[i] = 0.0;\n  }\n}\n\n1\n\nIterate from index 0 up to the total length of the array.\n\n2\n\nSet every single value to zero, effectively “turning off the lights.”\n\n\nfor (let x = 0; x &lt; width; x++) {\n    // Process pixel at 'x'\n}\n\n\n\nWe often adapt behaviour based on the situation using if statements.\nif (energy &lt; 0.001) {\n    // If energy is negligible, stop processing to conserve battery\n    continue;\n}",
+    "crumbs": [
+      "Tutorial",
+      "The Language of Logic"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/02_logic.html#variables-the-boxes-of-memory",
+    "href": "docs/tutorial/02_logic.html#variables-the-boxes-of-memory",
+    "title": "The Language of Logic",
+    "section": "",
+    "text": "Imagine a warehouse of empty boxes. We can label a box and store items inside. In programming, we call this a Variable.\n\nconst: A box whose contents cannot be changed (Constant).\nlet: A box whose contents can be changed.\n\n\"use strict\"; /* Enforce stricter parsing and error handling */\n\n/* Configuration constants for the simulation. */\nconst CONFIG = {\n  TILE_SIZE: 4,      // We process pixels in 4x4 blocks\n  DISSIPATION: 0.97, // Energy lost per tick\n};\n\nlet TOTAL_PIXELS = 0; // This updates when the window resizes",
+    "crumbs": [
+      "Tutorial",
+      "The Language of Logic"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/02_logic.html#functions-the-recipes",
+    "href": "docs/tutorial/02_logic.html#functions-the-recipes",
+    "title": "The Language of Logic",
+    "section": "",
+    "text": "A function is a bundle of instructions. Like a recipe, you give it a name and “call” it to execute those instructions.\nOur engine uses bootSystem to initialise the environment.\n/**\n * Allocates memory and sets grid dimensions based on the current window size.\n */\nfunction bootSystem() {\n  // 1. Calculate internal resolution\n1  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE);\n  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE);\n  \n  // 2. Initialise buffers\n2  GRID = new Float32Array(RESOLUTION.W * RESOLUTION.H * TILE_TYPES);\n  \n  // 3. Inform the UI\n3  UI.updateResolutionDisplay(RESOLUTION.W, RESOLUTION.H);\n}\n\n1\n\nCalculate grid dimensions by dividing window size by a downsampling factor.\n\n2\n\nAllocate a flat array in memory to hold pixel data.\n\n3\n\nUpdate the on-screen display with the new coordinates.",
+    "crumbs": [
+      "Tutorial",
+      "The Language of Logic"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/02_logic.html#loops",
+    "href": "docs/tutorial/02_logic.html#loops",
+    "title": "The Language of Logic",
+    "section": "",
+    "text": "Computers excel at repetition. We use a Loop to repeat instructions for thousands of pixels at once.\nThe common for loop states: “Start here, continue whilst this is true, and perform this action after each step.”\n/**\n * Zeroes out the entire light transport grid.\n */\nfunction ClearGrid() {\n1  for (let i = 0; i &lt; GRID.length; i++) {\n2    GRID[i] = 0.0;\n  }\n}\n\n1\n\nIterate from index 0 up to the total length of the array.\n\n2\n\nSet every single value to zero, effectively “turning off the lights.”\n\n\nfor (let x = 0; x &lt; width; x++) {\n    // Process pixel at 'x'\n}",
+    "crumbs": [
+      "Tutorial",
+      "The Language of Logic"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/02_logic.html#conditionals-making-decisions",
+    "href": "docs/tutorial/02_logic.html#conditionals-making-decisions",
+    "title": "The Language of Logic",
+    "section": "",
+    "text": "We often adapt behaviour based on the situation using if statements.\nif (energy &lt; 0.001) {\n    // If energy is negligible, stop processing to conserve battery\n    continue;\n}",
+    "crumbs": [
+      "Tutorial",
+      "The Language of Logic"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/03_memory.html",
+    "href": "docs/tutorial/03_memory.html",
+    "title": "Memory & Data",
+    "section": "",
+    "text": "Simulating reality requires storing vast amounts of information. Every pixel must know its colour, light velocity, and whether it represents a wall or empty air.\n\n\nWe call the sum of this information the State. In our engine, state resides in RAM (Random Access Memory).\n\n\n\nThe most efficient way to store a list in a computer is an Array. Picture an array as a long shelf where every item has a specific number (an index).\n\n\n\nProgrammers might typically create an Object for every pixel:\n// Array of Structures (AoS) - SLOW\nlet pixel = { red: 1.0, green: 0.5, velocityX: 0.1 };\nHowever, managing 200,000 objects is slow. Every time the computer seeks a new object, it may look in a completely different memory location. This is a Cache Miss, a primary cause of software sluggishness.\nInstead, we use a single massive array of numbers and use Offsets to locate data. This Structure of Arrays (SoA) layout keeps related data tightly packed, which the CPU prefers.\n\n\n\n\n\n\nNoteAnalogy: The Library Shelf\n\n\n\n\n\nImagine a library. * AoS: Books are organised by Author. To find all red books, you must check every aisle. * SoA: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.\n\n\n\nIn src/engine.js, we define these “shelves” using the FIELD constant.\n/**\n * Memory layout offsets.\n * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.\n */\nconst FIELD = {\n  R: 0,\n  G: 1,\n  B: 2, // Spectral Energy (Colour)\n  VEL_X: 4,\n  VEL_Y: 5, // Momentum Vector (Flow direction)\n  DEPTH: 7, // Distance from camera (Topology)\n};\n\nconst STRIDE = 14; // Total slots per pixel\nWe allocate one giant block of memory for the entire universe:\nState.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);\nFloat32Array is a TypedArray that stores only decimal numbers. It is extremely fast.",
+    "crumbs": [
+      "Tutorial",
+      "Memory & Data"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/03_memory.html#the-state",
+    "href": "docs/tutorial/03_memory.html#the-state",
+    "title": "Memory & Data",
+    "section": "",
+    "text": "We call the sum of this information the State. In our engine, state resides in RAM (Random Access Memory).",
+    "crumbs": [
+      "Tutorial",
+      "Memory & Data"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/03_memory.html#arrays-the-shelf",
+    "href": "docs/tutorial/03_memory.html#arrays-the-shelf",
+    "title": "Memory & Data",
+    "section": "",
+    "text": "The most efficient way to store a list in a computer is an Array. Picture an array as a long shelf where every item has a specific number (an index).",
+    "crumbs": [
+      "Tutorial",
+      "Memory & Data"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/03_memory.html#structure-of-arrays-soa",
+    "href": "docs/tutorial/03_memory.html#structure-of-arrays-soa",
+    "title": "Memory & Data",
+    "section": "",
+    "text": "Programmers might typically create an Object for every pixel:\n// Array of Structures (AoS) - SLOW\nlet pixel = { red: 1.0, green: 0.5, velocityX: 0.1 };\nHowever, managing 200,000 objects is slow. Every time the computer seeks a new object, it may look in a completely different memory location. This is a Cache Miss, a primary cause of software sluggishness.\nInstead, we use a single massive array of numbers and use Offsets to locate data. This Structure of Arrays (SoA) layout keeps related data tightly packed, which the CPU prefers.\n\n\n\n\n\n\nNoteAnalogy: The Library Shelf\n\n\n\n\n\nImagine a library. * AoS: Books are organised by Author. To find all red books, you must check every aisle. * SoA: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.\n\n\n\nIn src/engine.js, we define these “shelves” using the FIELD constant.\n/**\n * Memory layout offsets.\n * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.\n */\nconst FIELD = {\n  R: 0,\n  G: 1,\n  B: 2, // Spectral Energy (Colour)\n  VEL_X: 4,\n  VEL_Y: 5, // Momentum Vector (Flow direction)\n  DEPTH: 7, // Distance from camera (Topology)\n};\n\nconst STRIDE = 14; // Total slots per pixel\nWe allocate one giant block of memory for the entire universe:\nState.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);\nFloat32Array is a TypedArray that stores only decimal numbers. It is extremely fast.",
+    "crumbs": [
+      "Tutorial",
+      "Memory & Data"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html",
+    "href": "docs/reference/api.html",
+    "title": "API Reference",
+    "section": "",
+    "text": "This documentation is automatically generated from source code JSDoc comments.\n\n\n\n\n\n\nNoteSource Code\n\n\n\nThe primary simulation logic resides in src/engine.js.\n\n\n\n\n\n\nRESOLUTION : Object\n\n\n\nInternal resolution dimensions.\n\n\n\nTOTAL_PIXELS : number\n\n\n\nTotal number of pixels in the simulation grid.\n\n\n\nTILES_X : number\n\n\n\nNumber of tiles horizontally.\n\n\n\nTILES_Y : number\n\n\n\nNumber of tiles vertically.\n\n\n\nMASK_SIZE : number\n\n\n\nSize of the bitmask array.\n\n\n\n\n\n\n\n\nCONFIG\n\n\n\nConfiguration constants for the simulation.\n\n\n\nSTRIDE : number\n\n\n\nTotal number of floats per pixel in the lattice.\n\n\n\nState\n\n\n\nThe global state object containing simulation data and metadata.\n\n\n\nMathLib\n\n\n\nMathematical utility functions.\n\n\n\nScene\n\n\n\nScene definition and ray tracing logic. Populated via asynchronous fetch.\n\n\n\n\n\n\n\n\nbootSystem()\n\n\n\nInitialises the simulation by allocating memory and computing grid dimensions. This function performs critical setup:\n\n\n\nCalculates internal resolution based on window size and downsampling\n\n\nResizes canvas to match resolution\n\n\nComputes tile grid dimensions for spatial optimisation\n\n\nAllocates typed arrays for state storage\n\n\nCreates image buffer for rendering\n\n\n\n\ndebounce(func, wait) ⇒ function\n\n\n\nDebounce utility to limit function execution rate.\n\n\n\nactivateSpatialRegion(tx, ty)\n\n\n\nMarks a specific spatial region (tile) as active. This ensures the physics solver will process this region in the next frame.\n\n\n\nevolveSimulation()\n\n\n\nEvolves the simulation state by one timestep. Uses Cellular Automata to flow light energy from pixel to pixel.\n\n\n\nmainSimulationLoop()\n\n\n\nThe main game loop. Handles input, physics, and rendering.\n\n\n\nhandleInput() ⇒ boolean\n\n\n\nHandles user input to update the camera position.\n\n\n\nupdateTelemetry()\n\n\n\nUpdates the on-screen telemetry display.\n\n\n\ninitialiseEngine()\n\n\n\nBootstraps the engine by fetching configuration data.\n\n\n\nsetupUIControlListeners()\n\n\n\nConnects HTML sliders to the engine configuration.\n\n\n\nnormalize2D(x, y) ⇒ Array.&lt;number&gt;\n\n\n\nReturns a normalised 2D vector (new array).\n\n\n\ndot2D(x1, y1, x2, y2) ⇒ number\n\n\n\nCalculates the dot product of two 2D vectors.\n\n\n\nclamp(val, min, max) ⇒ number\n\n\n\nReturns a value clamped between min and max.\n\n\n\n\n\n\n\nInternal resolution dimensions.\nKind: global variable\n\n\n\n\nTotal number of pixels in the simulation grid.\nKind: global variable\n\n\n\n\nNumber of tiles horizontally.\nKind: global variable\n\n\n\n\nNumber of tiles vertically.\nKind: global variable\n\n\n\n\nSize of the bitmask array.\nKind: global variable\n\n\n\n\nMemory layout offsets for the Structure of Arrays (SoA). Access a pixel’s property by: index = (y * width + x) * STRIDE + OFFSET.\nKind: global enum\nProperties\n\n\n\nName\nType\nDefault\n\n\n\n\nR\nnumber\n0\n\n\nG\nnumber\n1\n\n\nB\nnumber\n2\n\n\nVEL_X\nnumber\n4\n\n\nVEL_Y\nnumber\n5\n\n\nROUGHNESS\nnumber\n6\n\n\nDEPTH\nnumber\n7\n\n\nOBJECT_ID\nnumber\n11\n\n\nSLEEP_TIMER\nnumber\n12\n\n\n\n\n\n\n\nConfiguration constants for the simulation.\nKind: global constant\n\nCONFIG\n\n.DOWNSAMPLE : number\n.TILE_SIZE : number\n.TIMESTEP_BUDGET_MS : number\n.DISSIPATION : number\n.MOMENTUM_DECAY : number\n.ADVECTION_STRENGTH : number\n.EXPOSURE : number\n.GAMMA : number\n\n\n\n\n\nResolution downsampling factor. To maintain 60 FPS, we downsample the window resolution. A 1920px width becomes a ~384px width simulation grid.\nKind: static property of CONFIG\n\n\n\n\nSize of a tile in pixels (width and height). Physics is activated in 4x4 “Blocks” (Tiles).\nKind: static property of CONFIG\n\n\n\n\nMaximum time allowed for physics calculations per frame (in milliseconds). If calculations exceed this, the loop aborts to ensure the frame renders.\nKind: static property of CONFIG\n\n\n\n\nEnergy lost to entropy per tick.\nKind: static property of CONFIG\n\n\n\n\nMomentum decay factor (viscosity). How quickly light stops “flowing”.\nKind: static property of CONFIG\n\n\n\n\nMagnitude of flow per tick.\nKind: static property of CONFIG\n\n\n\n\nVirtual camera aperture.\nKind: static property of CONFIG\n\n\n\n\nMonitor gamma correction.\nKind: static property of CONFIG\n\n\n\n\n\nTotal number of floats per pixel in the lattice.\nKind: global constant\n\n\n\n\nThe global state object containing simulation data and metadata.\nKind: global constant\n\nState\n\n.lattice : Float32Array | null\n.displayImage : ImageData | null\n.maskRead : Uint32Array | null\n.maskWrite : Uint32Array | null\n.cam : Object\n.input\n.viewMode : number\n.profiler\n\n\n\n\n\nThe single buffer containing the entire universe’s state. Allocated in bootSystem().\nKind: static property of State\n\n\n\n\nPersistent display buffer to avoid expensive read-backs.\nKind: static property of State\n\n\n\n\nBitmask tracking active regions for the current frame.\nKind: static property of State\n\n\n\n\nBitmask tracking active regions for the next frame.\nKind: static property of State\n\n\n\n\nCamera position and orientation.\nKind: static property of State\n\n\n\n\nUser input state.\nKind: static property of State\n\n\n\n\nCurrent view mode. 0: Composite Output 1: Active Tile Map 2: Velocity Vector Field\nKind: static property of State\n\n\n\n\nPerformance profiling data.\nKind: static property of State\n\n\n\n\n\nMathematical utility functions.\nKind: global constant\n\nMathLib\n\n.nextFloat() ⇒ number\n.toHyperbolic(x, y, z) ⇒ Array.&lt;number&gt;\n.aces(x) ⇒ number\n\n\n\n\n\nFast pseudo-random number generator using Linear Congruential Generator (LCG). Provides deterministic random values based on internal seed state. Uses the same parameters as the POSIX rand48 family.\nKind: static method of MathLib\nReturns: number - Pseudo-random float in range [0, 1)\nAlgorithm: LCG formula: seed = (a × seed + c) mod m Where: a = 1664525, c = 1013904223, m = 2³² Output: seed / 2³² to normalise to [0, 1)\nPerformance: O(1) - Single multiply-add operation\nDeterministic: true - Same seed produces same sequence\nExample\n// Generate random positions\nconst x = MathLib.nextFloat() * width;\nconst y = MathLib.nextFloat() * height;\n\n\n\n\nPoincaré Ball Projection. Compresses infinite Euclidean distance into a 0.0-1.0 range.\nKind: static method of MathLib\nReturns: Array.&lt;number&gt; - [x, y, z] projected coordinates.\n\n\n\nParam\nType\n\n\n\n\nx\nnumber\n\n\ny\nnumber\n\n\nz\nnumber\n\n\n\n\n\n\n\nACES (Academy Colour Encoding System) tone mapping curve. Maps High Dynamic Range (HDR) values to Low Dynamic Range (LDR) for display on standard monitors. Preserves colour relationships and provides smooth highlight rolloff.\nKind: static method of MathLib\nReturns: number - Tone-mapped LDR value (typically [0, 1])\nAlgorithm: Rational function approximation: f(x) = (x(ax + b)) / (x(cx + d) + e) Constants tuned for perceptually pleasing results\nSee: https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/\n\n\n\nParam\nType\nDescription\n\n\n\n\nx\nnumber\nInput HDR colour value (unbounded range)\n\n\n\nExample\n// Tone map HDR pixel values\nconst hdrColour = 5.2;  // Bright light source\nconst ldrColour = MathLib.aces(hdrColour);  // ~0.95\n\n\n\n\n\nScene definition and ray tracing logic. Populated via asynchronous fetch.\nKind: global constant\n\nScene\n\n.cacheLightSource()\n.trace(ro, rd) ⇒ Object\n.shade(hit, ro, rd) ⇒ Object | null\n\n\n\n\n\nUpdates the cached active light source. Should be called when the scene loads or changes.\nKind: static method of Scene\n\n\n\n\nPerforms ray-sphere intersection using geometric algebra. Uses the discriminant method to solve the quadratic equation formed by substituting the ray equation into the sphere equation.\nKind: static method of Scene\nReturns: Object - Intersection result\nAlgorithm: Solves: |P(t) - C|² = r² Where: P(t) = O + tD (ray equation) Expands to: at² + bt + c = 0 Discriminant: Δ = b² - 4ac If Δ &gt; 0: two intersections (entry and exit) Takes nearest positive t value\n\n\n\n\n\n\n\n\nParam\nType\nDescription\n\n\n\n\nro\nArray.&lt;number&gt;\nRay origin [x, y, z]\n\n\nrd\nArray.&lt;number&gt;\nRay direction [x, y, z], should be normalised\n\n\n\nProperties\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\nt\nnumber\nDistance along ray to intersection (1e9 if no hit)\n\n\nobj\nObject | null\nThe sphere object that was hit, or null\n\n\n\nExample\nconst ray = {origin: [0, 0, -5], direction: [0, 0, 1]};\nconst hit = Scene.trace(ray.origin, ray.direction);\nif (hit.obj) {\n  console.log(`Hit sphere at distance ${hit.t}`);\n}\n\n\n\n\nComputes lighting and material properties at a ray intersection point. Implements basic Lambertian diffuse shading with distance attenuation.\nKind: static method of Scene\nReturns: Object | null - Shading information or null if no hit\n\n\n\nParam\nType\nDescription\n\n\n\n\nhit\nObject\nIntersection data from trace()\n\n\nro\nArray.&lt;number&gt;\nRay origin [x, y, z]\n\n\nrd\nArray.&lt;number&gt;\nRay direction [x, y, z]\n\n\n\nProperties\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\nalbedo\nArray.&lt;number&gt;\nSurface colour [r, g, b]\n\n\nemission\nArray.&lt;number&gt;\nEmitted light [r, g, b]\n\n\nnormal\nArray.&lt;number&gt;\nSurface normal [x, y, z]\n\n\nposition\nArray.&lt;number&gt;\nWorld-space position [x, y, z]\n\n\ndepth\nnumber\nDistance from camera\n\n\ndiffuse\nnumber\nLambertian diffuse term (N·L)\n\n\nfalloff\nnumber\nDistance-based attenuation\n\n\n\nExample\nconst hit = Scene.trace(ro, rd);\nconst shading = Scene.shade(hit, ro, rd);\nif (shading) {\n  // Use shading.albedo, shading.emission, etc.\n  const finalColour = shading.albedo.map((c, i) =&gt; \n    c * shading.diffuse * shading.falloff + shading.emission[i]\n  );\n}\n\n\n\n\n\nInitialises the simulation by allocating memory and computing grid dimensions. This function performs critical setup: 1. Calculates internal resolution based on window size and downsampling 2. Resizes canvas to match resolution 3. Computes tile grid dimensions for spatial optimisation 4. Allocates typed arrays for state storage 5. Creates image buffer for rendering\nKind: global function\nEmits: window#resize - Automatically called when window is resized (debounced)\nExample\n// Called automatically on page load\nwindow.addEventListener('load', bootSystem);\nExample\n// Manually reinitialise after config change\nCONFIG.DOWNSAMPLE = 8;\nbootSystem();\n\n\n\n\nDebounce utility to limit function execution rate.\nKind: global function\nReturns: function - The debounced function.\n\n\n\nParam\nType\nDescription\n\n\n\n\nfunc\nfunction\nThe function to debounce.\n\n\nwait\nnumber\nThe delay in milliseconds.\n\n\n\n\n\n\n\nMarks a specific spatial region (tile) as active. This ensures the physics solver will process this region in the next frame.\nKind: global function\n\n\n\nParam\nType\nDescription\n\n\n\n\ntx\nnumber\nTile X index.\n\n\nty\nnumber\nTile Y index.\n\n\n\n\n\n\n\nEvolves the simulation state by one timestep. Uses Cellular Automata to flow light energy from pixel to pixel.\nKind: global function\n\n\n\n\nThe main game loop. Handles input, physics, and rendering.\nKind: global function\n\n\n\n\nHandles user input to update the camera position.\nKind: global function\nReturns: boolean - True if the camera moved, false otherwise.\n\n\n\n\nUpdates the on-screen telemetry display.\nKind: global function\n\n\n\n\nBootstraps the engine by fetching configuration data.\nKind: global function\n\n\n\n\nConnects HTML sliders to the engine configuration.\nKind: global function\n\n\n\n\nReturns a normalised 2D vector (new array).\nKind: global function\nReturns: Array.&lt;number&gt; - The normalised vector [x, y]\n\n\n\nParam\nType\n\n\n\n\nx\nnumber\n\n\ny\nnumber\n\n\n\n\n\n\n\nCalculates the dot product of two 2D vectors.\nKind: global function\nReturns: number - The dot product.\n\n\n\nParam\nType\n\n\n\n\nx1\nnumber\n\n\ny1\nnumber\n\n\nx2\nnumber\n\n\ny2\nnumber\n\n\n\n\n\n\n\nReturns a value clamped between min and max.\nKind: global function\nReturns: number - The clamped value.\n\n\n\nParam\nType\nDescription\n\n\n\n\nval\nnumber\nInput value.\n\n\nmin\nnumber\nLower bound.\n\n\nmax\nnumber\nUpper bound.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#members",
+    "href": "docs/reference/api.html#members",
+    "title": "API Reference",
+    "section": "",
+    "text": "RESOLUTION : Object\n\n\n\nInternal resolution dimensions.\n\n\n\nTOTAL_PIXELS : number\n\n\n\nTotal number of pixels in the simulation grid.\n\n\n\nTILES_X : number\n\n\n\nNumber of tiles horizontally.\n\n\n\nTILES_Y : number\n\n\n\nNumber of tiles vertically.\n\n\n\nMASK_SIZE : number\n\n\n\nSize of the bitmask array.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#constants",
+    "href": "docs/reference/api.html#constants",
+    "title": "API Reference",
+    "section": "",
+    "text": "CONFIG\n\n\n\nConfiguration constants for the simulation.\n\n\n\nSTRIDE : number\n\n\n\nTotal number of floats per pixel in the lattice.\n\n\n\nState\n\n\n\nThe global state object containing simulation data and metadata.\n\n\n\nMathLib\n\n\n\nMathematical utility functions.\n\n\n\nScene\n\n\n\nScene definition and ray tracing logic. Populated via asynchronous fetch.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#functions",
+    "href": "docs/reference/api.html#functions",
+    "title": "API Reference",
+    "section": "",
+    "text": "bootSystem()\n\n\n\nInitialises the simulation by allocating memory and computing grid dimensions. This function performs critical setup:\n\n\n\nCalculates internal resolution based on window size and downsampling\n\n\nResizes canvas to match resolution\n\n\nComputes tile grid dimensions for spatial optimisation\n\n\nAllocates typed arrays for state storage\n\n\nCreates image buffer for rendering\n\n\n\n\ndebounce(func, wait) ⇒ function\n\n\n\nDebounce utility to limit function execution rate.\n\n\n\nactivateSpatialRegion(tx, ty)\n\n\n\nMarks a specific spatial region (tile) as active. This ensures the physics solver will process this region in the next frame.\n\n\n\nevolveSimulation()\n\n\n\nEvolves the simulation state by one timestep. Uses Cellular Automata to flow light energy from pixel to pixel.\n\n\n\nmainSimulationLoop()\n\n\n\nThe main game loop. Handles input, physics, and rendering.\n\n\n\nhandleInput() ⇒ boolean\n\n\n\nHandles user input to update the camera position.\n\n\n\nupdateTelemetry()\n\n\n\nUpdates the on-screen telemetry display.\n\n\n\ninitialiseEngine()\n\n\n\nBootstraps the engine by fetching configuration data.\n\n\n\nsetupUIControlListeners()\n\n\n\nConnects HTML sliders to the engine configuration.\n\n\n\nnormalize2D(x, y) ⇒ Array.&lt;number&gt;\n\n\n\nReturns a normalised 2D vector (new array).\n\n\n\ndot2D(x1, y1, x2, y2) ⇒ number\n\n\n\nCalculates the dot product of two 2D vectors.\n\n\n\nclamp(val, min, max) ⇒ number\n\n\n\nReturns a value clamped between min and max.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#resolution-object",
+    "href": "docs/reference/api.html#resolution-object",
+    "title": "API Reference",
+    "section": "",
+    "text": "Internal resolution dimensions.\nKind: global variable",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#total_pixels-number",
+    "href": "docs/reference/api.html#total_pixels-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Total number of pixels in the simulation grid.\nKind: global variable",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#tiles_x-number",
+    "href": "docs/reference/api.html#tiles_x-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Number of tiles horizontally.\nKind: global variable",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#tiles_y-number",
+    "href": "docs/reference/api.html#tiles_y-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Number of tiles vertically.\nKind: global variable",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#mask_size-number",
+    "href": "docs/reference/api.html#mask_size-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Size of the bitmask array.\nKind: global variable",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#field-enum",
+    "href": "docs/reference/api.html#field-enum",
+    "title": "API Reference",
+    "section": "",
+    "text": "Memory layout offsets for the Structure of Arrays (SoA). Access a pixel’s property by: index = (y * width + x) * STRIDE + OFFSET.\nKind: global enum\nProperties\n\n\n\nName\nType\nDefault\n\n\n\n\nR\nnumber\n0\n\n\nG\nnumber\n1\n\n\nB\nnumber\n2\n\n\nVEL_X\nnumber\n4\n\n\nVEL_Y\nnumber\n5\n\n\nROUGHNESS\nnumber\n6\n\n\nDEPTH\nnumber\n7\n\n\nOBJECT_ID\nnumber\n11\n\n\nSLEEP_TIMER\nnumber\n12",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#config",
+    "href": "docs/reference/api.html#config",
+    "title": "API Reference",
+    "section": "",
+    "text": "Configuration constants for the simulation.\nKind: global constant\n\nCONFIG\n\n.DOWNSAMPLE : number\n.TILE_SIZE : number\n.TIMESTEP_BUDGET_MS : number\n.DISSIPATION : number\n.MOMENTUM_DECAY : number\n.ADVECTION_STRENGTH : number\n.EXPOSURE : number\n.GAMMA : number\n\n\n\n\n\nResolution downsampling factor. To maintain 60 FPS, we downsample the window resolution. A 1920px width becomes a ~384px width simulation grid.\nKind: static property of CONFIG\n\n\n\n\nSize of a tile in pixels (width and height). Physics is activated in 4x4 “Blocks” (Tiles).\nKind: static property of CONFIG\n\n\n\n\nMaximum time allowed for physics calculations per frame (in milliseconds). If calculations exceed this, the loop aborts to ensure the frame renders.\nKind: static property of CONFIG\n\n\n\n\nEnergy lost to entropy per tick.\nKind: static property of CONFIG\n\n\n\n\nMomentum decay factor (viscosity). How quickly light stops “flowing”.\nKind: static property of CONFIG\n\n\n\n\nMagnitude of flow per tick.\nKind: static property of CONFIG\n\n\n\n\nVirtual camera aperture.\nKind: static property of CONFIG\n\n\n\n\nMonitor gamma correction.\nKind: static property of CONFIG",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#stride-number",
+    "href": "docs/reference/api.html#stride-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Total number of floats per pixel in the lattice.\nKind: global constant",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#state",
+    "href": "docs/reference/api.html#state",
+    "title": "API Reference",
+    "section": "",
+    "text": "The global state object containing simulation data and metadata.\nKind: global constant\n\nState\n\n.lattice : Float32Array | null\n.displayImage : ImageData | null\n.maskRead : Uint32Array | null\n.maskWrite : Uint32Array | null\n.cam : Object\n.input\n.viewMode : number\n.profiler\n\n\n\n\n\nThe single buffer containing the entire universe’s state. Allocated in bootSystem().\nKind: static property of State\n\n\n\n\nPersistent display buffer to avoid expensive read-backs.\nKind: static property of State\n\n\n\n\nBitmask tracking active regions for the current frame.\nKind: static property of State\n\n\n\n\nBitmask tracking active regions for the next frame.\nKind: static property of State\n\n\n\n\nCamera position and orientation.\nKind: static property of State\n\n\n\n\nUser input state.\nKind: static property of State\n\n\n\n\nCurrent view mode. 0: Composite Output 1: Active Tile Map 2: Velocity Vector Field\nKind: static property of State\n\n\n\n\nPerformance profiling data.\nKind: static property of State",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#mathlib",
+    "href": "docs/reference/api.html#mathlib",
+    "title": "API Reference",
+    "section": "",
+    "text": "Mathematical utility functions.\nKind: global constant\n\nMathLib\n\n.nextFloat() ⇒ number\n.toHyperbolic(x, y, z) ⇒ Array.&lt;number&gt;\n.aces(x) ⇒ number\n\n\n\n\n\nFast pseudo-random number generator using Linear Congruential Generator (LCG). Provides deterministic random values based on internal seed state. Uses the same parameters as the POSIX rand48 family.\nKind: static method of MathLib\nReturns: number - Pseudo-random float in range [0, 1)\nAlgorithm: LCG formula: seed = (a × seed + c) mod m Where: a = 1664525, c = 1013904223, m = 2³² Output: seed / 2³² to normalise to [0, 1)\nPerformance: O(1) - Single multiply-add operation\nDeterministic: true - Same seed produces same sequence\nExample\n// Generate random positions\nconst x = MathLib.nextFloat() * width;\nconst y = MathLib.nextFloat() * height;\n\n\n\n\nPoincaré Ball Projection. Compresses infinite Euclidean distance into a 0.0-1.0 range.\nKind: static method of MathLib\nReturns: Array.&lt;number&gt; - [x, y, z] projected coordinates.\n\n\n\nParam\nType\n\n\n\n\nx\nnumber\n\n\ny\nnumber\n\n\nz\nnumber\n\n\n\n\n\n\n\nACES (Academy Colour Encoding System) tone mapping curve. Maps High Dynamic Range (HDR) values to Low Dynamic Range (LDR) for display on standard monitors. Preserves colour relationships and provides smooth highlight rolloff.\nKind: static method of MathLib\nReturns: number - Tone-mapped LDR value (typically [0, 1])\nAlgorithm: Rational function approximation: f(x) = (x(ax + b)) / (x(cx + d) + e) Constants tuned for perceptually pleasing results\nSee: https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/\n\n\n\nParam\nType\nDescription\n\n\n\n\nx\nnumber\nInput HDR colour value (unbounded range)\n\n\n\nExample\n// Tone map HDR pixel values\nconst hdrColour = 5.2;  // Bright light source\nconst ldrColour = MathLib.aces(hdrColour);  // ~0.95",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#scene",
+    "href": "docs/reference/api.html#scene",
+    "title": "API Reference",
+    "section": "",
+    "text": "Scene definition and ray tracing logic. Populated via asynchronous fetch.\nKind: global constant\n\nScene\n\n.cacheLightSource()\n.trace(ro, rd) ⇒ Object\n.shade(hit, ro, rd) ⇒ Object | null\n\n\n\n\n\nUpdates the cached active light source. Should be called when the scene loads or changes.\nKind: static method of Scene\n\n\n\n\nPerforms ray-sphere intersection using geometric algebra. Uses the discriminant method to solve the quadratic equation formed by substituting the ray equation into the sphere equation.\nKind: static method of Scene\nReturns: Object - Intersection result\nAlgorithm: Solves: |P(t) - C|² = r² Where: P(t) = O + tD (ray equation) Expands to: at² + bt + c = 0 Discriminant: Δ = b² - 4ac If Δ &gt; 0: two intersections (entry and exit) Takes nearest positive t value\n\n\n\n\n\n\n\n\nParam\nType\nDescription\n\n\n\n\nro\nArray.&lt;number&gt;\nRay origin [x, y, z]\n\n\nrd\nArray.&lt;number&gt;\nRay direction [x, y, z], should be normalised\n\n\n\nProperties\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\nt\nnumber\nDistance along ray to intersection (1e9 if no hit)\n\n\nobj\nObject | null\nThe sphere object that was hit, or null\n\n\n\nExample\nconst ray = {origin: [0, 0, -5], direction: [0, 0, 1]};\nconst hit = Scene.trace(ray.origin, ray.direction);\nif (hit.obj) {\n  console.log(`Hit sphere at distance ${hit.t}`);\n}\n\n\n\n\nComputes lighting and material properties at a ray intersection point. Implements basic Lambertian diffuse shading with distance attenuation.\nKind: static method of Scene\nReturns: Object | null - Shading information or null if no hit\n\n\n\nParam\nType\nDescription\n\n\n\n\nhit\nObject\nIntersection data from trace()\n\n\nro\nArray.&lt;number&gt;\nRay origin [x, y, z]\n\n\nrd\nArray.&lt;number&gt;\nRay direction [x, y, z]\n\n\n\nProperties\n\n\n\n\n\n\n\n\nName\nType\nDescription\n\n\n\n\nalbedo\nArray.&lt;number&gt;\nSurface colour [r, g, b]\n\n\nemission\nArray.&lt;number&gt;\nEmitted light [r, g, b]\n\n\nnormal\nArray.&lt;number&gt;\nSurface normal [x, y, z]\n\n\nposition\nArray.&lt;number&gt;\nWorld-space position [x, y, z]\n\n\ndepth\nnumber\nDistance from camera\n\n\ndiffuse\nnumber\nLambertian diffuse term (N·L)\n\n\nfalloff\nnumber\nDistance-based attenuation\n\n\n\nExample\nconst hit = Scene.trace(ro, rd);\nconst shading = Scene.shade(hit, ro, rd);\nif (shading) {\n  // Use shading.albedo, shading.emission, etc.\n  const finalColour = shading.albedo.map((c, i) =&gt; \n    c * shading.diffuse * shading.falloff + shading.emission[i]\n  );\n}",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#bootsystem",
+    "href": "docs/reference/api.html#bootsystem",
+    "title": "API Reference",
+    "section": "",
+    "text": "Initialises the simulation by allocating memory and computing grid dimensions. This function performs critical setup: 1. Calculates internal resolution based on window size and downsampling 2. Resizes canvas to match resolution 3. Computes tile grid dimensions for spatial optimisation 4. Allocates typed arrays for state storage 5. Creates image buffer for rendering\nKind: global function\nEmits: window#resize - Automatically called when window is resized (debounced)\nExample\n// Called automatically on page load\nwindow.addEventListener('load', bootSystem);\nExample\n// Manually reinitialise after config change\nCONFIG.DOWNSAMPLE = 8;\nbootSystem();",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#debouncefunc-wait-function",
+    "href": "docs/reference/api.html#debouncefunc-wait-function",
+    "title": "API Reference",
+    "section": "",
+    "text": "Debounce utility to limit function execution rate.\nKind: global function\nReturns: function - The debounced function.\n\n\n\nParam\nType\nDescription\n\n\n\n\nfunc\nfunction\nThe function to debounce.\n\n\nwait\nnumber\nThe delay in milliseconds.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#activatespatialregiontx-ty",
+    "href": "docs/reference/api.html#activatespatialregiontx-ty",
+    "title": "API Reference",
+    "section": "",
+    "text": "Marks a specific spatial region (tile) as active. This ensures the physics solver will process this region in the next frame.\nKind: global function\n\n\n\nParam\nType\nDescription\n\n\n\n\ntx\nnumber\nTile X index.\n\n\nty\nnumber\nTile Y index.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#evolvesimulation",
+    "href": "docs/reference/api.html#evolvesimulation",
+    "title": "API Reference",
+    "section": "",
+    "text": "Evolves the simulation state by one timestep. Uses Cellular Automata to flow light energy from pixel to pixel.\nKind: global function",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#mainsimulationloop",
+    "href": "docs/reference/api.html#mainsimulationloop",
+    "title": "API Reference",
+    "section": "",
+    "text": "The main game loop. Handles input, physics, and rendering.\nKind: global function",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#handleinput-boolean",
+    "href": "docs/reference/api.html#handleinput-boolean",
+    "title": "API Reference",
+    "section": "",
+    "text": "Handles user input to update the camera position.\nKind: global function\nReturns: boolean - True if the camera moved, false otherwise.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#updatetelemetry",
+    "href": "docs/reference/api.html#updatetelemetry",
+    "title": "API Reference",
+    "section": "",
+    "text": "Updates the on-screen telemetry display.\nKind: global function",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#initialiseengine",
+    "href": "docs/reference/api.html#initialiseengine",
+    "title": "API Reference",
+    "section": "",
+    "text": "Bootstraps the engine by fetching configuration data.\nKind: global function",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#setupuicontrollisteners",
+    "href": "docs/reference/api.html#setupuicontrollisteners",
+    "title": "API Reference",
+    "section": "",
+    "text": "Connects HTML sliders to the engine configuration.\nKind: global function",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#normalize2dx-y-array.number",
+    "href": "docs/reference/api.html#normalize2dx-y-array.number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Returns a normalised 2D vector (new array).\nKind: global function\nReturns: Array.&lt;number&gt; - The normalised vector [x, y]\n\n\n\nParam\nType\n\n\n\n\nx\nnumber\n\n\ny\nnumber",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#dot2dx1-y1-x2-y2-number",
+    "href": "docs/reference/api.html#dot2dx1-y1-x2-y2-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Calculates the dot product of two 2D vectors.\nKind: global function\nReturns: number - The dot product.\n\n\n\nParam\nType\n\n\n\n\nx1\nnumber\n\n\ny1\nnumber\n\n\nx2\nnumber\n\n\ny2\nnumber",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/api.html#clampval-min-max-number",
+    "href": "docs/reference/api.html#clampval-min-max-number",
+    "title": "API Reference",
+    "section": "",
+    "text": "Returns a value clamped between min and max.\nKind: global function\nReturns: number - The clamped value.\n\n\n\nParam\nType\nDescription\n\n\n\n\nval\nnumber\nInput value.\n\n\nmin\nnumber\nLower bound.\n\n\nmax\nnumber\nUpper bound.",
+    "crumbs": [
+      "API Reference"
+    ]
+  },
+  {
+    "objectID": "docs/reference/quality.html",
+    "href": "docs/reference/quality.html",
+    "title": "Engineering Quality",
+    "section": "",
+    "text": "To ensure the reliability of the light simulation, we employ automated testing and documentation-as-code principles.\n\n\nWe use Vitest for unit testing our core mathematical utilities. This ensures that fundamental operations like vector normalisation and light fall-off calculations remain accurate across changes.\n\n\nTo execute the test suite locally:\nnpm install\nnpm test\n\n\n\nOur tests focus on the src/math_utils.js module, which contains the pure mathematical functions used by the engine.\n\n\n\nModule\nPurpose\nStatus\n\n\n\n\nmath_utils.js\nVector math and clamping\n✅ Passing\n\n\nengine.js\nSimulation loop\n🔄 In Progress\n\n\n\n\n\n\n\nOn every push to the repository, a GitHub Action: 1. Installs dependencies. 2. Runs the Vitest suite. 3. Renders the Quarto documentation. 4. Deploys the bundled _site to GitHub Pages.\n\n\n\nWe maintain link integrity between the documentation and the source code using jsdoc-to-markdown. The API Reference is always 1:1 with the code in src/engine.js.\n\n\n\n\n\n\nTipContributing Tests\n\n\n\nIf you add new features to the engine, please include a corresponding test file in the tests/ directory to help maintain the long-term stability of the project.",
+    "crumbs": [
+      "API Reference",
+      "Engineering Quality"
+    ]
+  },
+  {
+    "objectID": "docs/reference/quality.html#automated-testing",
+    "href": "docs/reference/quality.html#automated-testing",
+    "title": "Engineering Quality",
+    "section": "",
+    "text": "We use Vitest for unit testing our core mathematical utilities. This ensures that fundamental operations like vector normalisation and light fall-off calculations remain accurate across changes.\n\n\nTo execute the test suite locally:\nnpm install\nnpm test\n\n\n\nOur tests focus on the src/math_utils.js module, which contains the pure mathematical functions used by the engine.\n\n\n\nModule\nPurpose\nStatus\n\n\n\n\nmath_utils.js\nVector math and clamping\n✅ Passing\n\n\nengine.js\nSimulation loop\n🔄 In Progress",
+    "crumbs": [
+      "API Reference",
+      "Engineering Quality"
+    ]
+  },
+  {
+    "objectID": "docs/reference/quality.html#continuous-integration-ci",
+    "href": "docs/reference/quality.html#continuous-integration-ci",
+    "title": "Engineering Quality",
+    "section": "",
+    "text": "On every push to the repository, a GitHub Action: 1. Installs dependencies. 2. Runs the Vitest suite. 3. Renders the Quarto documentation. 4. Deploys the bundled _site to GitHub Pages.",
+    "crumbs": [
+      "API Reference",
+      "Engineering Quality"
+    ]
+  },
+  {
+    "objectID": "docs/reference/quality.html#link-integrity",
+    "href": "docs/reference/quality.html#link-integrity",
+    "title": "Engineering Quality",
+    "section": "",
+    "text": "We maintain link integrity between the documentation and the source code using jsdoc-to-markdown. The API Reference is always 1:1 with the code in src/engine.js.\n\n\n\n\n\n\nTipContributing Tests\n\n\n\nIf you add new features to the engine, please include a corresponding test file in the tests/ directory to help maintain the long-term stability of the project.",
+    "crumbs": [
+      "API Reference",
+      "Engineering Quality"
+    ]
+  },
+  {
+    "objectID": "docs/reference/performance.html",
+    "href": "docs/reference/performance.html",
+    "title": "Performance Benchmarking",
+    "section": "",
+    "text": "This page allows you to evaluate how the Hybrid Fluid-Light Transport engine performs on your specific hardware.\n\n\nThe simulation below runs a standardised “Stress Test” to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.\n\n\n\n\n\nTreatment of light as a fluid is computationally demanding. Unlike standard GPU-based shaders, our engine currently runs entirely on the CPU within the JavaScript main thread.\n\n\n\n\n\n\n\ngraph TD\n    A[Input Handling] --&gt; B[Ray Tracing]\n    B --&gt; C[Advection Stage]\n    C --&gt; D[Diffusion Stage]\n    D --&gt; E[Rendering Stage]\n    \n    style B fill:#f9f,stroke:#333\n    style C fill:#bbf,stroke:#333\n    style D fill:#bbf,stroke:#333\n\n\n\n\n\n\n\nRay Tracing: Calculates where light enters the system. Scaling is \\(O(\\text{Ray Count} \\times \\text{Resolution})\\).\nFluid Stages: Moves energy across the grid. Scaling is \\(O(\\text{Grid Width} \\times \\text{Grid Height})\\).\n\n\n\n\n\nAdjust the parameters below to see their theoretical impact on your frame budget (16.6ms for 60 FPS).\n\nviewof res = Inputs.select([\n  {label: \"Low (160x90)\", value: 14400},\n  {label: \"Medium (320x180)\", value: 57600},\n  {label: \"High (640x360)\", value: 230400}\n], {label: \"Grid Resolution\"})\n\nviewof rays = Inputs.range([8, 128], {value: 64, step: 8, label: \"Rays per Frame\"})\n\nmsPerPixel = 0.00007 // Estimated CPU time per pixel advection/diffusion\nmsPerRay = 0.05      // Estimated CPU time per ray cast\n\ntotalTime = (res * msPerPixel) + (rays * msPerRay)\nfps = Math.min(60, 1000 / totalTime)\n\nmd`\n### Predicted Frame Time: **${totalTime.toFixed(2)}ms**\n### Predicted FPS: **${fps.toFixed(1)}**\n\n${totalTime &gt; 16.6 ? \n    \"⚠️ **Performance Warning**: This configuration exceeds the 16.6ms budget. Expect stuttering.\" : \n    \"✅ **Optimal**: This should run smoothly at 60 FPS.\"}\n`\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nTo improve performance in future versions, we are exploring:\n\nWeb Workers: Moving the Diffusion and Advection loops to background threads.\nSIMD (Single Instruction, Multiple Data): Using Float32Array with vectorized operations via WebAssembly.\nGPU Acceleration: Ports of the CA logic to WebGL/WebGPU compute shaders.",
+    "crumbs": [
+      "API Reference",
+      "Performance Benchmarking"
+    ]
+  },
+  {
+    "objectID": "docs/reference/performance.html#real-time-metrics",
+    "href": "docs/reference/performance.html#real-time-metrics",
+    "title": "Performance Benchmarking",
+    "section": "",
+    "text": "The simulation below runs a standardised “Stress Test” to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.",
+    "crumbs": [
+      "API Reference",
+      "Performance Benchmarking"
+    ]
+  },
+  {
+    "objectID": "docs/reference/performance.html#understanding-the-bottlenecks",
+    "href": "docs/reference/performance.html#understanding-the-bottlenecks",
+    "title": "Performance Benchmarking",
+    "section": "",
+    "text": "Treatment of light as a fluid is computationally demanding. Unlike standard GPU-based shaders, our engine currently runs entirely on the CPU within the JavaScript main thread.\n\n\n\n\n\n\n\ngraph TD\n    A[Input Handling] --&gt; B[Ray Tracing]\n    B --&gt; C[Advection Stage]\n    C --&gt; D[Diffusion Stage]\n    D --&gt; E[Rendering Stage]\n    \n    style B fill:#f9f,stroke:#333\n    style C fill:#bbf,stroke:#333\n    style D fill:#bbf,stroke:#333\n\n\n\n\n\n\n\nRay Tracing: Calculates where light enters the system. Scaling is \\(O(\\text{Ray Count} \\times \\text{Resolution})\\).\nFluid Stages: Moves energy across the grid. Scaling is \\(O(\\text{Grid Width} \\times \\text{Grid Height})\\).",
+    "crumbs": [
+      "API Reference",
+      "Performance Benchmarking"
+    ]
+  },
+  {
+    "objectID": "docs/reference/performance.html#interactive-performance-sandbox",
+    "href": "docs/reference/performance.html#interactive-performance-sandbox",
+    "title": "Performance Benchmarking",
+    "section": "",
+    "text": "Adjust the parameters below to see their theoretical impact on your frame budget (16.6ms for 60 FPS).\n\nviewof res = Inputs.select([\n  {label: \"Low (160x90)\", value: 14400},\n  {label: \"Medium (320x180)\", value: 57600},\n  {label: \"High (640x360)\", value: 230400}\n], {label: \"Grid Resolution\"})\n\nviewof rays = Inputs.range([8, 128], {value: 64, step: 8, label: \"Rays per Frame\"})\n\nmsPerPixel = 0.00007 // Estimated CPU time per pixel advection/diffusion\nmsPerRay = 0.05      // Estimated CPU time per ray cast\n\ntotalTime = (res * msPerPixel) + (rays * msPerRay)\nfps = Math.min(60, 1000 / totalTime)\n\nmd`\n### Predicted Frame Time: **${totalTime.toFixed(2)}ms**\n### Predicted FPS: **${fps.toFixed(1)}**\n\n${totalTime &gt; 16.6 ? \n    \"⚠️ **Performance Warning**: This configuration exceeds the 16.6ms budget. Expect stuttering.\" : \n    \"✅ **Optimal**: This should run smoothly at 60 FPS.\"}\n`",
+    "crumbs": [
+      "API Reference",
+      "Performance Benchmarking"
+    ]
+  },
+  {
+    "objectID": "docs/reference/performance.html#potential-optimisations",
+    "href": "docs/reference/performance.html#potential-optimisations",
+    "title": "Performance Benchmarking",
+    "section": "",
+    "text": "To improve performance in future versions, we are exploring:\n\nWeb Workers: Moving the Diffusion and Advection loops to background threads.\nSIMD (Single Instruction, Multiple Data): Using Float32Array with vectorized operations via WebAssembly.\nGPU Acceleration: Ports of the CA logic to WebGL/WebGPU compute shaders.",
+    "crumbs": [
+      "API Reference",
+      "Performance Benchmarking"
+    ]
+  },
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "Fluid Light Transport Engine",
+    "section": "",
+    "text": "A hybrid Ray-Tracing and Cellular Automata rendering engine.\nThis project explores a novel approach to real-time global illumination by treating light as a fluid substance. It combines the geometric precision of stochastic ray tracing with the organic flow of fluid dynamics algorithms.\n\n\n\n\n\n\nNoteLaunch Scene\n\n\n\nClick here to open the interactive scene in a dedicated view.\n\n\n\n\nThe engine pipeline consists of two distinct phases: Injection (Ray Tracing) and Propagation (Fluid Dynamics).\n\n\n\n\n\ngraph TD\n    A[Scene Data] --&gt;|Inject| B[Ray Tracing Phase]\n    B --&gt;|Photons| C[Screen-Space Grid]\n    C --&gt;|Advection| D[Fluid Solver Phase]\n    D --&gt;|Flow| E[Cellular Automata]\n    E --&gt;|Render| F[Final Composite]\n    \n    style A fill:#f9f,stroke:#333\n    style B fill:#bbf,stroke:#333\n    style D fill:#bfb,stroke:#333\n    style F fill:#f96,stroke:#333\n\n\n Fluid Light Transport Pipeline \n\n\n\n\n\n\n\n\nWe use stochastic ray tracing to probe the scene geometry. Instead of fully resolving the path, rays simply “inject” energy (light) into the screen-space grid at the first hit point.\n\n\n\nOnce light is in the grid, it behaves like a fluid. * Advection: Light carried by its momentum (direction). * Diffusion: Light spreading into neighbouring pixels (soft shadows).\n\n\n\nTo prevent light bleeding between disconnected objects (e.g., a foreground sphere and a background wall), we check the Depth Buffer. If the depth difference between pixels is too large, the “fluid” considers it a wall and bounces off."
+  },
+  {
+    "objectID": "index.html#hybrid-engine-architecture",
+    "href": "index.html#hybrid-engine-architecture",
+    "title": "Fluid Light Transport Engine",
+    "section": "",
+    "text": "The engine pipeline consists of two distinct phases: Injection (Ray Tracing) and Propagation (Fluid Dynamics).\n\n\n\n\n\ngraph TD\n    A[Scene Data] --&gt;|Inject| B[Ray Tracing Phase]\n    B --&gt;|Photons| C[Screen-Space Grid]\n    C --&gt;|Advection| D[Fluid Solver Phase]\n    D --&gt;|Flow| E[Cellular Automata]\n    E --&gt;|Render| F[Final Composite]\n    \n    style A fill:#f9f,stroke:#333\n    style B fill:#bbf,stroke:#333\n    style D fill:#bfb,stroke:#333\n    style F fill:#f96,stroke:#333\n\n\n Fluid Light Transport Pipeline"
+  },
+  {
+    "objectID": "index.html#key-concepts",
+    "href": "index.html#key-concepts",
+    "title": "Fluid Light Transport Engine",
+    "section": "",
+    "text": "We use stochastic ray tracing to probe the scene geometry. Instead of fully resolving the path, rays simply “inject” energy (light) into the screen-space grid at the first hit point.\n\n\n\nOnce light is in the grid, it behaves like a fluid. * Advection: Light carried by its momentum (direction). * Diffusion: Light spreading into neighbouring pixels (soft shadows).\n\n\n\nTo prevent light bleeding between disconnected objects (e.g., a foreground sphere and a background wall), we check the Depth Buffer. If the depth difference between pixels is too large, the “fluid” considers it a wall and bounces off."
+  },
+  {
+    "objectID": "CONTRIBUTING.html",
+    "href": "CONTRIBUTING.html",
+    "title": "Contributing",
+    "section": "",
+    "text": "Thank you for considering contributing to the Hybrid Fluid-Light Transport Engine! We welcome contributions from everyone.\n\n\n\nFork the repository: Click the “Fork” button on the top right of the repository page.\nClone your fork: bash     git clone https://github.com/your-username/fluid-light-transport.git\nCreate a branch: bash     git checkout -b feature/my-new-feature\nMake your changes: Implement your feature or fix.\nCommit your changes: bash     git commit -m \"feat: add some amazing feature\"\n\nPlease follow Conventional Commits for your commit messages.\n\nPush to your fork: bash     git push origin feature/my-new-feature\nOpen a Pull Request: Go to the original repository and click “New Pull Request”.\n\n\n\n\n\nJavaScript: Use modern ES6+ syntax.\nStyle: Keep code clean and commented where necessary (especially for complex physics logic).\nDocumentation: If you change the architecture or add features, please update the documentation in docs/.\n\n\n\n\nIf you find a bug or have a suggestion, please open an issue in the Issue Tracker. Provide as much detail as possible, including steps to reproduce the issue."
+  },
+  {
+    "objectID": "CONTRIBUTING.html#how-to-contribute",
+    "href": "CONTRIBUTING.html#how-to-contribute",
+    "title": "Contributing",
+    "section": "",
+    "text": "Fork the repository: Click the “Fork” button on the top right of the repository page.\nClone your fork: bash     git clone https://github.com/your-username/fluid-light-transport.git\nCreate a branch: bash     git checkout -b feature/my-new-feature\nMake your changes: Implement your feature or fix.\nCommit your changes: bash     git commit -m \"feat: add some amazing feature\"\n\nPlease follow Conventional Commits for your commit messages.\n\nPush to your fork: bash     git push origin feature/my-new-feature\nOpen a Pull Request: Go to the original repository and click “New Pull Request”."
+  },
+  {
+    "objectID": "CONTRIBUTING.html#coding-standards",
+    "href": "CONTRIBUTING.html#coding-standards",
+    "title": "Contributing",
+    "section": "",
+    "text": "JavaScript: Use modern ES6+ syntax.\nStyle: Keep code clean and commented where necessary (especially for complex physics logic).\nDocumentation: If you change the architecture or add features, please update the documentation in docs/."
+  },
+  {
+    "objectID": "CONTRIBUTING.html#reporting-issues",
+    "href": "CONTRIBUTING.html#reporting-issues",
+    "title": "Contributing",
+    "section": "",
+    "text": "If you find a bug or have a suggestion, please open an issue in the Issue Tracker. Provide as much detail as possible, including steps to reproduce the issue."
+  },
+  {
+    "objectID": "docs/index.html",
+    "href": "docs/index.html",
+    "title": "Preface",
+    "section": "",
+    "text": "This document provides a Guided Technical Walkthrough of the Hybrid Fluid-Light Transport engine.\nRather than focusing on jargon, we explore the underlying architecture. We build our understanding from the first principles of digital rasterisation to the complex simulation of non-linear light transport.\n\n\n\n\n\n\n\n\nTipInteractive Demo\n\n\n\nExperience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.\nOpen Full Screen Visualisation →\n\n\n\n\n\n\n\n\n\n\nNoteDemo Troubleshooting\n\n\n\nIf the screen remains black, ensure you are viewing this through a web server (like quarto preview or GitHub Pages). The engine requires fetch() to load scene data, which is often blocked on local file:// access.\n\n\n\n\n\nWASD: Move camera\nArrow Keys: Look around\nLeft Click + Drag: Rotate view\nRight Click: Move light source\nSpace: Cycle visualisation modes\n\n\n\n\n\nIn real-time computer graphics, we typically face a choice:\n\nRay Tracing: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.\nRasterisation: The standard for games; it is incredibly fast but struggles with complex “global illumination” (how light bounces around).\n\nThis book explores a “third way”: Hybrid Fluid-Light Transport. We treat light not merely as rays, but as a fluid substance that flows across the scene. This yields beautiful, organic lighting at a fraction of the cost.\n\n\n\nWe aim to demystify the following code:\n/**\n * @fileoverview Hybrid Fluid-Light Transport Engine.\n * This technique creates soft shadows, colour bleeding, and ambient occlusion\n * purely through 2D pixel-neighbour interactions.\n */\nBy the end of this book, you will understand exactly what that means and how to implement it.\n\n\n\nThis book offers two complementary paths through the material:\n\nConceptual JourneyQuick Reference\n\n\nLearn the architecture and algorithms from first principles:\nFoundation (Chapters 1-3) 1. The Digital Canvas — Understanding the screen as a programmable grid 2. The Logic — JavaScript fundamentals for interactive graphics 3. The Memory — Efficient data structures for real-time simulation\nCore Algorithms (Chapters 4-7) 4. The Mathematics — Vector operations and spatial reasoning 5. Ray Tracing — Geometric intersection and light injection 6. Fluid Simulation — Cellular automata for light propagation 7. The Main Loop — Orchestrating the complete system\nReference (Chapters 8-9) 8. Troubleshooting — Common issues and solutions 9. API Reference — Complete 1:1 code documentation\n\n\nBrowse by topic or problem:\n\nGetting Started: Chapter 1: Canvas\nUnderstanding Vectors: Chapter 4: Math\nRay Tracing Basics: Chapter 5: Raytracing\nFluid Mechanics: Chapter 6: Fluids\nPerformance Issues: Chapter 8: Troubleshooting\nComplete API: Chapter 9: API Reference\n\n\n\n\n\n\n\n\n\n\nNoteDocumentation Sync\n\n\n\nThe API reference is automatically regenerated from JSDoc comments in src/engine.js on every build, ensuring perfect synchronisation with the source code.\n\n\n\n\n\nThe Hybrid Fluid-Light Transport engine is under active development. Planned features include:\n\nRefraction Support: Bending light as it passes through different “fluid” densities.\nSpectrum Simulation: Splitting light into RGB wavelengths for chromatic aberration.\nWebWorker Offloading: Moving the heavy CA computation to a background thread to improve frame rates.\n\n\n\n\nWe welcome contributions! This documentation is built with Quarto. To contribute:\n\nClone the repository.\nInstall dependencies: npm install.\nEdit .qmd files or the engine source in src/.\nPreview changes: quarto preview.\nOpen a Pull Request.\n\n\nBegin the Journey: Chapter 1 — The Digital Canvas →\nLet us begin our journey."
+  },
+  {
+    "objectID": "docs/index.html#live-demo",
+    "href": "docs/index.html#live-demo",
+    "title": "Preface",
+    "section": "",
+    "text": "TipInteractive Demo\n\n\n\nExperience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.\nOpen Full Screen Visualisation →\n\n\n\n\n\n\n\n\n\n\nNoteDemo Troubleshooting\n\n\n\nIf the screen remains black, ensure you are viewing this through a web server (like quarto preview or GitHub Pages). The engine requires fetch() to load scene data, which is often blocked on local file:// access.\n\n\n\n\n\nWASD: Move camera\nArrow Keys: Look around\nLeft Click + Drag: Rotate view\nRight Click: Move light source\nSpace: Cycle visualisation modes"
+  },
+  {
+    "objectID": "docs/index.html#the-graphics-dichotomy",
+    "href": "docs/index.html#the-graphics-dichotomy",
+    "title": "Preface",
+    "section": "",
+    "text": "In real-time computer graphics, we typically face a choice:\n\nRay Tracing: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.\nRasterisation: The standard for games; it is incredibly fast but struggles with complex “global illumination” (how light bounces around).\n\nThis book explores a “third way”: Hybrid Fluid-Light Transport. We treat light not merely as rays, but as a fluid substance that flows across the scene. This yields beautiful, organic lighting at a fraction of the cost."
+  },
+  {
+    "objectID": "docs/index.html#the-goal",
+    "href": "docs/index.html#the-goal",
+    "title": "Preface",
+    "section": "",
+    "text": "We aim to demystify the following code:\n/**\n * @fileoverview Hybrid Fluid-Light Transport Engine.\n * This technique creates soft shadows, colour bleeding, and ambient occlusion\n * purely through 2D pixel-neighbour interactions.\n */\nBy the end of this book, you will understand exactly what that means and how to implement it."
+  },
+  {
+    "objectID": "docs/index.html#how-to-read-this-book",
+    "href": "docs/index.html#how-to-read-this-book",
+    "title": "Preface",
+    "section": "",
+    "text": "This book offers two complementary paths through the material:\n\nConceptual JourneyQuick Reference\n\n\nLearn the architecture and algorithms from first principles:\nFoundation (Chapters 1-3) 1. The Digital Canvas — Understanding the screen as a programmable grid 2. The Logic — JavaScript fundamentals for interactive graphics 3. The Memory — Efficient data structures for real-time simulation\nCore Algorithms (Chapters 4-7) 4. The Mathematics — Vector operations and spatial reasoning 5. Ray Tracing — Geometric intersection and light injection 6. Fluid Simulation — Cellular automata for light propagation 7. The Main Loop — Orchestrating the complete system\nReference (Chapters 8-9) 8. Troubleshooting — Common issues and solutions 9. API Reference — Complete 1:1 code documentation\n\n\nBrowse by topic or problem:\n\nGetting Started: Chapter 1: Canvas\nUnderstanding Vectors: Chapter 4: Math\nRay Tracing Basics: Chapter 5: Raytracing\nFluid Mechanics: Chapter 6: Fluids\nPerformance Issues: Chapter 8: Troubleshooting\nComplete API: Chapter 9: API Reference\n\n\n\n\n\n\n\n\n\n\nNoteDocumentation Sync\n\n\n\nThe API reference is automatically regenerated from JSDoc comments in src/engine.js on every build, ensuring perfect synchronisation with the source code."
+  },
+  {
+    "objectID": "docs/index.html#road-map-future-work",
+    "href": "docs/index.html#road-map-future-work",
+    "title": "Preface",
+    "section": "",
+    "text": "The Hybrid Fluid-Light Transport engine is under active development. Planned features include:\n\nRefraction Support: Bending light as it passes through different “fluid” densities.\nSpectrum Simulation: Splitting light into RGB wavelengths for chromatic aberration.\nWebWorker Offloading: Moving the heavy CA computation to a background thread to improve frame rates."
+  },
+  {
+    "objectID": "docs/index.html#contributing",
+    "href": "docs/index.html#contributing",
+    "title": "Preface",
+    "section": "",
+    "text": "We welcome contributions! This documentation is built with Quarto. To contribute:\n\nClone the repository.\nInstall dependencies: npm install.\nEdit .qmd files or the engine source in src/.\nPreview changes: quarto preview.\nOpen a Pull Request.\n\n\nBegin the Journey: Chapter 1 — The Digital Canvas →\nLet us begin our journey."
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html",
+    "href": "docs/reference/troubleshooting.html",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "This chapter addresses common issues, performance problems, and implementation questions.\n\n\n\n\nSymptoms: - Stuttering or jerky animation - High CPU usage in browser profiler - Slow response to mouse movement\nDiagnosis:\n// Add to your console\nconsole.log(`FPS: ${State.profiler.fps}`);\nconsole.log(`Frame time: ${State.profiler.frameTime}ms`);\nconsole.log(`Active tiles: ${State.profiler.activeTiles}`);\nSolutions:\n\nReduce ResolutionDecrease Ray CountIncrease Pixel SizeOptimise Tile Budget\n\n\n// In CONFIG object\nconst CONFIG = {\n    DOWNSAMPLE: 8,  // Increase from 5 (lower resolution)\n    // ...\n};\nImpact: 64% fewer pixels to process Visual quality: Slightly more pixelated\n\n\n// In ray casting function\nconst RAY_SAMPLES = 32;  // Reduce from 64\nImpact: 50% faster ray tracing Visual quality: Slightly noisier shadows\n\n\nconst CONFIG = {\n    TILE_SIZE: 8,  // Increase from 4\n    // ...\n};\nImpact: Larger simulation blocks, fewer calculations Visual quality: Blockier light propagation\n\n\nconst CONFIG = {\n    TIMESTEP_BUDGET_MS: 10,  // Reduce from 14\n    // ...\n};\nImpact: Frame renders even if simulation incomplete Visual quality: Potentially incomplete light propagation\n\n\n\n\n\n\nSymptoms: - Browser tab crashes - Slow performance after running for a while - Console warnings about memory\nSolution:\n// Reduce memory footprint\nconst CONFIG = {\n    WIDTH: 120,   // Reduce from 160\n    HEIGHT: 68,   // Reduce from 90\n    // ...\n};\nMemory calculation:\nbytes = WIDTH × HEIGHT × STRIDE × 4 (Float32Array)\n160×90×12×4 = 691KB (typical)\n120×68×12×4 = 391KB (optimised)\n\n\n\n\n\n\nCause: Insufficient diffusion iterations or energy dissipation too high\nFix:\nconst CONFIG = {\n    DISSIPATION: 0.98,  // Increase from 0.95 (retain more energy)\n    // ...\n};\n\n\n\nCause: Surface continuity check threshold too lenient\nFix:\n// In surface continuity check\nconst depthThreshold = 0.3;  // Reduce from 0.5\nif (Math.abs(depth1 - depth2) &lt; depthThreshold) {\n    // Allow light transfer\n}\nVisual example:\n\n\n\n\n\ngraph LR\n    A[Wall&lt;br/&gt;depth=5.0] -.-&gt;|❌ No transfer&lt;br/&gt;Δdepth=4.0| B[Background&lt;br/&gt;depth=9.0]\n    C[Surface&lt;br/&gt;depth=5.0] --&gt;|✓ Transfer&lt;br/&gt;Δdepth=0.2| D[Adjacent&lt;br/&gt;depth=5.2]\n    \n    style A fill:#ff6b6b\n    style B fill:#4ecdc4\n    style C fill:#95e1d3\n    style D fill:#95e1d3\n\n\n\n\n\n\n\n\n\nCause: Exposure/tone mapping incorrect\nFix:\n// Adjust exposure in rendering\nconst exposure = 1.2;  // Increase to brighten\nconst colour = Math.pow(rawColour * exposure, 1.0 / 2.2);  // Gamma correction\n\n\n\n\n\n\nCause: Attempting to access State.lattice before initialisation\nFix:\n// Ensure bootSystem() is called first\nwindow.addEventListener('load', () =&gt; {\n    bootSystem();  // Allocates State.lattice\n    requestAnimationFrame(mainLoop);\n});\n\n\n\nCause: Infinite recursion in ray tracing or fluid propagation\nFix:\n// Add depth limit to recursive functions\nfunction trace(ro, rd, depth = 0) {\n    if (depth &gt; 5) return BLACK;  // Max 5 bounces\n    // ...\n}\n\n\n\nDiagnostic checklist:\n\n✓ Canvas element exists in HTML\n✓ Context acquired: ctx !== null\n✓ State.lattice allocated\n✓ Scene loaded: Scene.objects.length &gt; 0\n✓ Light source positioned correctly\n✓ Rendering loop active\n\n// Debug check\nconsole.log('Canvas:', canvas);\nconsole.log('Context:', ctx);\nconsole.log('Lattice:', State.lattice ? 'allocated' : 'null');\nconsole.log('Scene objects:', Scene.objects.length);\nconsole.log('Main loop running:', State.profiler.frameCount &gt; 0);\n\n\n\n\n\n\nTraditional ray tracing: - ✅ Physically accurate - ❌ O(rays × bounces × samples) = expensive for soft shadows - ❌ Difficult to implement global illumination in real-time\nFluid-based approach: - ✅ O(pixels) = constant cost per frame - ✅ Natural soft shadows and colour bleeding - ✅ Emergent ambient occlusion - ❌ Less physically accurate (approximation)\n\n\n\nYes! The cellular automata structure maps naturally to compute shaders:\n// WebGL compute shader pseudocode\n#version 310 es\nlayout(local_size_x = 16, local_size_y = 16) in;\n\nuniform sampler2D currentState;\nlayout(rgba32f) uniform image2D nextState;\n\nvoid main() {\n    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);\n    vec4 centre = texelFetch(currentState, pos, 0);\n    vec4 left = texelFetch(currentState, pos + ivec2(-1, 0), 0);\n    vec4 right = texelFetch(currentState, pos + ivec2(1, 0), 0);\n    // ... diffusion/advection logic\n    imageStore(nextState, pos, result);\n}\nPerformance gain: 10-100× faster (depending on GPU)\n\n\n\n// In Scene.objects array\nScene.objects = [\n    {type: 'sphere', pos: {x: 0, y: 0, z: 0}, r: 1.0, emit: {r: 1, g: 1, b: 1}},\n    {type: 'sphere', pos: {x: 2, y: 1, z: 0}, r: 0.5, emit: {r: 1, g: 0, b: 0}},  // Red light\n    {type: 'sphere', pos: {x: -2, y: 1, z: 0}, r: 0.5, emit: {r: 0, g: 0, b: 1}}, // Blue light\n];\n\n\n\nThe current implementation is 2D (screen-space simulation). For true 3D:\n\nUse 3D lattice: State.lattice = new Float32Array(WIDTH × HEIGHT × DEPTH × STRIDE)\nExtend ray marching to 3D space\nAdd 6-directional (instead of 4) fluid propagation\nWarning: Memory and computation cost increases cubically!\n\n\n\n\n\n\n\n\n\n\n\n\npie title Frame Time Budget (16.67ms)\n    \"Ray Tracing\" : 40\n    \"Fluid Simulation\" : 30\n    \"Rendering\" : 15\n    \"Overhead\" : 15\n\n\n Frame time budget allocation \n\n\n\n\n\n\n\n\n\nHardware\nResolution\nRay Samples\nTile Size\nExpected FPS\n\n\n\n\nHigh-end desktop\n320×180\n128\n4\n60\n\n\nMid-range laptop\n160×90\n64\n4\n60\n\n\nLow-end/older\n120×68\n32\n8\n30\n\n\nMobile\n80×45\n16\n8\n30\n\n\n\n\n\n\n\n\n\n\n\n\n\nTipResources\n\n\n\n\nAPI Reference: Chapter 9\nGitHub Issues: Report bugs\nSource Code: src/engine.js\n\n\n\n\n\n\n✓ Check browser console for errors\n✓ Verify you’re using a modern browser (Chrome, Firefox, Edge)\n✓ Try reducing resolution/complexity\n✓ Review this troubleshooting guide\n✓ Search existing issues\n\n→ Next: API Reference | ← Previous: Main Loop",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#performance-issues",
+    "href": "docs/reference/troubleshooting.html#performance-issues",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "Symptoms: - Stuttering or jerky animation - High CPU usage in browser profiler - Slow response to mouse movement\nDiagnosis:\n// Add to your console\nconsole.log(`FPS: ${State.profiler.fps}`);\nconsole.log(`Frame time: ${State.profiler.frameTime}ms`);\nconsole.log(`Active tiles: ${State.profiler.activeTiles}`);\nSolutions:\n\nReduce ResolutionDecrease Ray CountIncrease Pixel SizeOptimise Tile Budget\n\n\n// In CONFIG object\nconst CONFIG = {\n    DOWNSAMPLE: 8,  // Increase from 5 (lower resolution)\n    // ...\n};\nImpact: 64% fewer pixels to process Visual quality: Slightly more pixelated\n\n\n// In ray casting function\nconst RAY_SAMPLES = 32;  // Reduce from 64\nImpact: 50% faster ray tracing Visual quality: Slightly noisier shadows\n\n\nconst CONFIG = {\n    TILE_SIZE: 8,  // Increase from 4\n    // ...\n};\nImpact: Larger simulation blocks, fewer calculations Visual quality: Blockier light propagation\n\n\nconst CONFIG = {\n    TIMESTEP_BUDGET_MS: 10,  // Reduce from 14\n    // ...\n};\nImpact: Frame renders even if simulation incomplete Visual quality: Potentially incomplete light propagation\n\n\n\n\n\n\nSymptoms: - Browser tab crashes - Slow performance after running for a while - Console warnings about memory\nSolution:\n// Reduce memory footprint\nconst CONFIG = {\n    WIDTH: 120,   // Reduce from 160\n    HEIGHT: 68,   // Reduce from 90\n    // ...\n};\nMemory calculation:\nbytes = WIDTH × HEIGHT × STRIDE × 4 (Float32Array)\n160×90×12×4 = 691KB (typical)\n120×68×12×4 = 391KB (optimised)",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#visual-artifacts",
+    "href": "docs/reference/troubleshooting.html#visual-artifacts",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "Cause: Insufficient diffusion iterations or energy dissipation too high\nFix:\nconst CONFIG = {\n    DISSIPATION: 0.98,  // Increase from 0.95 (retain more energy)\n    // ...\n};\n\n\n\nCause: Surface continuity check threshold too lenient\nFix:\n// In surface continuity check\nconst depthThreshold = 0.3;  // Reduce from 0.5\nif (Math.abs(depth1 - depth2) &lt; depthThreshold) {\n    // Allow light transfer\n}\nVisual example:\n\n\n\n\n\ngraph LR\n    A[Wall&lt;br/&gt;depth=5.0] -.-&gt;|❌ No transfer&lt;br/&gt;Δdepth=4.0| B[Background&lt;br/&gt;depth=9.0]\n    C[Surface&lt;br/&gt;depth=5.0] --&gt;|✓ Transfer&lt;br/&gt;Δdepth=0.2| D[Adjacent&lt;br/&gt;depth=5.2]\n    \n    style A fill:#ff6b6b\n    style B fill:#4ecdc4\n    style C fill:#95e1d3\n    style D fill:#95e1d3\n\n\n\n\n\n\n\n\n\nCause: Exposure/tone mapping incorrect\nFix:\n// Adjust exposure in rendering\nconst exposure = 1.2;  // Increase to brighten\nconst colour = Math.pow(rawColour * exposure, 1.0 / 2.2);  // Gamma correction",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#common-errors",
+    "href": "docs/reference/troubleshooting.html#common-errors",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "Cause: Attempting to access State.lattice before initialisation\nFix:\n// Ensure bootSystem() is called first\nwindow.addEventListener('load', () =&gt; {\n    bootSystem();  // Allocates State.lattice\n    requestAnimationFrame(mainLoop);\n});\n\n\n\nCause: Infinite recursion in ray tracing or fluid propagation\nFix:\n// Add depth limit to recursive functions\nfunction trace(ro, rd, depth = 0) {\n    if (depth &gt; 5) return BLACK;  // Max 5 bounces\n    // ...\n}\n\n\n\nDiagnostic checklist:\n\n✓ Canvas element exists in HTML\n✓ Context acquired: ctx !== null\n✓ State.lattice allocated\n✓ Scene loaded: Scene.objects.length &gt; 0\n✓ Light source positioned correctly\n✓ Rendering loop active\n\n// Debug check\nconsole.log('Canvas:', canvas);\nconsole.log('Context:', ctx);\nconsole.log('Lattice:', State.lattice ? 'allocated' : 'null');\nconsole.log('Scene objects:', Scene.objects.length);\nconsole.log('Main loop running:', State.profiler.frameCount &gt; 0);",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#faq",
+    "href": "docs/reference/troubleshooting.html#faq",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "Traditional ray tracing: - ✅ Physically accurate - ❌ O(rays × bounces × samples) = expensive for soft shadows - ❌ Difficult to implement global illumination in real-time\nFluid-based approach: - ✅ O(pixels) = constant cost per frame - ✅ Natural soft shadows and colour bleeding - ✅ Emergent ambient occlusion - ❌ Less physically accurate (approximation)\n\n\n\nYes! The cellular automata structure maps naturally to compute shaders:\n// WebGL compute shader pseudocode\n#version 310 es\nlayout(local_size_x = 16, local_size_y = 16) in;\n\nuniform sampler2D currentState;\nlayout(rgba32f) uniform image2D nextState;\n\nvoid main() {\n    ivec2 pos = ivec2(gl_GlobalInvocationID.xy);\n    vec4 centre = texelFetch(currentState, pos, 0);\n    vec4 left = texelFetch(currentState, pos + ivec2(-1, 0), 0);\n    vec4 right = texelFetch(currentState, pos + ivec2(1, 0), 0);\n    // ... diffusion/advection logic\n    imageStore(nextState, pos, result);\n}\nPerformance gain: 10-100× faster (depending on GPU)\n\n\n\n// In Scene.objects array\nScene.objects = [\n    {type: 'sphere', pos: {x: 0, y: 0, z: 0}, r: 1.0, emit: {r: 1, g: 1, b: 1}},\n    {type: 'sphere', pos: {x: 2, y: 1, z: 0}, r: 0.5, emit: {r: 1, g: 0, b: 0}},  // Red light\n    {type: 'sphere', pos: {x: -2, y: 1, z: 0}, r: 0.5, emit: {r: 0, g: 0, b: 1}}, // Blue light\n];\n\n\n\nThe current implementation is 2D (screen-space simulation). For true 3D:\n\nUse 3D lattice: State.lattice = new Float32Array(WIDTH × HEIGHT × DEPTH × STRIDE)\nExtend ray marching to 3D space\nAdd 6-directional (instead of 4) fluid propagation\nWarning: Memory and computation cost increases cubically!",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#tuning-guide",
+    "href": "docs/reference/troubleshooting.html#tuning-guide",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "pie title Frame Time Budget (16.67ms)\n    \"Ray Tracing\" : 40\n    \"Fluid Simulation\" : 30\n    \"Rendering\" : 15\n    \"Overhead\" : 15\n\n\n Frame time budget allocation \n\n\n\n\n\n\n\n\n\nHardware\nResolution\nRay Samples\nTile Size\nExpected FPS\n\n\n\n\nHigh-end desktop\n320×180\n128\n4\n60\n\n\nMid-range laptop\n160×90\n64\n4\n60\n\n\nLow-end/older\n120×68\n32\n8\n30\n\n\nMobile\n80×45\n16\n8\n30",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/troubleshooting.html#getting-help",
+    "href": "docs/reference/troubleshooting.html#getting-help",
+    "title": "Troubleshooting & FAQ",
+    "section": "",
+    "text": "TipResources\n\n\n\n\nAPI Reference: Chapter 9\nGitHub Issues: Report bugs\nSource Code: src/engine.js\n\n\n\n\n\n\n✓ Check browser console for errors\n✓ Verify you’re using a modern browser (Chrome, Firefox, Edge)\n✓ Try reducing resolution/complexity\n✓ Review this troubleshooting guide\n✓ Search existing issues\n\n→ Next: API Reference | ← Previous: Main Loop",
+    "crumbs": [
+      "API Reference",
+      "Troubleshooting & FAQ"
+    ]
+  },
+  {
+    "objectID": "docs/reference/references.html",
+    "href": "docs/reference/references.html",
+    "title": "References",
+    "section": "",
+    "text": "References",
+    "crumbs": [
+      "API Reference",
+      "References"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html",
+    "href": "docs/tutorial/06_fluids.html",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "This is the engine’s heart. After injecting light energy into the grid, we treat it as a fluid.\n\n\n\nLight Intensity \\(\\approx\\) Fluid Pressure (Quantity)\nLight Direction \\(\\approx\\) Fluid Velocity (Flow direction)\n\nThis analogy allows us to use fluid dynamics algorithms to simulate light transport through 2D space.\n\n\n\nWe use Cellular Automata (CA). Imagine a checkerboard where every square observes its neighbours to determine its next state.\n\n\n\n\n\ngraph TD\n    subgraph \"Grid Cell and Neighbours\"\n        NW[Cell NW] --- N[Cell N] --- NE[Cell NE]\n        W[Cell W] --- C[Cell CENTRE&lt;br/&gt;Current] --- E[Cell E]\n        SW[Cell SW] --- S[Cell S] --- SE[Cell SE]\n    end\n    \n    style C fill:#ff6b6b,stroke:#333,stroke-width:3px\n    style N fill:#4ecdc4,stroke:#333\n    style S fill:#4ecdc4,stroke:#333\n    style E fill:#4ecdc4,stroke:#333\n    style W fill:#4ecdc4,stroke:#333\n\n\n Cellular automata neighbourhood in a 2D grid \n\n\n\nEach cell updates based on its 4 or 8 neighbours, creating emergent behaviour from simple rules.\n\n\nAdjust the “Centre Brightness” to see how energy spreads to the 4 adjacent neighbours.\n\nviewof centerVal = Inputs.range([0, 100], {value: 100, step: 1, label: \"Centre Brightness\"})\nviewof diffusionRate = Inputs.range([0, 1], {value: 0.25, step: 0.05, label: \"Diffusion Rate\"})\n\nneighborVal = (centerVal * diffusionRate) / 4\ncenterRemaining = centerVal - (centerVal * diffusionRate)\n\nhtml`&lt;div style=\"display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;\"&gt;\n  &lt;div&gt;&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div&gt;&lt;/div&gt;\n  \n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${centerRemaining/100}); border: 2px solid #333; padding: 10px; font-weight: bold;\"&gt;${centerRemaining.toFixed(1)}&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  \n  &lt;div&gt;&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div&gt;&lt;/div&gt;\n&lt;/div&gt;`\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIf a pixel has velocity pointing Right, it pushes its energy to the Right neighbour.\nAlgorithm:\n// Simplified advection\nfunction advect(x, y) {\n    const velocityX = lattice[idx + VX];\n    const velocityY = lattice[idx + VY];\n    \n    // Move energy in direction of velocity\n    const targetX = x + velocityX * dt;\n    const targetY = y + velocityY * dt;\n    \n    // Transfer energy to target cell\n    transferEnergy(current, target);\n}\n\n\n\nEven without velocity, energy spreads. This creates soft shadows and ambient occlusion.\nAlgorithm:\n// Simplified diffusion\nfunction diffuse(x, y) {\n    const centre = lattice[idx];\n    const neighbours = [left, right, top, bottom];\n    \n    // Spread to neighbours\n    const spreadAmount = centre * DIFFUSION_RATE;\n    for (const neighbour of neighbours) {\n        neighbour += spreadAmount / 4;\n    }\n    centre -= spreadAmount;\n}\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nOperation\nComplexity\nPer Frame (160×90 grid)\nNotes\n\n\n\n\nRay casting\nO(n × s)\n~2ms (64 rays × 50 steps)\nn = rays, s = steps per ray\n\n\nFluid diffusion\nO(w × h)\n~1ms (14,400 pixels)\nSingle pass over active tiles\n\n\nAdvection\nO(w × h)\n~0.8ms (14,400 pixels)\nBackward-mapped lookup\n\n\nRendering\nO(w × h)\n~0.5ms (14,400 pixels)\nDirect pixel buffer write\n\n\nTotal\nO(w×h + n×s)\n~4.3ms/frame\n~230 FPS theoretical max\n\n\n\n\n\n\n\n\n\nNoteReal-World Performance\n\n\n\nOn a typical laptop (Intel i5, integrated graphics): - 160×90 resolution: 60 FPS (16ms frame budget, ~70% idle time) - 320×180 resolution: 35 FPS (28ms per frame) - 640×360 resolution: 12 FPS (83ms per frame)\nThe simulation is CPU-bound due to JavaScript single-threaded execution.\n\n\n\n\n\n\nNaive ApproachOptimised ApproachTile-Based (Current)\n\n\n// O(n²) - checks every pixel pair\nfunction naiveDiffusion() {\n    for (let i = 0; i &lt; pixels.length; i++) {\n        for (let j = 0; j &lt; pixels.length; j++) {\n            if (adjacent(i, j)) {\n                diffuse(i, j);\n            }\n        }\n    }\n}\n// 14,400² = 207 million checks!\nPerformance: Impossibly slow for real-time.\n\n\n// O(n) - only checks direct neighbours\nfunction efficientDiffusion() {\n    for (let y = 1; y &lt; HEIGHT - 1; y++) {\n        for (let x = 1; x &lt; WIDTH - 1; x++) {\n            const i = y * WIDTH + x;\n            diffuse(i, i - 1);     // left\n            diffuse(i, i + 1);     // right\n            diffuse(i, i - WIDTH); // up\n            diffuse(i, i + WIDTH); // down\n        }\n    }\n}\n// Only 14,400 × 4 = 57,600 operations\nPerformance: 3,625× faster! Fits in 1ms frame budget.\n\n\n// Only processes active regions\nfunction tileDiffusion() {\n    for (const tileIndex of activeTiles) {\n        const tile = getTile(tileIndex);\n        for (const pixel of tile.pixels) {\n            diffuse(pixel);\n        }\n    }\n}\n// Typically only ~20% of tiles active\nPerformance: 5× faster than full-grid approach.\n\n\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\n\nComplete diffusion implementation\nTile-based optimisation\nActive region tracking\n\n\n\n\n\n\n\nBelow is a live version of the fluid logic running in this book.\n\n\nviewof dissipation = Inputs.range([0.8, 0.999], {value: 0.98, step: 0.001, label: \"Dissipation (Entropy)\"})\nviewof advection = Inputs.range([0.0, 5.0], {value: 3.0, step: 0.1, label: \"Advection Strength\"})\nviewof diffusion = Inputs.range([0.0, 1.0], {value: 0.5, step: 0.05, label: \"Diffusion (Spread)\"})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nmd`\n**Current Configuration:**\n*   **Energy Conservation:** ${(dissipation * 100).toFixed(1)}% energy retained per tick\n*   **Flow Velocity:** ${advection.toFixed(1)} pixels/tick impact\n*   **Scatter:** ${(diffusion * 100).toFixed(1)}% distribution to neighbours\n`\n\n\n\n\n\n\n\nfunction simulate1D(steps, disp, adv, diff) {\n  const width = 100;\n  let grid =  new Float32Array(width * 2).fill(0);\n  let nextGrid = new Float32Array(width * 2).fill(0);\n\n  // Initial Impulse\n  grid[20 * 2] = 2.0; \n  grid[20 * 2 + 1] = 1.0; \n\n  let history = [];\n\n  for(let t=0; t&lt;steps; t++) {\n    for(let x=0; x&lt;width; x++) {\n      const idx = x * 2;\n      let energy = grid[idx];\n      let velocity = grid[idx+1];\n\n      if(energy &lt; 0.01) continue;\n\n      // 1. Advection (Movement)\n      let thrust = velocity * adv;\n      let targetX = Math.min(width-1, Math.max(0, Math.round(x + thrust)));\n      \n      // 2. Diffusion (Spreading)\n      let remain = energy * (1 - diff);\n      let spread = energy * diff;\n\n      // Update Next State with Dissipation\n      nextGrid[targetX * 2] += remain * disp;\n      if(targetX + 1 &lt; width) nextGrid[(targetX + 1) * 2] += (spread / 2) * disp;\n      if(targetX - 1 &gt;= 0)    nextGrid[(targetX - 1) * 2] += (spread / 2) * disp;\n\n      // Decay Velocity (Viscosity)\n      nextGrid[targetX * 2 + 1] += velocity * 0.9;\n    }\n\n    for(let i=0; i&lt;width*2; i++) { grid[i] = nextGrid[i]; nextGrid[i] = 0; }\n    \n    let row = new Float32Array(width);\n    for(let i=0; i&lt;width; i++) row[i] = grid[i*2];\n    history.push(Array.from(row));\n  }\n  return history;\n}\n\ndata = simulate1D(60, dissipation, advection, diffusion)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nVisualisationRaw Data\n\n\n\nPlot.plot({\n  marks: [\n    Plot.raster(data.flat(), { width: 100, height: 60, fill: d =&gt; d, interpolate: \"nearest\" }),\n    Plot.frame()\n  ],\n  color: { scheme: \"magma\", domain: [0, 2] },\n  y: { label: \"Time (t) ↓\", reverse: true },\n  x: { label: \"Space (x) →\" },\n  height: 300\n})\n\n\n\n\n\n\n\n\n\nInputs.table(data, { rows: 15 })\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIn a 2D grid, light might accidentally “bleed” from a foreground object onto a background one. We prevent this with a Surface Continuity Check.\nWe examine the Depth (distance from the camera) of two pixels. A large difference implies distinct objects, so we block the flow of light between them.\n/* src/engine.js */\nconst depthDiff = Math.abs(\n  State.lattice[ptr + FIELD.DEPTH] - State.lattice[nPtr + FIELD.DEPTH]\n);\n\nif (depthDiff &lt; 0.5) {\n  // Surfaces are connected! Flow energy.\n  State.lattice[nPtr + FIELD.R] += State.lattice[ptr + FIELD.R] * transfer;\n}",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html#the-fluid-analogy",
+    "href": "docs/tutorial/06_fluids.html#the-fluid-analogy",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "Light Intensity \\(\\approx\\) Fluid Pressure (Quantity)\nLight Direction \\(\\approx\\) Fluid Velocity (Flow direction)\n\nThis analogy allows us to use fluid dynamics algorithms to simulate light transport through 2D space.",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html#cellular-automata",
+    "href": "docs/tutorial/06_fluids.html#cellular-automata",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "We use Cellular Automata (CA). Imagine a checkerboard where every square observes its neighbours to determine its next state.\n\n\n\n\n\ngraph TD\n    subgraph \"Grid Cell and Neighbours\"\n        NW[Cell NW] --- N[Cell N] --- NE[Cell NE]\n        W[Cell W] --- C[Cell CENTRE&lt;br/&gt;Current] --- E[Cell E]\n        SW[Cell SW] --- S[Cell S] --- SE[Cell SE]\n    end\n    \n    style C fill:#ff6b6b,stroke:#333,stroke-width:3px\n    style N fill:#4ecdc4,stroke:#333\n    style S fill:#4ecdc4,stroke:#333\n    style E fill:#4ecdc4,stroke:#333\n    style W fill:#4ecdc4,stroke:#333\n\n\n Cellular automata neighbourhood in a 2D grid \n\n\n\nEach cell updates based on its 4 or 8 neighbours, creating emergent behaviour from simple rules.\n\n\nAdjust the “Centre Brightness” to see how energy spreads to the 4 adjacent neighbours.\n\nviewof centerVal = Inputs.range([0, 100], {value: 100, step: 1, label: \"Centre Brightness\"})\nviewof diffusionRate = Inputs.range([0, 1], {value: 0.25, step: 0.05, label: \"Diffusion Rate\"})\n\nneighborVal = (centerVal * diffusionRate) / 4\ncenterRemaining = centerVal - (centerVal * diffusionRate)\n\nhtml`&lt;div style=\"display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;\"&gt;\n  &lt;div&gt;&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div&gt;&lt;/div&gt;\n  \n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${centerRemaining/100}); border: 2px solid #333; padding: 10px; font-weight: bold;\"&gt;${centerRemaining.toFixed(1)}&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  \n  &lt;div&gt;&lt;/div&gt;\n  &lt;div style=\"background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;\"&gt;${neighborVal.toFixed(1)}&lt;/div&gt;\n  &lt;div&gt;&lt;/div&gt;\n&lt;/div&gt;`\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nIf a pixel has velocity pointing Right, it pushes its energy to the Right neighbour.\nAlgorithm:\n// Simplified advection\nfunction advect(x, y) {\n    const velocityX = lattice[idx + VX];\n    const velocityY = lattice[idx + VY];\n    \n    // Move energy in direction of velocity\n    const targetX = x + velocityX * dt;\n    const targetY = y + velocityY * dt;\n    \n    // Transfer energy to target cell\n    transferEnergy(current, target);\n}\n\n\n\nEven without velocity, energy spreads. This creates soft shadows and ambient occlusion.\nAlgorithm:\n// Simplified diffusion\nfunction diffuse(x, y) {\n    const centre = lattice[idx];\n    const neighbours = [left, right, top, bottom];\n    \n    // Spread to neighbours\n    const spreadAmount = centre * DIFFUSION_RATE;\n    for (const neighbour of neighbours) {\n        neighbour += spreadAmount / 4;\n    }\n    centre -= spreadAmount;\n}",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html#performance",
+    "href": "docs/tutorial/06_fluids.html#performance",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "Operation\nComplexity\nPer Frame (160×90 grid)\nNotes\n\n\n\n\nRay casting\nO(n × s)\n~2ms (64 rays × 50 steps)\nn = rays, s = steps per ray\n\n\nFluid diffusion\nO(w × h)\n~1ms (14,400 pixels)\nSingle pass over active tiles\n\n\nAdvection\nO(w × h)\n~0.8ms (14,400 pixels)\nBackward-mapped lookup\n\n\nRendering\nO(w × h)\n~0.5ms (14,400 pixels)\nDirect pixel buffer write\n\n\nTotal\nO(w×h + n×s)\n~4.3ms/frame\n~230 FPS theoretical max\n\n\n\n\n\n\n\n\n\nNoteReal-World Performance\n\n\n\nOn a typical laptop (Intel i5, integrated graphics): - 160×90 resolution: 60 FPS (16ms frame budget, ~70% idle time) - 320×180 resolution: 35 FPS (28ms per frame) - 640×360 resolution: 12 FPS (83ms per frame)\nThe simulation is CPU-bound due to JavaScript single-threaded execution.\n\n\n\n\n\n\nNaive ApproachOptimised ApproachTile-Based (Current)\n\n\n// O(n²) - checks every pixel pair\nfunction naiveDiffusion() {\n    for (let i = 0; i &lt; pixels.length; i++) {\n        for (let j = 0; j &lt; pixels.length; j++) {\n            if (adjacent(i, j)) {\n                diffuse(i, j);\n            }\n        }\n    }\n}\n// 14,400² = 207 million checks!\nPerformance: Impossibly slow for real-time.\n\n\n// O(n) - only checks direct neighbours\nfunction efficientDiffusion() {\n    for (let y = 1; y &lt; HEIGHT - 1; y++) {\n        for (let x = 1; x &lt; WIDTH - 1; x++) {\n            const i = y * WIDTH + x;\n            diffuse(i, i - 1);     // left\n            diffuse(i, i + 1);     // right\n            diffuse(i, i - WIDTH); // up\n            diffuse(i, i + WIDTH); // down\n        }\n    }\n}\n// Only 14,400 × 4 = 57,600 operations\nPerformance: 3,625× faster! Fits in 1ms frame budget.\n\n\n// Only processes active regions\nfunction tileDiffusion() {\n    for (const tileIndex of activeTiles) {\n        const tile = getTile(tileIndex);\n        for (const pixel of tile.pixels) {\n            diffuse(pixel);\n        }\n    }\n}\n// Typically only ~20% of tiles active\nPerformance: 5× faster than full-grid approach.\n\n\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\n\nComplete diffusion implementation\nTile-based optimisation\nActive region tracking",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html#interactive-simulation",
+    "href": "docs/tutorial/06_fluids.html#interactive-simulation",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "Below is a live version of the fluid logic running in this book.\n\n\nviewof dissipation = Inputs.range([0.8, 0.999], {value: 0.98, step: 0.001, label: \"Dissipation (Entropy)\"})\nviewof advection = Inputs.range([0.0, 5.0], {value: 3.0, step: 0.1, label: \"Advection Strength\"})\nviewof diffusion = Inputs.range([0.0, 1.0], {value: 0.5, step: 0.05, label: \"Diffusion (Spread)\"})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nmd`\n**Current Configuration:**\n*   **Energy Conservation:** ${(dissipation * 100).toFixed(1)}% energy retained per tick\n*   **Flow Velocity:** ${advection.toFixed(1)} pixels/tick impact\n*   **Scatter:** ${(diffusion * 100).toFixed(1)}% distribution to neighbours\n`\n\n\n\n\n\n\n\nfunction simulate1D(steps, disp, adv, diff) {\n  const width = 100;\n  let grid =  new Float32Array(width * 2).fill(0);\n  let nextGrid = new Float32Array(width * 2).fill(0);\n\n  // Initial Impulse\n  grid[20 * 2] = 2.0; \n  grid[20 * 2 + 1] = 1.0; \n\n  let history = [];\n\n  for(let t=0; t&lt;steps; t++) {\n    for(let x=0; x&lt;width; x++) {\n      const idx = x * 2;\n      let energy = grid[idx];\n      let velocity = grid[idx+1];\n\n      if(energy &lt; 0.01) continue;\n\n      // 1. Advection (Movement)\n      let thrust = velocity * adv;\n      let targetX = Math.min(width-1, Math.max(0, Math.round(x + thrust)));\n      \n      // 2. Diffusion (Spreading)\n      let remain = energy * (1 - diff);\n      let spread = energy * diff;\n\n      // Update Next State with Dissipation\n      nextGrid[targetX * 2] += remain * disp;\n      if(targetX + 1 &lt; width) nextGrid[(targetX + 1) * 2] += (spread / 2) * disp;\n      if(targetX - 1 &gt;= 0)    nextGrid[(targetX - 1) * 2] += (spread / 2) * disp;\n\n      // Decay Velocity (Viscosity)\n      nextGrid[targetX * 2 + 1] += velocity * 0.9;\n    }\n\n    for(let i=0; i&lt;width*2; i++) { grid[i] = nextGrid[i]; nextGrid[i] = 0; }\n    \n    let row = new Float32Array(width);\n    for(let i=0; i&lt;width; i++) row[i] = grid[i*2];\n    history.push(Array.from(row));\n  }\n  return history;\n}\n\ndata = simulate1D(60, dissipation, advection, diffusion)\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nVisualisationRaw Data\n\n\n\nPlot.plot({\n  marks: [\n    Plot.raster(data.flat(), { width: 100, height: 60, fill: d =&gt; d, interpolate: \"nearest\" }),\n    Plot.frame()\n  ],\n  color: { scheme: \"magma\", domain: [0, 2] },\n  y: { label: \"Time (t) ↓\", reverse: true },\n  x: { label: \"Space (x) →\" },\n  height: 300\n})\n\n\n\n\n\n\n\n\n\nInputs.table(data, { rows: 15 })",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/06_fluids.html#surface-continuity-check",
+    "href": "docs/tutorial/06_fluids.html#surface-continuity-check",
+    "title": "Simulating Fluids",
+    "section": "",
+    "text": "In a 2D grid, light might accidentally “bleed” from a foreground object onto a background one. We prevent this with a Surface Continuity Check.\nWe examine the Depth (distance from the camera) of two pixels. A large difference implies distinct objects, so we block the flow of light between them.\n/* src/engine.js */\nconst depthDiff = Math.abs(\n  State.lattice[ptr + FIELD.DEPTH] - State.lattice[nPtr + FIELD.DEPTH]\n);\n\nif (depthDiff &lt; 0.5) {\n  // Surfaces are connected! Flow energy.\n  State.lattice[nPtr + FIELD.R] += State.lattice[ptr + FIELD.R] * transfer;\n}",
+    "crumbs": [
+      "Tutorial",
+      "Simulating Fluids"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/04_math.html",
+    "href": "docs/tutorial/04_math.html",
+    "title": "The Maths of Space",
+    "section": "",
+    "text": "To simulate light, we must describe location and movement using Vectors.\n\n\nA Vector is simply an arrow with: 1. Origin: Where it starts. 2. Direction: Which way it points. 3. Magnitude: How long it is.\nIn our 2D grid, a vector is often just two numbers: \\((x, y)\\).\n\n\\((1, 0)\\) points Right.\n\\((0, 1)\\) points Down.\n\\((-1, 0)\\) points Left.\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\nSee the complete vector implementation in API Reference → Vec2.\n\n\n\n\nSometimes we care only about direction, not length. If we shrink a vector so its length is exactly \\(1.0\\), we call it a Unit Vector or say it is Normalised.\nNormalising a vector is like noting the direction a finger points, whilst ignoring the finger’s length.\n\nviewof vectorX = Inputs.range([-1, 1], {value: 1, step: 0.1, label: \"X\"})\nviewof vectorY = Inputs.range([-1, 1], {value: 0.5, step: 0.1, label: \"Y\"})\n\nlength = Math.sqrt(vectorX * vectorX + vectorY * vectorY)\nnormalizedX = length &gt; 0 ? vectorX / length : 0\nnormalizedY = length &gt; 0 ? vectorY / length : 0\n\nPlot.plot({\n  grid: true,\n  x: {domain: [-2, 2]},\n  y: {domain: [-2, 2]},\n  marks: [\n    Plot.frame(),\n    Plot.arrow([{x1: 0, y1: 0, x2: vectorX, y2: vectorY}], {x1: \"x1\", y1: \"y1\", x2: \"x2\", y2: \"y2\", stroke: \"red\", strokeWidth: 3}),\n    Plot.arrow([{x1: 0, y1: 0, x2: normalizedX, y2: normalizedY}], {x1: \"x1\", y1: \"y1\", x2: \"x2\", y2: \"y2\", stroke: \"blue\", strokeWidth: 2, strokeDasharray: \"4,4\"}),\n    Plot.text([{x: vectorX, y: vectorY, label: `Original (${vectorX.toFixed(2)}, ${vectorY.toFixed(2)})`}], {x: \"x\", y: \"y\", text: \"label\", dy: -10, fill: \"red\"}),\n    Plot.text([{x: normalizedX, y: normalizedY, label: `Normalised (${normalizedX.toFixed(2)}, ${normalizedY.toFixed(2)})`}], {x: \"x\", y: \"y\", text: \"label\", dy: 15, fill: \"blue\"})\n  ]\n})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nRed arrow: Original vector with length \\(= {length.toFixed(3)}\\)\nBlue arrow (dashed): Normalised version with length \\(= 1.0\\)\n\n\n\n\nTo determine the distance of a light source, we use the Pythagorean Theorem:\n\\[ a^2 + b^2 = c^2 \\]\nOr in code:\nconst dist = Math.sqrt(x*x + y*y);\nWe use this in Scene.shade to calculate light fall-off over distance (Inverse Square Law).\n\n\n\nOur engine uses vectors extensively for:\n\nPosition: Where objects are in 2D space\nVelocity: How fast and in which direction light flows\nDirection: Ray casting and collision detection\n\n\n\n\n\n\ngraph LR\n    A[Light Source&lt;br/&gt;Position: 5,3] --&gt;|Cast Ray&lt;br/&gt;Direction: 1,0| B[Pixel Grid]\n    B --&gt;|Hit Detection&lt;br/&gt;Distance: √((x₂-x₁)²+(y₂-y₁)²)| C[Sphere]\n    C --&gt;|Reflect&lt;br/&gt;New Direction| D[Secondary Ray]\n\n\n\n\n\n\n\n\n\n\n\n\nNoteImplementation Details\n\n\n\n\nVector addition: Combines positions or velocities (API Reference)\nDot product: Measures alignment between directions\nNormalisation: Used in ray direction calculations\n\n\n\n→ Next: Ray Tracing | ← Previous: Memory",
+    "crumbs": [
+      "Tutorial",
+      "The Maths of Space"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/04_math.html#vectors-arrows-in-space",
+    "href": "docs/tutorial/04_math.html#vectors-arrows-in-space",
+    "title": "The Maths of Space",
+    "section": "",
+    "text": "A Vector is simply an arrow with: 1. Origin: Where it starts. 2. Direction: Which way it points. 3. Magnitude: How long it is.\nIn our 2D grid, a vector is often just two numbers: \\((x, y)\\).\n\n\\((1, 0)\\) points Right.\n\\((0, 1)\\) points Down.\n\\((-1, 0)\\) points Left.\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\nSee the complete vector implementation in API Reference → Vec2.\n\n\n\n\nSometimes we care only about direction, not length. If we shrink a vector so its length is exactly \\(1.0\\), we call it a Unit Vector or say it is Normalised.\nNormalising a vector is like noting the direction a finger points, whilst ignoring the finger’s length.\n\nviewof vectorX = Inputs.range([-1, 1], {value: 1, step: 0.1, label: \"X\"})\nviewof vectorY = Inputs.range([-1, 1], {value: 0.5, step: 0.1, label: \"Y\"})\n\nlength = Math.sqrt(vectorX * vectorX + vectorY * vectorY)\nnormalizedX = length &gt; 0 ? vectorX / length : 0\nnormalizedY = length &gt; 0 ? vectorY / length : 0\n\nPlot.plot({\n  grid: true,\n  x: {domain: [-2, 2]},\n  y: {domain: [-2, 2]},\n  marks: [\n    Plot.frame(),\n    Plot.arrow([{x1: 0, y1: 0, x2: vectorX, y2: vectorY}], {x1: \"x1\", y1: \"y1\", x2: \"x2\", y2: \"y2\", stroke: \"red\", strokeWidth: 3}),\n    Plot.arrow([{x1: 0, y1: 0, x2: normalizedX, y2: normalizedY}], {x1: \"x1\", y1: \"y1\", x2: \"x2\", y2: \"y2\", stroke: \"blue\", strokeWidth: 2, strokeDasharray: \"4,4\"}),\n    Plot.text([{x: vectorX, y: vectorY, label: `Original (${vectorX.toFixed(2)}, ${vectorY.toFixed(2)})`}], {x: \"x\", y: \"y\", text: \"label\", dy: -10, fill: \"red\"}),\n    Plot.text([{x: normalizedX, y: normalizedY, label: `Normalised (${normalizedX.toFixed(2)}, ${normalizedY.toFixed(2)})`}], {x: \"x\", y: \"y\", text: \"label\", dy: 15, fill: \"blue\"})\n  ]\n})\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n\nRed arrow: Original vector with length \\(= {length.toFixed(3)}\\)\nBlue arrow (dashed): Normalised version with length \\(= 1.0\\)",
+    "crumbs": [
+      "Tutorial",
+      "The Maths of Space"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/04_math.html#distance",
+    "href": "docs/tutorial/04_math.html#distance",
+    "title": "The Maths of Space",
+    "section": "",
+    "text": "To determine the distance of a light source, we use the Pythagorean Theorem:\n\\[ a^2 + b^2 = c^2 \\]\nOr in code:\nconst dist = Math.sqrt(x*x + y*y);\nWe use this in Scene.shade to calculate light fall-off over distance (Inverse Square Law).",
+    "crumbs": [
+      "Tutorial",
+      "The Maths of Space"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/04_math.html#vector-operations",
+    "href": "docs/tutorial/04_math.html#vector-operations",
+    "title": "The Maths of Space",
+    "section": "",
+    "text": "Our engine uses vectors extensively for:\n\nPosition: Where objects are in 2D space\nVelocity: How fast and in which direction light flows\nDirection: Ray casting and collision detection\n\n\n\n\n\n\ngraph LR\n    A[Light Source&lt;br/&gt;Position: 5,3] --&gt;|Cast Ray&lt;br/&gt;Direction: 1,0| B[Pixel Grid]\n    B --&gt;|Hit Detection&lt;br/&gt;Distance: √((x₂-x₁)²+(y₂-y₁)²)| C[Sphere]\n    C --&gt;|Reflect&lt;br/&gt;New Direction| D[Secondary Ray]\n\n\n\n\n\n\n\n\n\n\n\n\nNoteImplementation Details\n\n\n\n\nVector addition: Combines positions or velocities (API Reference)\nDot product: Measures alignment between directions\nNormalisation: Used in ray direction calculations\n\n\n\n→ Next: Ray Tracing | ← Previous: Memory",
+    "crumbs": [
+      "Tutorial",
+      "The Maths of Space"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/07_mainloop.html",
+    "href": "docs/tutorial/07_mainloop.html",
+    "title": "The Main Loop",
+    "section": "",
+    "text": "We have the canvas, memory, mathematics, and physics. Now, we bring them to life.\n\n\nAnimation is an illusion. By updating the screen 60 times per second (60 Hz), we trick the eye into seeing motion.\nJavaScript provides requestAnimationFrame. This instructs the browser: “When ready to paint the screen, call my function first.”\nWhy not setInterval? Because requestAnimationFrame pauses when you switch tabs, saving battery!\n\n\n\nBefore viewing the code, let us observe the “Big Picture”. The engine runs in three phases:\n\n\n\n\n\ngraph LR\n    A[Input Scene] --&gt;|Ray Query| B(Injection Phase)\n    B --&gt;|Energy| C{Fluid Solver}\n    C --&gt;|Advection| C\n    C --&gt;|Diffusion| C\n    C --&gt;|State| D[Renderer]\n    D --&gt;|Tone Map| E[Canvas]\n\n\n\n\n\n\n\n\n\nOur mainSimulationLoop acts as the orchestra’s conductor. It runs continuously, coordinating all discussed components.\nfunction mainSimulationLoop() {\n  // 1. Handle Input (Keyboard/Mouse)\n  if (handleInput()) {\n      // If the user moved, we might need to reset\n  }\n\n  // 2. Injection Phase (Ray Tracing)\n  // We shoot rays for every pixel (or a subset)\n  // ...\n\n  // 3. Propagation Phase (Fluid Dynamics)\n  evolveSimulation();\n\n  // 4. Rendering Phase\n  // Draw the result to the Canvas\n  // ...\n\n  // 5. Repeat!\n  requestAnimationFrame(mainSimulationLoop);\n}\n\n\n\nWe have journeyed from the humble pixel to a complex, hybrid fluid-light transport simulation.\nBy treating light as a fluid, we create beautiful, organic lighting effects that respond to the environment in real-time. We optimised this by understanding computer memory (SoA) and employing simplified physics (Cellular Automata) rather than calculating every single photon perfectly.\nFurthermore, our engine now monitors Grid Sparsity—the ratio of active light regions to empty space. This telemetry allows us to gauge efficiency and ensure we only process pixels that truly matter.\nThis is the power of the Hybrid Fluid-Light Transport Engine.",
+    "crumbs": [
+      "Tutorial",
+      "The Main Loop"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/07_mainloop.html#animation",
+    "href": "docs/tutorial/07_mainloop.html#animation",
+    "title": "The Main Loop",
+    "section": "",
+    "text": "Animation is an illusion. By updating the screen 60 times per second (60 Hz), we trick the eye into seeing motion.\nJavaScript provides requestAnimationFrame. This instructs the browser: “When ready to paint the screen, call my function first.”\nWhy not setInterval? Because requestAnimationFrame pauses when you switch tabs, saving battery!",
+    "crumbs": [
+      "Tutorial",
+      "The Main Loop"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/07_mainloop.html#system-architecture",
+    "href": "docs/tutorial/07_mainloop.html#system-architecture",
+    "title": "The Main Loop",
+    "section": "",
+    "text": "Before viewing the code, let us observe the “Big Picture”. The engine runs in three phases:\n\n\n\n\n\ngraph LR\n    A[Input Scene] --&gt;|Ray Query| B(Injection Phase)\n    B --&gt;|Energy| C{Fluid Solver}\n    C --&gt;|Advection| C\n    C --&gt;|Diffusion| C\n    C --&gt;|State| D[Renderer]\n    D --&gt;|Tone Map| E[Canvas]",
+    "crumbs": [
+      "Tutorial",
+      "The Main Loop"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/07_mainloop.html#the-game-loop",
+    "href": "docs/tutorial/07_mainloop.html#the-game-loop",
+    "title": "The Main Loop",
+    "section": "",
+    "text": "Our mainSimulationLoop acts as the orchestra’s conductor. It runs continuously, coordinating all discussed components.\nfunction mainSimulationLoop() {\n  // 1. Handle Input (Keyboard/Mouse)\n  if (handleInput()) {\n      // If the user moved, we might need to reset\n  }\n\n  // 2. Injection Phase (Ray Tracing)\n  // We shoot rays for every pixel (or a subset)\n  // ...\n\n  // 3. Propagation Phase (Fluid Dynamics)\n  evolveSimulation();\n\n  // 4. Rendering Phase\n  // Draw the result to the Canvas\n  // ...\n\n  // 5. Repeat!\n  requestAnimationFrame(mainSimulationLoop);\n}",
+    "crumbs": [
+      "Tutorial",
+      "The Main Loop"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/07_mainloop.html#conclusion",
+    "href": "docs/tutorial/07_mainloop.html#conclusion",
+    "title": "The Main Loop",
+    "section": "",
+    "text": "We have journeyed from the humble pixel to a complex, hybrid fluid-light transport simulation.\nBy treating light as a fluid, we create beautiful, organic lighting effects that respond to the environment in real-time. We optimised this by understanding computer memory (SoA) and employing simplified physics (Cellular Automata) rather than calculating every single photon perfectly.\nFurthermore, our engine now monitors Grid Sparsity—the ratio of active light regions to empty space. This telemetry allows us to gauge efficiency and ensure we only process pixels that truly matter.\nThis is the power of the Hybrid Fluid-Light Transport Engine.",
+    "crumbs": [
+      "Tutorial",
+      "The Main Loop"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html",
+    "href": "docs/tutorial/05_raytracing.html",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "With our grid (Canvas) and maths (Vectors) established, simulation begins. The first step is locating the light.\n\n\nIn reality, light travels from a bulb to your eye. In computer graphics, we work in reverse. We shoot a ray from the “Camera” (your eye) through every screen pixel to see what it strikes.\n\n\n\n\n\nflowchart LR\n    A[Eye/Camera] --&gt;|1. Cast Ray| B[Screen Pixel]\n    B --&gt;|2. Trace Through Scene| C{Hit Object?}\n    C --&gt;|Yes| D[Calculate Colour&lt;br/&gt;& Lighting]\n    C --&gt;|No| E[Return Background&lt;br/&gt;Colour]\n    D --&gt; F[Display Result]\n    E --&gt; F\n\n\n Ray tracing flow: from eye through screen to scene \n\n\n\n\n\n\n\n\n\nTipWhy Reverse?\n\n\n\nForward ray tracing (light → eye) is inefficient because most rays miss the camera. Reverse tracing (eye → scene) ensures every ray contributes to the image.\n\n\n\n\n\nA ray is defined mathematically as:\n\\[ \\mathbf{P}(t) = \\mathbf{O} + t\\mathbf{D} \\]\nWhere: - \\(\\mathbf{O}\\) = Origin (ray start position) - \\(\\mathbf{D}\\) = Direction (normalised vector) - \\(t\\) = Distance along the ray - \\(\\mathbf{P}(t)\\) = Point on the ray at distance \\(t\\)\n// Ray representation in code\nconst ray = {\n    origin: {x: 0, y: 0},\n    direction: {x: 1, y: 0}  // Must be normalised!\n};\n\n// Point at distance t\nfunction rayPoint(ray, t) {\n    return {\n        x: ray.origin.x + t * ray.direction.x,\n        y: ray.origin.y + t * ray.direction.y\n    };\n}\n\n\n\nOur scene comprises spheres. To check if a ray hits a sphere, we use algebra. A sphere is defined as all points at a distance \\(r\\) from a centre point \\(C\\).\n\n\nA sphere centred at \\(\\mathbf{C}\\) with radius \\(r\\) satisfies:\n\\[ |\\mathbf{P} - \\mathbf{C}|^2 = r^2 \\]\nSubstituting the ray equation \\(\\mathbf{P}(t) = \\mathbf{O} + t\\mathbf{D}\\):\n\\[ |\\mathbf{O} + t\\mathbf{D} - \\mathbf{C}|^2 = r^2 \\]\nThis becomes a quadratic equation:\n\\[ at^2 + bt + c = 0 \\]\nWhere: - \\(a = \\mathbf{D} \\cdot \\mathbf{D}\\) (usually 1 if direction is normalised) - \\(b = 2\\mathbf{D} \\cdot (\\mathbf{O} - \\mathbf{C})\\) - \\(c = |\\mathbf{O} - \\mathbf{C}|^2 - r^2\\)\nThe discriminant \\(\\Delta = b^2 - 4ac\\) determines if we hit:\n\n\n\nDiscriminant\nResult\n\n\n\n\n\\(\\Delta &lt; 0\\)\nNo intersection (ray misses sphere)\n\n\n\\(\\Delta = 0\\)\nTangent (ray grazes sphere)\n\n\n\\(\\Delta &gt; 0\\)\nTwo intersections (ray enters and exits)\n\n\n\n\n\n\nThis is implemented in Scene.trace within src/engine.js:\n/* src/engine.js */\ntrace: function(ro, rd) {\n    // ...\n    const oc = {x: ro.x - sphere.x, y: ro.y - sphere.y};\n1    const b = 2 * (rd.x * oc.x + rd.y * oc.y);\n2    const c = (oc.x * oc.x + oc.y * oc.y) - r * r;\n    \n3    const d = b * b - c;\n4    if (d &gt; 0) {\n5        const t = (-b - Math.sqrt(d)) / 2;\n        // We hit the sphere at distance t!\n    }\n}\n\n1\n\nCalculates coefficient \\(b = 2\\mathbf{D} \\cdot (\\mathbf{O} - \\mathbf{C})\\)\n\n2\n\nCalculates coefficient \\(c = |\\mathbf{O} - \\mathbf{C}|^2 - r^2\\)\n\n3\n\nComputes discriminant \\(\\Delta = b^2 - 4ac\\) (simplified since \\(a=1\\))\n\n4\n\nPositive discriminant means intersection\n\n5\n\nSolves for \\(t\\) using quadratic formula (takes nearest hit)\n\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\nSee the complete implementation in API Reference → Scene.trace.\n\n\n\n\n\n\n\n\n\n\n\nsequenceDiagram\n    participant O as Ray Origin\n    participant R as Ray\n    participant S as Sphere\n    participant G as Grid\n    \n    O-&gt;&gt;R: Cast ray with direction\n    loop Every step distance t\n        R-&gt;&gt;S: Check intersection\n        alt Hit detected (d &gt; 0)\n            S--&gt;&gt;G: Inject light energy\n            Note over S,G: Energy = f(distance, angle)\n        else No hit\n            R-&gt;&gt;R: Advance ray (t += step)\n        end\n    end\n\n\n Step-by-step ray marching through a scene \n\n\n\n\n\n\nWhen a ray strikes a light source, we “inject” that energy into our fluid grid (State.lattice). This initiates our fluid simulation.\n// Simplified light injection\nfunction injectLight(hitPoint, energy) {\n    const pixelX = Math.floor(hitPoint.x);\n    const pixelY = Math.floor(hitPoint.y);\n    const index = pixelY * WIDTH + pixelX;\n    \n    lattice[index * STRIDE + INTENSITY] += energy;\n}\nThe injected energy then propagates via fluid dynamics (see Chapter 6: Fluids).\n\n\n\n\n\n\nNotePerformance Considerations\n\n\n\n\nRay count: More rays = better quality but slower\nStep size: Smaller steps = more accurate but more expensive\nEarly termination: Stop after first hit to save computation\n\n\n\n→ Next: Fluid Simulation | ← Previous: Mathematics",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html#reverse-ray-tracing",
+    "href": "docs/tutorial/05_raytracing.html#reverse-ray-tracing",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "In reality, light travels from a bulb to your eye. In computer graphics, we work in reverse. We shoot a ray from the “Camera” (your eye) through every screen pixel to see what it strikes.\n\n\n\n\n\nflowchart LR\n    A[Eye/Camera] --&gt;|1. Cast Ray| B[Screen Pixel]\n    B --&gt;|2. Trace Through Scene| C{Hit Object?}\n    C --&gt;|Yes| D[Calculate Colour&lt;br/&gt;& Lighting]\n    C --&gt;|No| E[Return Background&lt;br/&gt;Colour]\n    D --&gt; F[Display Result]\n    E --&gt; F\n\n\n Ray tracing flow: from eye through screen to scene \n\n\n\n\n\n\n\n\n\nTipWhy Reverse?\n\n\n\nForward ray tracing (light → eye) is inefficient because most rays miss the camera. Reverse tracing (eye → scene) ensures every ray contributes to the image.",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html#ray-equation",
+    "href": "docs/tutorial/05_raytracing.html#ray-equation",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "A ray is defined mathematically as:\n\\[ \\mathbf{P}(t) = \\mathbf{O} + t\\mathbf{D} \\]\nWhere: - \\(\\mathbf{O}\\) = Origin (ray start position) - \\(\\mathbf{D}\\) = Direction (normalised vector) - \\(t\\) = Distance along the ray - \\(\\mathbf{P}(t)\\) = Point on the ray at distance \\(t\\)\n// Ray representation in code\nconst ray = {\n    origin: {x: 0, y: 0},\n    direction: {x: 1, y: 0}  // Must be normalised!\n};\n\n// Point at distance t\nfunction rayPoint(ray, t) {\n    return {\n        x: ray.origin.x + t * ray.direction.x,\n        y: ray.origin.y + t * ray.direction.y\n    };\n}",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html#sphere-intersection",
+    "href": "docs/tutorial/05_raytracing.html#sphere-intersection",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "Our scene comprises spheres. To check if a ray hits a sphere, we use algebra. A sphere is defined as all points at a distance \\(r\\) from a centre point \\(C\\).\n\n\nA sphere centred at \\(\\mathbf{C}\\) with radius \\(r\\) satisfies:\n\\[ |\\mathbf{P} - \\mathbf{C}|^2 = r^2 \\]\nSubstituting the ray equation \\(\\mathbf{P}(t) = \\mathbf{O} + t\\mathbf{D}\\):\n\\[ |\\mathbf{O} + t\\mathbf{D} - \\mathbf{C}|^2 = r^2 \\]\nThis becomes a quadratic equation:\n\\[ at^2 + bt + c = 0 \\]\nWhere: - \\(a = \\mathbf{D} \\cdot \\mathbf{D}\\) (usually 1 if direction is normalised) - \\(b = 2\\mathbf{D} \\cdot (\\mathbf{O} - \\mathbf{C})\\) - \\(c = |\\mathbf{O} - \\mathbf{C}|^2 - r^2\\)\nThe discriminant \\(\\Delta = b^2 - 4ac\\) determines if we hit:\n\n\n\nDiscriminant\nResult\n\n\n\n\n\\(\\Delta &lt; 0\\)\nNo intersection (ray misses sphere)\n\n\n\\(\\Delta = 0\\)\nTangent (ray grazes sphere)\n\n\n\\(\\Delta &gt; 0\\)\nTwo intersections (ray enters and exits)\n\n\n\n\n\n\nThis is implemented in Scene.trace within src/engine.js:\n/* src/engine.js */\ntrace: function(ro, rd) {\n    // ...\n    const oc = {x: ro.x - sphere.x, y: ro.y - sphere.y};\n1    const b = 2 * (rd.x * oc.x + rd.y * oc.y);\n2    const c = (oc.x * oc.x + oc.y * oc.y) - r * r;\n    \n3    const d = b * b - c;\n4    if (d &gt; 0) {\n5        const t = (-b - Math.sqrt(d)) / 2;\n        // We hit the sphere at distance t!\n    }\n}\n\n1\n\nCalculates coefficient \\(b = 2\\mathbf{D} \\cdot (\\mathbf{O} - \\mathbf{C})\\)\n\n2\n\nCalculates coefficient \\(c = |\\mathbf{O} - \\mathbf{C}|^2 - r^2\\)\n\n3\n\nComputes discriminant \\(\\Delta = b^2 - 4ac\\) (simplified since \\(a=1\\))\n\n4\n\nPositive discriminant means intersection\n\n5\n\nSolves for \\(t\\) using quadratic formula (takes nearest hit)\n\n\n\n\n\n\n\n\nTipAPI Reference\n\n\n\nSee the complete implementation in API Reference → Scene.trace.",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html#ray-marching",
+    "href": "docs/tutorial/05_raytracing.html#ray-marching",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "sequenceDiagram\n    participant O as Ray Origin\n    participant R as Ray\n    participant S as Sphere\n    participant G as Grid\n    \n    O-&gt;&gt;R: Cast ray with direction\n    loop Every step distance t\n        R-&gt;&gt;S: Check intersection\n        alt Hit detected (d &gt; 0)\n            S--&gt;&gt;G: Inject light energy\n            Note over S,G: Energy = f(distance, angle)\n        else No hit\n            R-&gt;&gt;R: Advance ray (t += step)\n        end\n    end\n\n\n Step-by-step ray marching through a scene",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  },
+  {
+    "objectID": "docs/tutorial/05_raytracing.html#light-injection",
+    "href": "docs/tutorial/05_raytracing.html#light-injection",
+    "title": "Casting Rays",
+    "section": "",
+    "text": "When a ray strikes a light source, we “inject” that energy into our fluid grid (State.lattice). This initiates our fluid simulation.\n// Simplified light injection\nfunction injectLight(hitPoint, energy) {\n    const pixelX = Math.floor(hitPoint.x);\n    const pixelY = Math.floor(hitPoint.y);\n    const index = pixelY * WIDTH + pixelX;\n    \n    lattice[index * STRIDE + INTENSITY] += energy;\n}\nThe injected energy then propagates via fluid dynamics (see Chapter 6: Fluids).\n\n\n\n\n\n\nNotePerformance Considerations\n\n\n\n\nRay count: More rays = better quality but slower\nStep size: Smaller steps = more accurate but more expensive\nEarly termination: Stop after first hit to save computation\n\n\n\n→ Next: Fluid Simulation | ← Previous: Mathematics",
+    "crumbs": [
+      "Tutorial",
+      "Casting Rays"
+    ]
+  }
+]
