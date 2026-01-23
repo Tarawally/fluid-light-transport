@@ -1,10 +1,0 @@
-[1m[34mnode[39m[22m
-Running build-api.js
-Generating API docs...
-✅ API generated.
-
-[1m[34m[ 1/15] index.qmd[39m[22m
-[1m[34m[ 2/15] docs/index.qmd[39m[22m
-[1m[34m[ 3/15] docs/tutorial/01_canvas.qmd[39m[22m
-[1m[34m[ 4/15] docs/tutorial/02_logic.qmd[39m[22m
-[1m[34m[ 5/15] docs/tutorial/03_memory.qmd[39m[22m
