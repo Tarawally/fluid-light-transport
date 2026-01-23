@@ -31,4 +31,5 @@ quarto preview
 - [**API Reference**](docs/reference/api.qmd): Auto-generated documentation from `src/engine.js`.
 
 ## License
+
 MIT

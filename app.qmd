@@ -1,5 +1,5 @@
 ---
-pagetitle: "Scene"
+pagetitle: "Visualisation"
 page-layout: custom
 sidebar: false
 css: src/style.css

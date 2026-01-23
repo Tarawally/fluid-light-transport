@@ -10,7 +10,7 @@ Rather than focusing on jargon, we explore the underlying architecture. We build
 ## Interactive Demo
 Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.
 
-[**Open Full Screen Simulation →**](../index.qmd){target="_blank"}
+[**Open Full Screen Visualisation →**](../app.html){target="_blank"}
 :::
 
 <iframe 
