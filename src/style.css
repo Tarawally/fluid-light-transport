@@ -125,15 +125,6 @@
   font-size: 10px;
 }
 
-/* Hide Quarto's anchor links on the simulation canvas if they leak through */
-.anchorjs-link {
-  display: none !important;
-}
-
-/* Hide clipboard button on specific elements if needed */
-.code-copy-button {
-  display: none !important;
-}
 
 /* Controls and UI Overrides */
 #ui * {
