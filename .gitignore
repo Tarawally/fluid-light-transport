@@ -54,6 +54,7 @@ ENV/
 _site/
 docs/_site/
 docs/site_libs/
+docs/.quarto/
 *_files/
 .quarto-web
 .ipynb_checkpoints/
