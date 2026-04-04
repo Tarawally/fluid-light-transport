@@ -16,7 +16,9 @@
   "author": "Samuel Tarawally",
   "license": "MIT",
   "devDependencies": {
-    "jsdoc-to-markdown": "^8.0.3",
     "vitest": "^4.0.17"
+  },
+  "dependencies": {
+    "@observablehq/framework": "^1.13.4"
   }
 }

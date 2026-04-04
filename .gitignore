@@ -60,6 +60,7 @@ docs/.quarto/
 .ipynb_checkpoints/
 *.bak
 *.tmp
+.obsidian/
 
 # --- Build Artifacts ---
 dist/
@@ -70,3 +71,10 @@ obj/
 
 /.quarto/
 **/*.quarto_ipynb
+dist/
+
+
+
+
+# Ignore Smart Environment folder
+.smart-env
