@@ -1,0 +1,28 @@
+- Physics informed neural networks
+- Information transport
+- Information partition
+- Neural cellular automata
+- Information communication
+- Scientific analysis
+- Dataset partition
+- Database parition
+- Dream scene for robot path of best fit
+	- Gasusian encoded paths
+	- Gauss sums
+	- Hallucination simulation of scenes based on information geometric encoding
+- Information compression and generation
+- Fibonacci sequence, the Abelian sandpile model, the golden ratio, and Percolation threshold.
+- Binary tiling as representations of spatial computational space
+- The hemisphere as the singular uniform binary tiling
+- The cylinder has dual uniform binary tillings
+- Objects with complex geometries can be represented as a local gasket of packed sphere where the global gasket is linked to the [[Schmidt arrangement]].
+- Theses packings are the unique encodings of the scene which can be approximated to the hemisphere of each integral in the local gasket.
+- This should there for be compressible to binary sequences since each sphere/circle has a singular binary tilling at the hemisphere.
+- The model I'm thinking of for global representation is the sphere circumscribed in a cylinder.
+- The sphere circumscribed in a cylinder has 3 identical binary tillings, on in the centre of the sphere and to tangent to it at the top of the cylinder and bottom.
+- The 3 identical binary tillings of this model should be representative of AdS/CFT.
+- This should be able to give a scene a singular binary network via encoding.
+- This should allow for decoding events and actions and potential decisions in a scene locally as well as on board analytics.
+- Allowing for robots to use that information to make decisions.
+- Arithmetic coding
+- Given the use case of LLMs perhaps the use of the **ABACABA pattern** as a  [recursive](https://en.wikipedia.org/wiki/Recursion "Recursion") [fractal](https://en.wikipedia.org/wiki/Fractal "Fractal") [pattern](https://en.wikipedia.org/wiki/Pattern), allowing for LLM's to be use beyond just language but scene encryption, encoding and decoding for rulesets and actions for humanoids and robots.
