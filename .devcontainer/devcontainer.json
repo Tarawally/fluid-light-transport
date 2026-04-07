@@ -1,30 +1,32 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/alpine
 {
 	"name": "debian",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
 	"image": "mcr.microsoft.com/devcontainers/base:debian",
-
-	// Features to add to the dev container. More info: https://containers.dev/features.
-	// "features": {},
-
-	// Use 'forwardPorts' to make a list of ports inside the container available locally.
-	// "forwardPorts": [],
-
-	// Use 'postCreateCommand' to run commands after the container is created.
-	// "postCreateCommand": "uname -a",
-
-	// Configure tool-specific properties.
+	"features": {
+    "ghcr.io/shyim/devcontainers-features/bun:0": {},
+	"ghcr.io/devcontainers/features/github-cli:1": {},
+	"ghcr.io/meaningful-ooo/devcontainer-features/homebrew:2": {}
+	},
 	"customizations": {
 		"vscode": {
 			"extensions": [
 				"runme.runme",
 				"esbenp.prettier-vscode",
-				"ms-toolsai.jupyter-renderers"
+				"ms-toolsai.jupyter-renderers",
+				"stateful.runme",
+				"dbaeumer.vscode-eslint",
+				"ms-azuretools.vscode-containers",
+				"flyde.flyde-vscode",
+				"ms-vscode.live-server",
+				"MermaidChart.vscode-mermaid-chart",
+				"redhat.vscode-yaml",
+				"quarto.quarto",
+				"GordonSmith.observable-js",
+				"eamodio.gitlens",
+				"streetsidesoftware.code-spell-checker",
+				"donjayamanne.githistory",
+				"DavidAnson.vscode-markdownlint",
+				"foam.foam-vscode"
 			]
 		}
 	}
-
-	// Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-	// "remoteUser": "root"
 }
