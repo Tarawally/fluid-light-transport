@@ -25,7 +25,8 @@
 				"streetsidesoftware.code-spell-checker",
 				"donjayamanne.githistory",
 				"DavidAnson.vscode-markdownlint",
-				"foam.foam-vscode"
+				"foam.foam-vscode",
+				"ritwickdey.LiveServer"
 			]
 		}
 	}
