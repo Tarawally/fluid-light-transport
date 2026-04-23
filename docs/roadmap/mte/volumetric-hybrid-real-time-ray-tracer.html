@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Webgpu compute pipeline: storage buffer allocation and concurrent thread execution">
+  <title>Compute pipeline v1.3</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    @keyframes pulse {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    html,
+    body {
+      background: #020617;
+      color: #a1a1aa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                   'Liberation Mono', 'Courier New', monospace;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      padding: 0;
+      touch-action: none;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100%;
+      touch-action: none;
+      width: 100%;
+    }
+
+    .interface-layer {
+      backdrop-filter: blur(16px);
+      background: rgba(9, 9, 11, 0.75);
+      border: 1px solid rgba(63, 63, 70, 0.4);
+    }
+
+    .status-pulse {
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500/30">
+  <div class="relative w-full h-screen bg-[#020617] overflow-hidden">
+    <canvas id="renderCanvas" class="block w-full h-full cursor-crosshair touch-none"></canvas>
+
+    <div id="telemetry-buffer"
+         class="absolute top-4 left-4 sm:top-8 sm:left-8 pointer-events-none select-none z-10 transition-all duration-700"
+         style="opacity: 0; transform: translateY(-10px);">
+      <div class="space-y-1">
+        <h1 class="text-white text-[10px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] uppercase font-bold">
+          Compute pipeline v1.3
+        </h1>
+        <p class="text-[9px] sm:text-[11px] text-zinc-500 tracking-[0.05em] sm:tracking-[0.1em] uppercase">
+          Context: dispatch
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:gap-3 mt-4 sm:mt-6">
+        <div class="flex items-center space-x-3 sm:space-x-4 interface-layer px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <div id="status-register" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] status-pulse"></div>
+          <div class="flex flex-col">
+            <span class="text-emerald-500/90 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase mb-0.5 sm:mb-1">
+              Sync: acquired
+            </span>
+            <span id="propagation-label" class="text-white text-[13px] sm:text-[15px] tabular-nums tracking-tighter font-medium">
+              Iteration: 0
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 sm:gap-2 interface-layer px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <span class="text-zinc-500 text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.2em] border-b border-zinc-800 pb-1 mb-0.5 sm:mb-1">
+            Metadata
+          </span>
+          <div class="flex gap-4 sm:gap-6">
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Divergence</span>
+              <span class="text-white text-xs sm:text-sm tabular-nums font-semibold">0.00%</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Pointer</span>
+              <span class="text-white text-xs sm:text-sm uppercase">Resolved</span>
+            </div>
+            <div class="flex flex-col hidden sm:flex">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Culling</span>
+              <span class="text-white text-xs sm:text-sm uppercase">Active</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 interface-layer px-3 py-2 sm:px-4 sm:py-2 rounded-md w-max shadow-2xl">
+          <div class="flex flex-col">
+            <span class="text-zinc-500 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase">
+              Framebuffer
+            </span>
+            <span class="text-zinc-300 text-[9px] sm:text-[11px] tabular-nums tracking-wide font-mono uppercase">
+              Post: active
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="input-mapping-layer"
+         class="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 interface-layer rounded-lg sm:rounded-xl z-10 pointer-events-none transition-all duration-700"
+         style="opacity: 0;">
+      <div class="flex items-center gap-4 sm:gap-8">
+        <div class="flex flex-col items-center">
+          <span class="text-zinc-500 text-[8px] sm:text-[9px] uppercase tracking-[0.2em] mb-1">Translation</span>
+          <span class="text-white text-[9px] sm:text-[11px] uppercase tracking-widest font-bold">[w][a][s][d]</span>
+        </div>
+        <div class="w-px h-4 sm:h-6 bg-zinc-700/50"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-zinc-500 text-[8px] sm:text-[9px] uppercase tracking-[0.2em] mb-1">Rotation</span>
+          <span class="text-white text-[9px] sm:text-[11px] uppercase tracking-widest font-bold">Input</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="exception-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-6 sm:p-8 bg-black/95 backdrop-blur-2xl hidden">
+      <div class="max-w-md w-full border border-rose-900/50 bg-rose-950/10 p-6 sm:p-10 rounded-lg text-center space-y-6 sm:space-y-8">
+        <div class="space-y-2 sm:space-y-3">
+          <h2 class="text-rose-500 text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.3em]">
+            Fault
+          </h2>
+          <div class="h-px w-8 sm:w-12 bg-rose-900/50 mx-auto"></div>
+        </div>
+        <p id="exception-log" class="text-zinc-400 text-[10px] sm:text-[12px] leading-relaxed font-mono px-2 sm:px-4"></p>
+        <button onclick="window.location.reload()"
+                class="w-full sm:w-auto px-6 sm:px-8 py-3 bg-rose-950 text-rose-500 text-[10px] sm:text-[11px] uppercase font-bold tracking-[0.2em] border border-rose-900 hover:bg-rose-900 transition-all rounded-sm cursor-pointer active:scale-95">
+          Reinitialise
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * @typedef {Object} Vector3
+     * @property {number} x
+     * @property {number} y
+     * @property {number} z
+     */
+
+    /**
+     * @typedef {Object} Rotation
+     * @property {number} yaw
+     * @property {number} pitch
+     */
+
+    /**
+     * @typedef {Object} State
+     * @property {Vector3} pos
+     * @property {Rotation} rot
+     */
+
+    /**
+     * @typedef {Object} Input
+     * @property {!Object<string, boolean>} keys
+     * @property {?{x: number, y: number}} touch
+     */
+
+    /**
+     * Kernel class representing the compute pipeline instantiation and runtime.
+     */
+    class Kernel {
+      /**
+       * @param {!HTMLCanvasElement} canvas The target canvas element.
+       * @param {function(string): void} errorCallback Callback for reporting errors.
+       */
+      constructor(canvas, errorCallback) {
+        /** @type {GPUDevice|null} */
+        this.device = null;
+        /** @type {GPUCanvasContext|null} */
+        this.ctx = null;
+        /** @type {string} */
+        this.format = 'bgra8unorm';
+        /** @type {number} */
+        this.gridSize = 64;
+        /** @type {number} */
+        this.totalElements = this.gridSize ** 3;
+        /** @type {GPUBuffer|null} */
+        this.bufferA = null;
+        /** @type {GPUBuffer|null} */
+        this.bufferB = null;
+        /** @type {GPUBuffer|null} */
+        this.uniformBuffer = null;
+        /** @type {!Float32Array} */
+        this.uniformParams = new Float32Array(32);
+        /** @type {GPUComputePipeline|null} */
+        this.computePipeline = null;
+        /** @type {GPURenderPipeline|null} */
+        this.renderPipeline = null;
+        /** @type {number} */
+        this.iterationIndex = 0;
+        /** @type {number} */
+        this.lastTime = 0.0;
+        /** @type {number} */
+        this.deltaTime = 0.016;
+        /** @type {!HTMLCanvasElement} */
+        this.canvas = canvas;
+        /** @type {function(string): void} */
+        this.errorCallback = errorCallback;
+      }
+
+      /**
+       * Initialises the WebGPU context, buffers, and starts the render loop.
+       * @param {!State} state The initial application state.
+       * @param {!Input} input The initial input state.
+       * @returns {!Promise<void>}
+       */
+      async init(state, input) {
+        if (!navigator.gpu) {
+          this.errorCallback('Fault: webgpu api unsupported');
+          return;
+        }
+
+        try {
+          const adapter = await navigator.gpu.requestAdapter({
+            powerPreference: 'high-performance',
+          });
+          
+          if (!adapter) {
+             throw new Error('No appropriate GPU adapter found.');
+          }
+          
+          this.device = await adapter.requestDevice();
+          this.format = navigator.gpu.getPreferredCanvasFormat();
+          this.ctx = this.canvas.getContext('webgpu');
+
+          this.configureContext();
+          this.allocateBuffers();
+          this.compilePipelines();
+
+          this.lastTime = performance.now();
+          this.loop(this.lastTime, state, input);
+        } catch (error) {
+          this.errorCallback(`Fault: ${error.message}`);
+        }
+      }
+
+      /**
+       * Configures the WebGPU canvas context dimensions and formatting.
+       */
+      configureContext() {
+        if (!this.ctx || !this.device) {
+          return;
+        }
+        const devicePixelRatio = Math.min(window.devicePixelRatio || 1.0, 2.0);
+        this.canvas.width = Math.floor(this.canvas.clientWidth * devicePixelRatio);
+        this.canvas.height = Math.floor(this.canvas.clientHeight * devicePixelRatio);
+        
+        this.ctx.configure({
+          device: this.device,
+          format: this.format,
+          alphaMode: 'premultiplied',
+        });
+      }
+
+      /**
+       * Allocates the necessary storage and uniform buffers.
+       */
+      allocateBuffers() {
+        if (!this.device) {
+          return;
+        }
+        
+        const bytes = this.totalElements * 16;
+        
+        this.bufferA = this.device.createBuffer({
+          size: bytes,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.bufferB = this.device.createBuffer({
+          size: bytes,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.uniformBuffer = this.device.createBuffer({
+          size: 256,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const zeroData = new Float32Array(this.totalElements * 4);
+        this.device.queue.writeBuffer(this.bufferA, 0, zeroData);
+        this.device.queue.writeBuffer(this.bufferB, 0, zeroData);
+      }
+
+      /**
+       * Compiles the WebGPU compute and render pipelines.
+       */
+      compilePipelines() {
+        if (!this.device) {
+          return;
+        }
+
+        const computeShaderCode = `
+          struct U {
+            pos: vec4<f32>,
+            fwd: vec4<f32>,
+            rgt: vec4<f32>,
+            up: vec4<f32>,
+            res: vec2<f32>,
+            grid: u32,
+            step: u32,
+            light: vec4<f32>,
+          };
+          @group(0) @binding(0) var<uniform> u: U;
+          @group(0) @binding(1) var<storage, read> bIn: array<vec4<f32>>;
+          @group(0) @binding(2) var<storage, read_write> bOut: array<vec4<f32>>;
+
+          fn get_idx(x: i32, y: i32, z: i32) -> i32 {
+            let s = i32(u.grid);
+            if (x < 0 || x >= s || y < 0 || y >= s || z < 0 || z >= s) {
+              return -1;
+            }
+            return z * s * s + y * s + x;
+          }
+
+          fn get_pos(x: i32, y: i32, z: i32) -> vec3<f32> {
+            let s = f32(u.grid);
+            return vec3<f32>(f32(x), f32(y), f32(z)) / s * 16.0 + vec3<f32>(-8.0, 0.0, -8.0);
+          }
+
+          fn solid(p: vec3<f32>) -> bool {
+            if (p.y <= 0.0) { return true; }
+            if (length(p - vec3<f32>(0.0, 1.0, 0.0)) <= 1.0) { return true; }
+            if (length(p - vec3<f32>(-2.1, 1.0, 0.0)) <= 1.0) { return true; }
+            if (length(p - vec3<f32>(2.1, 1.0, 0.0)) <= 1.0) { return true; }
+            return false;
+          }
+
+          @compute @workgroup_size(4, 4, 4)
+          fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+            if (id.x >= u.grid || id.y >= u.grid || id.z >= u.grid) {
+              return;
+            }
+            
+            let i = get_idx(i32(id.x), i32(id.y), i32(id.z));
+            let p = get_pos(i32(id.x), i32(id.y), i32(id.z));
+            
+            if (solid(p)) {
+              bOut[i] = vec4<f32>(0.0);
+              return;
+            }
+            
+            var acc = vec3<f32>(0.0);
+            var n = 0.0;
+            let off = array<vec3<i32>, 6>(
+              vec3(1,0,0), vec3(-1,0,0), vec3(0,1,0),
+              vec3(0,-1,0), vec3(0,0,1), vec3(0,0,-1)
+            );
+            
+            for (var k = 0; k < 6; k++) {
+              let ni = get_idx(i32(id.x) + off[k].x, i32(id.y) + off[k].y, i32(id.z) + off[k].z);
+              if (ni >= 0 && !solid(get_pos(i32(id.x) + off[k].x, i32(id.y) + off[k].y, i32(id.z) + off[k].z))) {
+                acc += bIn[ni].xyz;
+                n += 1.0;
+              }
+            }
+            
+            var val = bIn[i].xyz;
+            if (n > 0.0) {
+              val = mix(val, acc / n, 0.18);
+            }
+            
+            let d = length(p - u.light.xyz);
+            if (d < 1.2) {
+              val += vec3<f32>(14.0, 13.0, 11.0) * (1.2 - d) * 0.15;
+            }
+            
+            bOut[i] = vec4<f32>(val * 0.998, dot(normalize(u.light.xyz - p), vec3<f32>(0.0, 1.0, 0.0)));
+          }
+        `;
+
+        const renderShaderCode = `
+          struct U {
+            pos: vec4<f32>,
+            fwd: vec4<f32>,
+            rgt: vec4<f32>,
+            up: vec4<f32>,
+            res: vec2<f32>,
+            grid: u32,
+            step: u32,
+            light: vec4<f32>,
+          };
+          @group(0) @binding(0) var<uniform> u: U;
+          @group(0) @binding(1) var<storage, read> bIn: array<vec4<f32>>;
+          
+          struct R { o: vec3<f32>, d: vec3<f32> };
+          struct H { t: f32, p: vec3<f32>, n: vec3<f32>, m: u32, c: vec3<f32>, r: f32, met: f32, id: u32 };
+          
+          fn h_sph(c: vec3<f32>, rad: f32, mat: u32, col: vec3<f32>, rgh: f32, mtl: f32, ray: R, tmin: f32, tmax: f32, id: u32, h: ptr<function, H>) -> bool {
+            let oc = ray.o - c;
+            let qa = dot(ray.d, ray.d);
+            let qb = dot(oc, ray.d);
+            let qc = dot(oc, oc) - rad * rad;
+            let disc = qb * qb - qa * qc;
+            if (disc < 0.0) { return false; }
+            let s = sqrt(disc);
+            var t = (-qb - s) / qa;
+            if (t < tmin || t > tmax) {
+              t = (-qb + s) / qa;
+              if (t < tmin || t > tmax) { return false; }
+            }
+            (*h).t = t;
+            (*h).p = ray.o + ray.d * t;
+            let on = ((*h).p - c) / rad;
+            (*h).n = select(-on, on, dot(ray.d, on) < 0.0);
+            (*h).m = mat;
+            (*h).c = col;
+            (*h).r = rgh;
+            (*h).met = mtl;
+            (*h).id = id;
+            return true;
+          }
+          
+          fn h_pln(y: f32, mat: u32, ray: R, tmin: f32, tmax: f32, id: u32, h: ptr<function, H>) -> bool {
+            if (abs(ray.d.y) < 1e-6) { return false; }
+            let t = (y - ray.o.y) / ray.d.y;
+            if (t < tmin || t > tmax) { return false; }
+            (*h).t = t;
+            (*h).p = ray.o + ray.d * t;
+            let on = vec3<f32>(0.0, 1.0, 0.0);
+            (*h).n = select(-on, on, dot(ray.d, on) < 0.0);
+            (*h).m = mat;
+            (*h).id = id;
+            (*h).met = 0.0;
+            (*h).r = 0.2;
+            let cx = i32(floor((*h).p.x * 0.5));
+            let cz = i32(floor((*h).p.z * 0.5));
+            (*h).c = select(vec3(0.35), vec3(0.85), (abs(cx) + abs(cz)) % 2 == 0);
+            return true;
+          }
+          
+          fn hit(ray: R, ignore: u32, h: ptr<function, H>) -> bool {
+            var lh: H;
+            var b = false;
+            var m = 1e10;
+            if (ignore != 100u && h_pln(0.0, 0u, ray, 0.001, m, 100u, &lh)) { b = true; m = lh.t; *h = lh; }
+            if (ignore != 1u && h_sph(vec3(0,1,0), 1.0, 2u, vec3(1), 0.02, 0.0, ray, 0.001, m, 1u, &lh)) { b = true; m = lh.t; *h = lh; }
+            if (ignore != 2u && h_sph(vec3(-2.1,1,0), 1.0, 1u, vec3(0.9), 0.2, 1.0, ray, 0.001, m, 2u, &lh)) { b = true; m = lh.t; *h = lh; }
+            if (ignore != 3u && h_sph(vec3(2.1,1,0), 1.0, 0u, vec3(0.8,0.25,0.15), 0.35, 0.0, ray, 0.001, m, 3u, &lh)) { b = true; m = lh.t; *h = lh; }
+            return b;
+          }
+          
+          fn ao(p: vec3<f32>, n: vec3<f32>, ignore: u32) -> f32 {
+            var s = 1.0;
+            let o = array<vec4<f32>, 3>(vec4(0,1,0,1), vec4(-2.1,1,0,1), vec4(2.1,1,0,1));
+            for (var k = 0u; k < 3u; k++) {
+              if (ignore == k + 1u) { continue; }
+              let v = o[k].xyz - p;
+              let d = length(v);
+              s *= clamp(1.0 - max(dot(n, v / d), 0.0) * (o[k].w * o[k].w) / (d * d), 0.0, 1.0);
+            }
+            return s;
+          }
+          
+          fn shadow(o: vec3<f32>, lp: vec3<f32>, r: f32, ignore: u32) -> f32 {
+            var a = 1.0;
+            let rd = normalize(lp - o);
+            let pr = array<vec4<f32>, 3>(vec4(0,1,0,1), vec4(-2.1,1,0,1), vec4(2.1,1,0,1));
+            for (var k = 0u; k < 3u; k++) {
+              if (ignore == k + 1u) { continue; }
+              let ov = o - pr[k].xyz;
+              let hb = dot(ov, rd);
+              let qc = dot(ov, ov) - pr[k].w * pr[k].w;
+              if (qc > 0.0 && hb > 0.0) { continue; }
+              let d = qc - hb * hb;
+              if (d < 0.0) { return 0.0; }
+              a = min(a, r * sqrt(d) / max(0.0001, -hb));
+            }
+            return clamp(a, 0.0, 1.0);
+          }
+          
+          fn fetch(p: vec3<f32>, d: vec3<f32>) -> vec3<f32> {
+            let s = f32(u.grid);
+            let g = (p - vec3(-8,0,-8)) / 16.0 * s;
+            let i = i32(clamp(g.z,0,s-1))*i32(s*s) + i32(clamp(g.y,0,s-1))*i32(s) + i32(clamp(g.x,0,s-1));
+            let val = bIn[i];
+            return val.xyz * (1.0 + max(dot(d, vec3(0,1,0)) * val.w, 0.0) * 0.5);
+          }
+          
+          fn post(v: vec3<f32>) -> vec3<f32> {
+            return clamp((v * (2.51 * v + 0.03)) / (v * (2.43 * v + 0.59) + 0.14), vec3(0), vec3(1));
+          }
+          
+          @vertex
+          fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4<f32> {
+            let c = array<vec2<f32>, 3>(vec2(-1,-1), vec2(3,-1), vec2(-1,3));
+            return vec4<f32>(c[i], 0, 1);
+          }
+          
+          @fragment
+          fn fs(@builtin(position) coord: vec4<f32>) -> @location(0) vec4<f32> {
+            let uv = coord.xy / u.res;
+            let ndc = (uv * 2.0 - 1.0) * vec2(u.res.x/u.res.y, -1.0);
+            var ray = R(u.pos.xyz, normalize(u.pos.xyz + u.fwd.xyz + u.rgt.xyz * ndc.x + u.up.xyz * ndc.y - u.pos.xyz));
+            var col = vec3<f32>(0.0);
+            var att = vec3<f32>(1.0);
+            var ign = 999u;
+            
+            for (var i = 0; i < 4; i++) {
+              var h: H;
+              if (hit(ray, ign, &h)) {
+                ign = h.id;
+                let ld = normalize(u.light.xyz - h.p);
+                let vd = -ray.d;
+                let hd = normalize(ld + vd);
+                let nv = max(dot(h.n, vd), 0.001);
+                let nl = max(dot(h.n, ld), 0.001);
+                let nh = max(dot(h.n, hd), 0.0);
+                let sh = shadow(h.p, u.light.xyz, 12.0, h.id);
+                let occ = ao(h.p, h.n, h.id);
+                
+                var f0 = select(vec3(0.04), h.c, h.m == 1u);
+                if (h.m == 2u) { f0 = vec3(0.04); }
+                
+                let f = f0 + (1.0 - f0) * pow(1.0 - max(dot(hd, vd), 0.0), 5.0);
+                let d = (h.r*h.r*h.r*h.r) / (3.14159 * pow(nh*nh*(h.r*h.r*h.r*h.r-1.0)+1.0, 2.0));
+                let g = (nv / (nv*(1.0-0.5)+0.5)) * (nl / (nl*(1.0-0.5)+0.5));
+                let brdf = (d * g * f) / (4.0 * nv * nl + 0.0001);
+                let diff = (vec3(1) - f) * (1.0 - h.met) * h.c / 3.14159;
+                let direct = (diff + brdf) * vec3(12.0, 11.5, 10.0) * sh * nl;
+                let refl = reflect(ray.d, h.n);
+                let ind = fetch(h.p + h.n * 0.2, mix(h.n, refl, 1.0 - h.r)) * occ * 1.5;
+                
+                if (h.m == 2u) {
+                  let fval = f0 + (1.0 - f0) * pow(1.0 - nv, 5.0);
+                  let refr = refract(ray.d, h.n, 0.66);
+                  var internal = vec3<f32>(0.0);
+                  if (length(refr) > 0.1) {
+                    internal = fetch(h.p + refr * 4.0, -h.n);
+                  }
+                  col += att * (direct * fval + internal * (1.0 - fval) * h.c);
+                  ray.o = h.p;
+                  ray.d = refl;
+                  att *= fval;
+                } else {
+                  col += att * (direct + ind * h.c);
+                  if (h.r < 0.3) {
+                    ray.o = h.p;
+                    ray.d = refl;
+                    att *= f;
+                  } else {
+                    break;
+                  }
+                }
+              } else {
+                col += att * mix(vec3(0.9, 0.95, 1.0), vec3(0.4, 0.6, 0.9), 0.5 * (ray.d.y + 1.0)) * 1.2;
+                break;
+              }
+            }
+            return vec4<f32>(pow(post(col), vec3(0.4545)), 1.0);
+          }
+        `;
+
+        const computeModule = this.device.createShaderModule({
+          code: computeShaderCode,
+        });
+        
+        const renderModule = this.device.createShaderModule({
+          code: renderShaderCode,
+        });
+
+        this.computePipeline = this.device.createComputePipeline({
+          layout: 'auto',
+          compute: {
+            module: computeModule,
+            entryPoint: 'main',
+          },
+        });
+
+        this.renderPipeline = this.device.createRenderPipeline({
+          layout: 'auto',
+          vertex: {
+            module: renderModule,
+            entryPoint: 'vs',
+          },
+          fragment: {
+            module: renderModule,
+            entryPoint: 'fs',
+            targets: [{format: this.format}],
+          },
+          primitive: {
+            topology: 'triangle-list',
+          },
+        });
+      }
+
+      /**
+       * The main render loop, orchestrating compute dispatches and rendering passes.
+       * @param {number} timestamp The current time requestAnimationFrame timestamp.
+       * @param {!State} state The application state.
+       * @param {!Input} input The input mappings.
+       */
+      loop(timestamp, state, input) {
+        if (!this.device || !this.ctx || !this.computePipeline || !this.renderPipeline) {
+          return;
+        }
+
+        const delta = (timestamp - this.lastTime) / 1000.0;
+        this.deltaTime = this.deltaTime * 0.8 + Math.min(delta, 0.05) * 0.2;
+        this.lastTime = timestamp;
+
+        this.update(state, input, this.deltaTime);
+
+        const sinYaw = Math.sin(state.rot.yaw);
+        const cosYaw = Math.cos(state.rot.yaw);
+        const sinPitch = Math.sin(state.rot.pitch);
+        const cosPitch = Math.cos(state.rot.pitch);
+
+        this.uniformParams.set([
+          state.pos.x,
+          state.pos.y,
+          state.pos.z,
+          0,
+          sinYaw * cosPitch,
+          sinPitch,
+          cosYaw * cosPitch,
+          0,
+          cosYaw,
+          0,
+          -sinYaw,
+          0,
+          sinPitch * -sinYaw,
+          cosPitch,
+          sinPitch * -cosYaw,
+          0,
+          this.canvas.width,
+          this.canvas.height,
+        ]);
+
+        const uintParams = new Uint32Array(this.uniformParams.buffer);
+        uintParams[18] = this.gridSize;
+        uintParams[19] = this.iterationIndex;
+        
+        this.uniformParams.set([5.0, 8.0, -4.0], 20);
+        
+        this.device.queue.writeBuffer(
+          this.uniformBuffer,
+          0,
+          this.uniformParams
+        );
+
+        const commandEncoder = this.device.createCommandEncoder();
+
+        const computePass = commandEncoder.beginComputePass();
+        computePass.setPipeline(this.computePipeline);
+        computePass.setBindGroup(
+          0,
+          this.device.createBindGroup({
+            layout: this.computePipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: this.uniformBuffer}},
+              {binding: 1, resource: {buffer: this.bufferA}},
+              {binding: 2, resource: {buffer: this.bufferB}},
+            ],
+          })
+        );
+        
+        const workgroupGroups = Math.ceil(this.gridSize / 4);
+        computePass.dispatchWorkgroups(
+          workgroupGroups,
+          workgroupGroups,
+          workgroupGroups
+        );
+        computePass.end();
+
+        const renderPass = commandEncoder.beginRenderPass({
+          colorAttachments: [
+            {
+              view: this.ctx.getCurrentTexture().createView(),
+              loadOp: 'clear',
+              storeOp: 'store',
+              clearValue: [0.01, 0.02, 0.04, 1.0],
+            },
+          ],
+        });
+        
+        renderPass.setPipeline(this.renderPipeline);
+        renderPass.setBindGroup(
+          0,
+          this.device.createBindGroup({
+            layout: this.renderPipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: this.uniformBuffer}},
+              {binding: 1, resource: {buffer: this.bufferB}},
+            ],
+          })
+        );
+        renderPass.draw(3);
+        renderPass.end();
+
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        const tempBuffer = this.bufferA;
+        this.bufferA = this.bufferB;
+        this.bufferB = tempBuffer;
+
+        this.iterationIndex++;
+
+        const propagationLabel = document.getElementById('propagation-label');
+        if (propagationLabel) {
+          propagationLabel.textContent = `Iteration: ${this.iterationIndex}`;
+        }
+
+        requestAnimationFrame((nextTimestamp) => {
+          this.loop(nextTimestamp, state, input);
+        });
+      }
+
+      /**
+       * Updates positional logic and processes input metrics.
+       * @param {!State} state The global application state.
+       * @param {!Input} input Keyboard and touch input.
+       * @param {number} deltaTime Frame time delta.
+       */
+      update(state, input, deltaTime) {
+        const velocity = 10.0 * deltaTime;
+        const rotationSpeed = 2.0 * deltaTime;
+
+        if (input.keys['ArrowLeft']) {
+          state.rot.yaw -= rotationSpeed;
+        }
+        if (input.keys['ArrowRight']) {
+          state.rot.yaw += rotationSpeed;
+        }
+        if (input.keys['ArrowUp']) {
+          state.rot.pitch = Math.min(1.5, state.rot.pitch + rotationSpeed);
+        }
+        if (input.keys['ArrowDown']) {
+          state.rot.pitch = Math.max(-1.5, state.rot.pitch - rotationSpeed);
+        }
+
+        const sinYaw = Math.sin(state.rot.yaw);
+        const cosYaw = Math.cos(state.rot.yaw);
+        const sinPitch = Math.sin(state.rot.pitch);
+        const cosPitch = Math.cos(state.rot.pitch);
+
+        const forward = {
+          x: sinYaw * cosPitch,
+          y: sinPitch,
+          z: cosYaw * cosPitch,
+        };
+        const right = {
+          x: cosYaw,
+          y: 0,
+          z: -sinYaw,
+        };
+
+        if (input.keys['KeyW']) {
+          state.pos.x += forward.x * velocity;
+          state.pos.y += forward.y * velocity;
+          state.pos.z += forward.z * velocity;
+        }
+        if (input.keys['KeyS']) {
+          state.pos.x -= forward.x * velocity;
+          state.pos.y -= forward.y * velocity;
+          state.pos.z -= forward.z * velocity;
+        }
+        if (input.keys['KeyA']) {
+          state.pos.x -= right.x * velocity;
+          state.pos.z -= right.z * velocity;
+        }
+        if (input.keys['KeyD']) {
+          state.pos.x += right.x * velocity;
+          state.pos.z += right.z * velocity;
+        }
+      }
+
+      /**
+       * Handle resize events, reconfiguring the context.
+       */
+      resize() {
+        if (this.device) {
+          this.configureContext();
+          this.allocateBuffers();
+        }
+      }
+    }
+
+    /** @type {!State} */
+    const appState = {
+      pos: {x: 0, y: 2.0, z: -8.0},
+      rot: {yaw: 0, pitch: 0.1},
+    };
+
+    /** @type {!Input} */
+    const appInput = {
+      keys: {},
+      touch: null,
+    };
+
+    const kernelInstance = new Kernel(
+      /** @type {!HTMLCanvasElement} */ (document.getElementById('renderCanvas')),
+      (faultString) => {
+        const overlayNode = document.getElementById('exception-overlay');
+        const logNode = document.getElementById('exception-log');
+        
+        if (logNode) {
+          logNode.textContent = faultString;
+        }
+        if (overlayNode) {
+          overlayNode.classList.remove('hidden');
+        }
+      }
+    );
+
+    window.addEventListener('load', () => {
+      kernelInstance.init(appState, appInput).then(() => {
+        const telemetryNode = document.getElementById('telemetry-buffer');
+        const mappingNode = document.getElementById('input-mapping-layer');
+        
+        if (telemetryNode) {
+          telemetryNode.style.opacity = '1';
+          telemetryNode.style.transform = 'translateY(0)';
+        }
+        if (mappingNode) {
+          mappingNode.style.opacity = '1';
+        }
+      });
+    });
+
+    window.addEventListener('keydown', (event) => {
+      appInput.keys[event.code] = true;
+    });
+
+    window.addEventListener('keyup', (event) => {
+      appInput.keys[event.code] = false;
+    });
+
+    window.addEventListener('resize', () => {
+      kernelInstance.resize();
+    });
+
+    window.addEventListener('touchstart', (event) => {
+      if (event.touches.length === 1) {
+        appInput.touch = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+      }
+    }, {passive: false});
+
+    window.addEventListener('touchmove', (event) => {
+      if (event.touches.length === 1 && appInput.touch) {
+        const deltaX = event.touches[0].clientX - appInput.touch.x;
+        const deltaY = event.touches[0].clientY - appInput.touch.y;
+        
+        appState.rot.yaw += deltaX * 0.005;
+        appState.rot.pitch = Math.max(
+          -1.5,
+          Math.min(1.5, appState.rot.pitch - deltaY * 0.005)
+        );
+        
+        appInput.touch = {
+          x: event.touches[0].clientX,
+          y: event.touches[0].clientY,
+        };
+        
+        event.preventDefault();
+      }
+    }, {passive: false});
+
+    window.addEventListener('touchend', () => {
+      appInput.touch = null;
+    });
+  </script>
+</body>
+</html>
