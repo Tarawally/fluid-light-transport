@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="WebGPU compute architecture: storage buffer memory allocation and concurrent thread execution">
+  <title>Volumetric_Ray_Tracing_Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    @keyframes pulse-function {
+      0%,
+      100% {
+        opacity: 1;
+      }
+      50% {
+        opacity: 0.4;
+      }
+    }
+
+    html,
+    body {
+      background: #020617;
+      color: #a1a1aa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+                   'Liberation Mono', 'Courier New', monospace;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      padding: 0;
+      touch-action: none;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100%;
+      touch-action: none;
+      width: 100%;
+    }
+
+    .interface-layer-compositing {
+      backdrop-filter: blur(16px);
+      background: rgba(9, 9, 11, 0.75);
+      border: 1px solid rgba(63, 63, 70, 0.4);
+    }
+
+    .status-pulse-animation {
+      animation: pulse-function 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500/30">
+  <div class="relative w-full h-screen bg-[#020617] overflow-hidden">
+    <canvas id="render-target-canvas" class="block w-full h-full cursor-crosshair touch-none"></canvas>
+
+    <div id="telemetry-buffer-overlay"
+         class="absolute top-4 left-4 sm:top-8 sm:left-8 pointer-events-none select-none z-10 transition-all duration-700"
+         style="opacity: 0; transform: translateY(-10px);">
+      <div class="space-y-1">
+        <h1 class="text-white text-[10px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] uppercase font-bold">
+          Compute_Pipeline_Architecture
+        </h1>
+        <p class="text-[9px] sm:text-[11px] text-zinc-500 tracking-[0.05em] sm:tracking-[0.1em] uppercase">
+          Execution context: kernel_dispatch
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:gap-3 mt-4 sm:mt-6">
+        <div class="flex items-center space-x-3 sm:space-x-4 interface-layer-compositing px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <div id="status-register-indicator" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] status-pulse-animation"></div>
+          <div class="flex flex-col">
+            <span class="text-emerald-500/90 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase mb-0.5 sm:mb-1">
+              Synchronisation: mutex_acquired
+            </span>
+            <span id="iteration-count-label" class="text-white text-[13px] sm:text-[15px] tabular-nums tracking-tighter font-medium">
+              Iteration_Count: 0
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 sm:gap-2 interface-layer-compositing px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <span class="text-zinc-500 text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.2em] border-b border-zinc-800 pb-1 mb-0.5 sm:mb-1">
+            Execution_Heuristics
+          </span>
+          <div class="flex gap-4 sm:gap-6">
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Warp_Divergence</span>
+              <span class="text-white text-xs sm:text-sm tabular-nums font-semibold">0.00%</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Memory_Address</span>
+              <span class="text-white text-xs sm:text-sm uppercase">Dereferenced</span>
+            </div>
+            <div class="flex flex-col hidden sm:flex">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Occlusion_Culling</span>
+              <span class="text-white text-xs sm:text-sm uppercase">Executing</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 interface-layer-compositing px-3 py-2 sm:px-4 sm:py-2 rounded-md w-max shadow-2xl">
+          <div class="flex flex-col">
+            <span class="text-zinc-500 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase">
+              Framebuffer_Attachment
+            </span>
+            <span class="text-zinc-300 text-[9px] sm:text-[11px] tabular-nums tracking-wide font-mono uppercase">
+              Post_Processing: active
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="input-mapping-layer"
+         class="absolute bottom-6 sm:bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 px-6 sm:px-8 py-3 sm:py-4 interface-layer-compositing rounded-lg sm:rounded-xl z-10 pointer-events-none transition-all duration-700"
+         style="opacity: 0;">
+      <div class="flex items-center gap-4 sm:gap-8">
+        <div class="flex flex-col items-center">
+          <span class="text-zinc-500 text-[8px] sm:text-[9px] uppercase tracking-[0.2em] mb-1">Translation_Vector</span>
+          <span class="text-white text-[9px] sm:text-[11px] uppercase tracking-widest font-bold">[w][a][s][d]</span>
+        </div>
+        <div class="w-px h-4 sm:h-6 bg-zinc-700/50"></div>
+        <div class="flex flex-col items-center">
+          <span class="text-zinc-500 text-[8px] sm:text-[9px] uppercase tracking-[0.2em] mb-1">Rotation_Matrix</span>
+          <span class="text-white text-[9px] sm:text-[11px] uppercase tracking-widest font-bold">Peripheral_Input</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="runtime-exception-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-6 sm:p-8 bg-black/95 backdrop-blur-2xl hidden">
+      <div class="max-w-md w-full border border-rose-900/50 bg-rose-950/10 p-6 sm:p-10 rounded-lg text-center space-y-6 sm:space-y-8">
+        <div class="space-y-2 sm:space-y-3">
+          <h2 class="text-rose-500 text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.3em]">
+            Hardware_Fault
+          </h2>
+          <div class="h-px w-8 sm:w-12 bg-rose-900/50 mx-auto"></div>
+        </div>
+        <p id="exception-stack-trace" class="text-zinc-400 text-[10px] sm:text-[12px] leading-relaxed font-mono px-2 sm:px-4"></p>
+        <button onclick="window.location.reload()"
+                class="w-full sm:w-auto px-6 sm:px-8 py-3 bg-rose-950 text-rose-500 text-[10px] sm:text-[11px] uppercase font-bold tracking-[0.2em] border border-rose-900 hover:bg-rose-900 transition-all rounded-sm cursor-pointer active:scale-95">
+          Reinitialise_Context
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * @typedef {Object} CartesianVector3
+     * @property {number} x
+     * @property {number} y
+     * @property {number} z
+     */
+
+    /**
+     * @typedef {Object} EulerAngles
+     * @property {number} azimuth
+     * @property {number} inclination
+     */
+
+    /**
+     * @typedef {Object} KinematicState
+     * @property {CartesianVector3} positionCoordinate
+     * @property {EulerAngles} orientationAngle
+     */
+
+    /**
+     * @typedef {Object} PeripheralInputBuffer
+     * @property {!Object<string, boolean>} keyboardBooleanState
+     * @property {?{x: number, y: number}} touchscreenCoordinateVector
+     */
+
+    /**
+     * Engine architecture encapsulating the WebGPU device abstraction layer.
+     */
+    class ComputeEngineArchitecture {
+      /**
+       * @param {!HTMLCanvasElement} renderCanvas The target rendering attachment surface.
+       * @param {function(string): void} exceptionCallback Delegate function for hardware exceptions.
+       */
+      constructor(renderCanvas, exceptionCallback) {
+        /** @type {GPUDevice|null} */
+        this.logicalDevice = null;
+        /** @type {GPUCanvasContext|null} */
+        this.renderingContext = null;
+        /** @type {string} */
+        this.textureFormat = 'bgra8unorm';
+        /** @type {number} */
+        this.spatialGridResolution = 64;
+        /** @type {number} */
+        this.volumetricElementCount = this.spatialGridResolution ** 3;
+        /** @type {GPUBuffer|null} */
+        this.storageBufferPrimary = null;
+        /** @type {GPUBuffer|null} */
+        this.storageBufferSecondary = null;
+        /** @type {GPUBuffer|null} */
+        this.uniformParameterBuffer = null;
+        /** @type {!Float32Array} */
+        this.uniformParameterArray = new Float32Array(32);
+        /** @type {GPUComputePipeline|null} */
+        this.computeShaderPipeline = null;
+        /** @type {GPURenderPipeline|null} */
+        this.rasterisationPipeline = null;
+        /** @type {number} */
+        this.computationalIterationIndex = 0;
+        /** @type {number} */
+        this.previousFrameTimestamp = 0.0;
+        /** @type {number} */
+        this.deltaTimeScalar = 0.016;
+        /** @type {!HTMLCanvasElement} */
+        this.renderCanvas = renderCanvas;
+        /** @type {function(string): void} */
+        this.exceptionCallback = exceptionCallback;
+      }
+
+      /**
+       * Initialises the graphics application programming interface.
+       * @param {!KinematicState} kinematicState The initial transformation matrix configuration.
+       * @param {!PeripheralInputBuffer} peripheralInputBuffer The initial event listener parameters.
+       * @returns {!Promise<void>}
+       */
+      async initialiseGraphicsContext(kinematicState, peripheralInputBuffer) {
+        if (!navigator.gpu) {
+          this.exceptionCallback('Runtime_Exception: graphics application programming interface unsupported');
+          return;
+        }
+
+        try {
+          const physicalAdapter = await navigator.gpu.requestAdapter({
+            powerPreference: 'high-performance',
+          });
+          
+          if (!physicalAdapter) {
+             throw new Error('Hardware_Fault: compatible logical adapter missing.');
+          }
+          
+          this.logicalDevice = await physicalAdapter.requestDevice();
+          this.textureFormat = navigator.gpu.getPreferredCanvasFormat();
+          this.renderingContext = this.renderCanvas.getContext('webgpu');
+
+          this.configureFramebufferAttachment();
+          this.allocateMemoryBuffers();
+          this.compileShaderModules();
+
+          this.previousFrameTimestamp = performance.now();
+          this.executeRenderPass(this.previousFrameTimestamp, kinematicState, peripheralInputBuffer);
+        } catch (errorException) {
+          this.exceptionCallback(`Runtime_Exception: ${errorException.message}`);
+        }
+      }
+
+      /**
+       * Calculates texture memory boundaries and configures the context configuration.
+       */
+      configureFramebufferAttachment() {
+        if (!this.renderingContext || !this.logicalDevice) {
+          return;
+        }
+        const pixelDensityRatio = Math.min(window.devicePixelRatio || 1.0, 2.0);
+        this.renderCanvas.width = Math.floor(this.renderCanvas.clientWidth * pixelDensityRatio);
+        this.renderCanvas.height = Math.floor(this.renderCanvas.clientHeight * pixelDensityRatio);
+        
+        this.renderingContext.configure({
+          device: this.logicalDevice,
+          format: this.textureFormat,
+          alphaMode: 'premultiplied',
+        });
+      }
+
+      /**
+       * Provisions linear memory segments in the video random-access memory.
+       */
+      allocateMemoryBuffers() {
+        if (!this.logicalDevice) {
+          return;
+        }
+        
+        const byteCount = this.volumetricElementCount * 16;
+        
+        this.storageBufferPrimary = this.logicalDevice.createBuffer({
+          size: byteCount,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.storageBufferSecondary = this.logicalDevice.createBuffer({
+          size: byteCount,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.uniformParameterBuffer = this.logicalDevice.createBuffer({
+          size: 256,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const nullDataArray = new Float32Array(this.volumetricElementCount * 4);
+        this.logicalDevice.queue.writeBuffer(this.storageBufferPrimary, 0, nullDataArray);
+        this.logicalDevice.queue.writeBuffer(this.storageBufferSecondary, 0, nullDataArray);
+      }
+
+      /**
+       * Assembles and compiles the syntax trees for the compute and rasterisation programmable stages.
+       */
+      compileShaderModules() {
+        if (!this.logicalDevice) {
+          return;
+        }
+
+        const computeKernelSyntax = `
+          struct Uniform_Parameters {
+            camera_position: vec4<f32>,
+            forward_vector: vec4<f32>,
+            right_vector: vec4<f32>,
+            up_vector: vec4<f32>,
+            screen_resolution: vec2<f32>,
+            grid_dimension: u32,
+            iteration_step: u32,
+            light_coordinate: vec4<f32>,
+          };
+          @group(0) @binding(0) var<uniform> uniform_data: Uniform_Parameters;
+          @group(0) @binding(1) var<storage, read> memory_buffer_input: array<vec4<f32>>;
+          @group(0) @binding(2) var<storage, read_write> memory_buffer_output: array<vec4<f32>>;
+
+          fn calculate_linear_index(x: i32, y: i32, z: i32) -> i32 {
+            let spatial_dimension = i32(uniform_data.grid_dimension);
+            if (x < 0 || x >= spatial_dimension || y < 0 || y >= spatial_dimension || z < 0 || z >= spatial_dimension) {
+              return -1;
+            }
+            return z * spatial_dimension * spatial_dimension + y * spatial_dimension + x;
+          }
+
+          fn transform_index_to_cartesian(x: i32, y: i32, z: i32) -> vec3<f32> {
+            let spatial_dimension = f32(uniform_data.grid_dimension);
+            return vec3<f32>(f32(x), f32(y), f32(z)) / spatial_dimension * 16.0 + vec3<f32>(-8.0, 0.0, -8.0);
+          }
+
+          fn evaluate_voxel_occupancy(coordinate: vec3<f32>) -> bool {
+            if (coordinate.y <= 0.0) { return true; }
+            if (length(coordinate - vec3<f32>(0.0, 1.0, 0.0)) <= 1.0) { return true; }
+            if (length(coordinate - vec3<f32>(-2.1, 1.0, 0.0)) <= 1.0) { return true; }
+            if (length(coordinate - vec3<f32>(2.1, 1.0, 0.0)) <= 1.0) { return true; }
+            return false;
+          }
+
+          @compute @workgroup_size(4, 4, 4)
+          fn execute_compute_kernel(@builtin(global_invocation_id) thread_identifier: vec3<u32>) {
+            if (thread_identifier.x >= uniform_data.grid_dimension || thread_identifier.y >= uniform_data.grid_dimension || thread_identifier.z >= uniform_data.grid_dimension) {
+              return;
+            }
+            
+            let linear_index = calculate_linear_index(i32(thread_identifier.x), i32(thread_identifier.y), i32(thread_identifier.z));
+            let cartesian_coordinate = transform_index_to_cartesian(i32(thread_identifier.x), i32(thread_identifier.y), i32(thread_identifier.z));
+            
+            if (evaluate_voxel_occupancy(cartesian_coordinate)) {
+              memory_buffer_output[linear_index] = vec4<f32>(0.0);
+              return;
+            }
+            
+            var accumulation_vector = vec3<f32>(0.0);
+            var scalar_denominator = 0.0;
+            let offset_matrix = array<vec3<i32>, 6>(
+              vec3(1,0,0), vec3(-1,0,0), vec3(0,1,0),
+              vec3(0,-1,0), vec3(0,0,1), vec3(0,0,-1)
+            );
+            
+            for (var iterator_index = 0; iterator_index < 6; iterator_index++) {
+              let neighbour_linear_index = calculate_linear_index(i32(thread_identifier.x) + offset_matrix[iterator_index].x, i32(thread_identifier.y) + offset_matrix[iterator_index].y, i32(thread_identifier.z) + offset_matrix[iterator_index].z);
+              if (neighbour_linear_index >= 0 && !evaluate_voxel_occupancy(transform_index_to_cartesian(i32(thread_identifier.x) + offset_matrix[iterator_index].x, i32(thread_identifier.y) + offset_matrix[iterator_index].y, i32(thread_identifier.z) + offset_matrix[iterator_index].z))) {
+                accumulation_vector += memory_buffer_input[neighbour_linear_index].xyz;
+                scalar_denominator += 1.0;
+              }
+            }
+            
+            var irradiance_value = memory_buffer_input[linear_index].xyz;
+            if (scalar_denominator > 0.0) {
+              irradiance_value = mix(irradiance_value, accumulation_vector / scalar_denominator, 0.18);
+            }
+            
+            let euclidean_distance = length(cartesian_coordinate - uniform_data.light_coordinate.xyz);
+            if (euclidean_distance < 1.2) {
+              irradiance_value += vec3<f32>(14.0, 13.0, 11.0) * (1.2 - euclidean_distance) * 0.15;
+            }
+            
+            memory_buffer_output[linear_index] = vec4<f32>(irradiance_value * 0.998, dot(normalize(uniform_data.light_coordinate.xyz - cartesian_coordinate), vec3<f32>(0.0, 1.0, 0.0)));
+          }
+        `;
+
+        const renderKernelSyntax = `
+          struct Uniform_Parameters {
+            camera_position: vec4<f32>,
+            forward_vector: vec4<f32>,
+            right_vector: vec4<f32>,
+            up_vector: vec4<f32>,
+            screen_resolution: vec2<f32>,
+            grid_dimension: u32,
+            iteration_step: u32,
+            light_coordinate: vec4<f32>,
+          };
+          @group(0) @binding(0) var<uniform> uniform_data: Uniform_Parameters;
+          @group(0) @binding(1) var<storage, read> memory_buffer_input: array<vec4<f32>>;
+          
+          struct Ray_Descriptor { origin_vector: vec3<f32>, direction_vector: vec3<f32> };
+          struct Intersection_Manifold { intersection_scalar: f32, surface_coordinate: vec3<f32>, normal_vector: vec3<f32>, material_index: u32, albedo_colour: vec3<f32>, roughness_coefficient: f32, metallicity_coefficient: f32, primitive_identifier: u32 };
+          
+          fn calculate_sphere_intersection(centre_coordinate: vec3<f32>, radius_scalar: f32, material_index: u32, albedo_colour: vec3<f32>, roughness_coefficient: f32, metallicity_coefficient: f32, ray_descriptor: Ray_Descriptor, minimum_scalar: f32, maximum_scalar: f32, primitive_identifier: u32, intersection_manifold: ptr<function, Intersection_Manifold>) -> bool {
+            let offset_vector = ray_descriptor.origin_vector - centre_coordinate;
+            let quadratic_coefficient_a = dot(ray_descriptor.direction_vector, ray_descriptor.direction_vector);
+            let quadratic_coefficient_b = dot(offset_vector, ray_descriptor.direction_vector);
+            let quadratic_coefficient_c = dot(offset_vector, offset_vector) - radius_scalar * radius_scalar;
+            let discriminant_scalar = quadratic_coefficient_b * quadratic_coefficient_b - quadratic_coefficient_a * quadratic_coefficient_c;
+            if (discriminant_scalar < 0.0) { return false; }
+            let square_root_discriminant = sqrt(discriminant_scalar);
+            var intersection_scalar_t = (-quadratic_coefficient_b - square_root_discriminant) / quadratic_coefficient_a;
+            if (intersection_scalar_t < minimum_scalar || intersection_scalar_t > maximum_scalar) {
+              intersection_scalar_t = (-quadratic_coefficient_b + square_root_discriminant) / quadratic_coefficient_a;
+              if (intersection_scalar_t < minimum_scalar || intersection_scalar_t > maximum_scalar) { return false; }
+            }
+            (*intersection_manifold).intersection_scalar = intersection_scalar_t;
+            (*intersection_manifold).surface_coordinate = ray_descriptor.origin_vector + ray_descriptor.direction_vector * intersection_scalar_t;
+            let outward_normal_vector = ((*intersection_manifold).surface_coordinate - centre_coordinate) / radius_scalar;
+            (*intersection_manifold).normal_vector = select(-outward_normal_vector, outward_normal_vector, dot(ray_descriptor.direction_vector, outward_normal_vector) < 0.0);
+            (*intersection_manifold).material_index = material_index;
+            (*intersection_manifold).albedo_colour = albedo_colour;
+            (*intersection_manifold).roughness_coefficient = roughness_coefficient;
+            (*intersection_manifold).metallicity_coefficient = metallicity_coefficient;
+            (*intersection_manifold).primitive_identifier = primitive_identifier;
+            return true;
+          }
+          
+          fn calculate_plane_intersection(y_coordinate: f32, material_index: u32, ray_descriptor: Ray_Descriptor, minimum_scalar: f32, maximum_scalar: f32, primitive_identifier: u32, intersection_manifold: ptr<function, Intersection_Manifold>) -> bool {
+            if (abs(ray_descriptor.direction_vector.y) < 1e-6) { return false; }
+            let intersection_scalar_t = (y_coordinate - ray_descriptor.origin_vector.y) / ray_descriptor.direction_vector.y;
+            if (intersection_scalar_t < minimum_scalar || intersection_scalar_t > maximum_scalar) { return false; }
+            (*intersection_manifold).intersection_scalar = intersection_scalar_t;
+            (*intersection_manifold).surface_coordinate = ray_descriptor.origin_vector + ray_descriptor.direction_vector * intersection_scalar_t;
+            let outward_normal_vector = vec3<f32>(0.0, 1.0, 0.0);
+            (*intersection_manifold).normal_vector = select(-outward_normal_vector, outward_normal_vector, dot(ray_descriptor.direction_vector, outward_normal_vector) < 0.0);
+            (*intersection_manifold).material_index = material_index;
+            (*intersection_manifold).primitive_identifier = primitive_identifier;
+            (*intersection_manifold).metallicity_coefficient = 0.0;
+            (*intersection_manifold).roughness_coefficient = 0.2;
+            let spatial_x_index = i32(floor((*intersection_manifold).surface_coordinate.x * 0.5));
+            let spatial_z_index = i32(floor((*intersection_manifold).surface_coordinate.z * 0.5));
+            (*intersection_manifold).albedo_colour = select(vec3(0.35), vec3(0.85), (abs(spatial_x_index) + abs(spatial_z_index)) % 2 == 0);
+            return true;
+          }
+          
+          fn evaluate_scene_intersection(ray_descriptor: Ray_Descriptor, ignored_primitive_identifier: u32, intersection_manifold: ptr<function, Intersection_Manifold>) -> bool {
+            var local_intersection_manifold: Intersection_Manifold;
+            var boolean_intersection_result = false;
+            var minimum_intersection_scalar = 1e10;
+            if (ignored_primitive_identifier != 100u && calculate_plane_intersection(0.0, 0u, ray_descriptor, 0.001, minimum_intersection_scalar, 100u, &local_intersection_manifold)) { boolean_intersection_result = true; minimum_intersection_scalar = local_intersection_manifold.intersection_scalar; *intersection_manifold = local_intersection_manifold; }
+            if (ignored_primitive_identifier != 1u && calculate_sphere_intersection(vec3(0,1,0), 1.0, 2u, vec3(1), 0.02, 0.0, ray_descriptor, 0.001, minimum_intersection_scalar, 1u, &local_intersection_manifold)) { boolean_intersection_result = true; minimum_intersection_scalar = local_intersection_manifold.intersection_scalar; *intersection_manifold = local_intersection_manifold; }
+            if (ignored_primitive_identifier != 2u && calculate_sphere_intersection(vec3(-2.1,1,0), 1.0, 1u, vec3(0.9), 0.2, 1.0, ray_descriptor, 0.001, minimum_intersection_scalar, 2u, &local_intersection_manifold)) { boolean_intersection_result = true; minimum_intersection_scalar = local_intersection_manifold.intersection_scalar; *intersection_manifold = local_intersection_manifold; }
+            if (ignored_primitive_identifier != 3u && calculate_sphere_intersection(vec3(2.1,1,0), 1.0, 0u, vec3(0.8,0.25,0.15), 0.35, 0.0, ray_descriptor, 0.001, minimum_intersection_scalar, 3u, &local_intersection_manifold)) { boolean_intersection_result = true; minimum_intersection_scalar = local_intersection_manifold.intersection_scalar; *intersection_manifold = local_intersection_manifold; }
+            return boolean_intersection_result;
+          }
+          
+          fn compute_ambient_occlusion_integral(surface_coordinate: vec3<f32>, normal_vector: vec3<f32>, ignored_primitive_identifier: u32) -> f32 {
+            var occlusion_scalar = 1.0;
+            let occluder_coordinates = array<vec4<f32>, 3>(vec4(0,1,0,1), vec4(-2.1,1,0,1), vec4(2.1,1,0,1));
+            for (var iterator_index = 0u; iterator_index < 3u; iterator_index++) {
+              if (ignored_primitive_identifier == iterator_index + 1u) { continue; }
+              let displacement_vector = occluder_coordinates[iterator_index].xyz - surface_coordinate;
+              let euclidean_distance = length(displacement_vector);
+              occlusion_scalar *= clamp(1.0 - max(dot(normal_vector, displacement_vector / euclidean_distance), 0.0) * (occluder_coordinates[iterator_index].w * occluder_coordinates[iterator_index].w) / (euclidean_distance * euclidean_distance), 0.0, 1.0);
+            }
+            return occlusion_scalar;
+          }
+          
+          fn compute_shadow_attenuation_function(surface_coordinate: vec3<f32>, light_coordinate: vec3<f32>, attenuation_coefficient: f32, ignored_primitive_identifier: u32) -> f32 {
+            var shadow_scalar = 1.0;
+            let ray_direction_vector = normalize(light_coordinate - surface_coordinate);
+            let occluder_coordinates = array<vec4<f32>, 3>(vec4(0,1,0,1), vec4(-2.1,1,0,1), vec4(2.1,1,0,1));
+            for (var iterator_index = 0u; iterator_index < 3u; iterator_index++) {
+              if (ignored_primitive_identifier == iterator_index + 1u) { continue; }
+              let offset_vector = surface_coordinate - occluder_coordinates[iterator_index].xyz;
+              let projection_scalar = dot(offset_vector, ray_direction_vector);
+              let quadratic_coefficient_c = dot(offset_vector, offset_vector) - occluder_coordinates[iterator_index].w * occluder_coordinates[iterator_index].w;
+              if (quadratic_coefficient_c > 0.0 && projection_scalar > 0.0) { continue; }
+              let discriminant_scalar = quadratic_coefficient_c - projection_scalar * projection_scalar;
+              if (discriminant_scalar < 0.0) { return 0.0; }
+              shadow_scalar = min(shadow_scalar, attenuation_coefficient * sqrt(discriminant_scalar) / max(0.0001, -projection_scalar));
+            }
+            return clamp(shadow_scalar, 0.0, 1.0);
+          }
+          
+          fn sample_volumetric_irradiance(surface_coordinate: vec3<f32>, sampling_direction: vec3<f32>) -> vec3<f32> {
+            let spatial_dimension = f32(uniform_data.grid_dimension);
+            let grid_coordinate = (surface_coordinate - vec3(-8,0,-8)) / 16.0 * spatial_dimension;
+            let linear_index = i32(clamp(grid_coordinate.z,0,spatial_dimension-1))*i32(spatial_dimension*spatial_dimension) + i32(clamp(grid_coordinate.y,0,spatial_dimension-1))*i32(spatial_dimension) + i32(clamp(grid_coordinate.x,0,spatial_dimension-1));
+            let memory_value = memory_buffer_input[linear_index];
+            return memory_value.xyz * (1.0 + max(dot(sampling_direction, vec3(0,1,0)) * memory_value.w, 0.0) * 0.5);
+          }
+          
+          fn apply_tonemapping_operator(luminance_vector: vec3<f32>) -> vec3<f32> {
+            return clamp((luminance_vector * (2.51 * luminance_vector + 0.03)) / (luminance_vector * (2.43 * luminance_vector + 0.59) + 0.14), vec3(0), vec3(1));
+          }
+          
+          @vertex
+          fn execute_vertex_shader(@builtin(vertex_index) vertex_identifier: u32) -> @builtin(position) vec4<f32> {
+            let vertex_coordinates = array<vec2<f32>, 3>(vec2(-1,-1), vec2(3,-1), vec2(-1,3));
+            return vec4<f32>(vertex_coordinates[vertex_identifier], 0, 1);
+          }
+          
+          @fragment
+          fn execute_fragment_shader(@builtin(position) pixel_coordinate: vec4<f32>) -> @location(0) vec4<f32> {
+            let normalized_device_coordinate = pixel_coordinate.xy / uniform_data.screen_resolution;
+            let clip_space_coordinate = (normalized_device_coordinate * 2.0 - 1.0) * vec2(uniform_data.screen_resolution.x/uniform_data.screen_resolution.y, -1.0);
+            var ray_descriptor = Ray_Descriptor(uniform_data.camera_position.xyz, normalize(uniform_data.camera_position.xyz + uniform_data.forward_vector.xyz + uniform_data.right_vector.xyz * clip_space_coordinate.x + uniform_data.up_vector.xyz * clip_space_coordinate.y - uniform_data.camera_position.xyz));
+            var accumulated_luminance_colour = vec3<f32>(0.0);
+            var ray_attenuation_vector = vec3<f32>(1.0);
+            var ignored_primitive_identifier = 999u;
+            
+            for (var bounce_iterator = 0; bounce_iterator < 4; bounce_iterator++) {
+              var intersection_manifold: Intersection_Manifold;
+              if (evaluate_scene_intersection(ray_descriptor, ignored_primitive_identifier, &intersection_manifold)) {
+                ignored_primitive_identifier = intersection_manifold.primitive_identifier;
+                let light_direction_vector = normalize(uniform_data.light_coordinate.xyz - intersection_manifold.surface_coordinate);
+                let view_direction_vector = -ray_descriptor.direction_vector;
+                let half_vector = normalize(light_direction_vector + view_direction_vector);
+                let normal_dot_view = max(dot(intersection_manifold.normal_vector, view_direction_vector), 0.001);
+                let normal_dot_light = max(dot(intersection_manifold.normal_vector, light_direction_vector), 0.001);
+                let normal_dot_half = max(dot(intersection_manifold.normal_vector, half_vector), 0.0);
+                let shadow_attenuation_scalar = compute_shadow_attenuation_function(intersection_manifold.surface_coordinate, uniform_data.light_coordinate.xyz, 12.0, intersection_manifold.primitive_identifier);
+                let ambient_occlusion_scalar = compute_ambient_occlusion_integral(intersection_manifold.surface_coordinate, intersection_manifold.normal_vector, intersection_manifold.primitive_identifier);
+                
+                var fresnel_base_reflectivity = select(vec3(0.04), intersection_manifold.albedo_colour, intersection_manifold.material_index == 1u);
+                if (intersection_manifold.material_index == 2u) { fresnel_base_reflectivity = vec3(0.04); }
+                
+                let fresnel_function = fresnel_base_reflectivity + (1.0 - fresnel_base_reflectivity) * pow(1.0 - max(dot(half_vector, view_direction_vector), 0.0), 5.0);
+                let normal_distribution_function = (intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient) / (3.14159 * pow(normal_dot_half*normal_dot_half*(intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient*intersection_manifold.roughness_coefficient-1.0)+1.0, 2.0));
+                let geometric_shadowing_function = (normal_dot_view / (normal_dot_view*(1.0-0.5)+0.5)) * (normal_dot_light / (normal_dot_light*(1.0-0.5)+0.5));
+                let bidirectional_reflectance_distribution_function = (normal_distribution_function * geometric_shadowing_function * fresnel_function) / (4.0 * normal_dot_view * normal_dot_light + 0.0001);
+                let diffuse_scattering_integral = (vec3(1) - fresnel_function) * (1.0 - intersection_manifold.metallicity_coefficient) * intersection_manifold.albedo_colour / 3.14159;
+                let direct_illumination_integral = (diffuse_scattering_integral + bidirectional_reflectance_distribution_function) * vec3(12.0, 11.5, 10.0) * shadow_attenuation_scalar * normal_dot_light;
+                let specular_reflection_vector = reflect(ray_descriptor.direction_vector, intersection_manifold.normal_vector);
+                let indirect_illumination_integral = sample_volumetric_irradiance(intersection_manifold.surface_coordinate + intersection_manifold.normal_vector * 0.2, mix(intersection_manifold.normal_vector, specular_reflection_vector, 1.0 - intersection_manifold.roughness_coefficient)) * ambient_occlusion_scalar * 1.5;
+                
+                if (intersection_manifold.material_index == 2u) {
+                  let schlick_fresnel_approximation = fresnel_base_reflectivity + (1.0 - fresnel_base_reflectivity) * pow(1.0 - normal_dot_view, 5.0);
+                  let refraction_transmission_vector = refract(ray_descriptor.direction_vector, intersection_manifold.normal_vector, 0.66);
+                  var internal_scattering_integral = vec3<f32>(0.0);
+                  if (length(refraction_transmission_vector) > 0.1) {
+                    internal_scattering_integral = sample_volumetric_irradiance(intersection_manifold.surface_coordinate + refraction_transmission_vector * 4.0, -intersection_manifold.normal_vector);
+                  }
+                  accumulated_luminance_colour += ray_attenuation_vector * (direct_illumination_integral * schlick_fresnel_approximation + internal_scattering_integral * (1.0 - schlick_fresnel_approximation) * intersection_manifold.albedo_colour);
+                  ray_descriptor.origin_vector = intersection_manifold.surface_coordinate;
+                  ray_descriptor.direction_vector = specular_reflection_vector;
+                  ray_attenuation_vector *= schlick_fresnel_approximation;
+                } else {
+                  accumulated_luminance_colour += ray_attenuation_vector * (direct_illumination_integral + indirect_illumination_integral * intersection_manifold.albedo_colour);
+                  if (intersection_manifold.roughness_coefficient < 0.3) {
+                    ray_descriptor.origin_vector = intersection_manifold.surface_coordinate;
+                    ray_descriptor.direction_vector = specular_reflection_vector;
+                    ray_attenuation_vector *= fresnel_function;
+                  } else {
+                    break;
+                  }
+                }
+              } else {
+                accumulated_luminance_colour += ray_attenuation_vector * mix(vec3(0.9, 0.95, 1.0), vec3(0.4, 0.6, 0.9), 0.5 * (ray_descriptor.direction_vector.y + 1.0)) * 1.2;
+                break;
+              }
+            }
+            return vec4<f32>(pow(apply_tonemapping_operator(accumulated_luminance_colour), vec3(0.4545)), 1.0);
+          }
+        `;
+
+        const computeShaderBinaryModule = this.logicalDevice.createShaderModule({
+          code: computeKernelSyntax,
+        });
+        
+        const renderShaderBinaryModule = this.logicalDevice.createShaderModule({
+          code: renderKernelSyntax,
+        });
+
+        this.computeShaderPipeline = this.logicalDevice.createComputePipeline({
+          layout: 'auto',
+          compute: {
+            module: computeShaderBinaryModule,
+            entryPoint: 'execute_compute_kernel',
+          },
+        });
+
+        this.rasterisationPipeline = this.logicalDevice.createRenderPipeline({
+          layout: 'auto',
+          vertex: {
+            module: renderShaderBinaryModule,
+            entryPoint: 'execute_vertex_shader',
+          },
+          fragment: {
+            module: renderShaderBinaryModule,
+            entryPoint: 'execute_fragment_shader',
+            targets: [{format: this.textureFormat}],
+          },
+          primitive: {
+            topology: 'triangle-list',
+          },
+        });
+      }
+
+      /**
+       * Submits instruction buffers to the hardware execution queue for frame rendering.
+       * @param {number} timestampRegister The temporal monotonic integer.
+       * @param {!KinematicState} kinematicState The spatial transform parameters.
+       * @param {!PeripheralInputBuffer} peripheralInputBuffer The device hardware input states.
+       */
+      executeRenderPass(timestampRegister, kinematicState, peripheralInputBuffer) {
+        if (!this.logicalDevice || !this.renderingContext || !this.computeShaderPipeline || !this.rasterisationPipeline) {
+          return;
+        }
+
+        const deltaScalar = (timestampRegister - this.previousFrameTimestamp) / 1000.0;
+        this.deltaTimeScalar = this.deltaTimeScalar * 0.8 + Math.min(deltaScalar, 0.05) * 0.2;
+        this.previousFrameTimestamp = timestampRegister;
+
+        this.integrateKinematics(kinematicState, peripheralInputBuffer, this.deltaTimeScalar);
+
+        const sineAzimuth = Math.sin(kinematicState.orientationAngle.azimuth);
+        const cosineAzimuth = Math.cos(kinematicState.orientationAngle.azimuth);
+        const sineInclination = Math.sin(kinematicState.orientationAngle.inclination);
+        const cosineInclination = Math.cos(kinematicState.orientationAngle.inclination);
+
+        this.uniformParameterArray.set([
+          kinematicState.positionCoordinate.x,
+          kinematicState.positionCoordinate.y,
+          kinematicState.positionCoordinate.z,
+          0,
+          sineAzimuth * cosineInclination,
+          sineInclination,
+          cosineAzimuth * cosineInclination,
+          0,
+          cosineAzimuth,
+          0,
+          -sineAzimuth,
+          0,
+          sineInclination * -sineAzimuth,
+          cosineInclination,
+          sineInclination * -cosineAzimuth,
+          0,
+          this.renderCanvas.width,
+          this.renderCanvas.height,
+        ]);
+
+        const unsignedIntegerParameters = new Uint32Array(this.uniformParameterArray.buffer);
+        unsignedIntegerParameters[18] = this.spatialGridResolution;
+        unsignedIntegerParameters[19] = this.computationalIterationIndex;
+        
+        this.uniformParameterArray.set([5.0, 8.0, -4.0], 20);
+        
+        this.logicalDevice.queue.writeBuffer(
+          this.uniformParameterBuffer,
+          0,
+          this.uniformParameterArray
+        );
+
+        const commandEncoderInterface = this.logicalDevice.createCommandEncoder();
+
+        const computePassInterface = commandEncoderInterface.beginComputePass();
+        computePassInterface.setPipeline(this.computeShaderPipeline);
+        computePassInterface.setBindGroup(
+          0,
+          this.logicalDevice.createBindGroup({
+            layout: this.computeShaderPipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: this.uniformParameterBuffer}},
+              {binding: 1, resource: {buffer: this.storageBufferPrimary}},
+              {binding: 2, resource: {buffer: this.storageBufferSecondary}},
+            ],
+          })
+        );
+        
+        const computeWorkgroups = Math.ceil(this.spatialGridResolution / 4);
+        computePassInterface.dispatchWorkgroups(
+          computeWorkgroups,
+          computeWorkgroups,
+          computeWorkgroups
+        );
+        computePassInterface.end();
+
+        const renderPassInterface = commandEncoderInterface.beginRenderPass({
+          colorAttachments: [
+            {
+              view: this.renderingContext.getCurrentTexture().createView(),
+              loadOp: 'clear',
+              storeOp: 'store',
+              clearValue: [0.01, 0.02, 0.04, 1.0],
+            },
+          ],
+        });
+        
+        renderPassInterface.setPipeline(this.rasterisationPipeline);
+        renderPassInterface.setBindGroup(
+          0,
+          this.logicalDevice.createBindGroup({
+            layout: this.rasterisationPipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: this.uniformParameterBuffer}},
+              {binding: 1, resource: {buffer: this.storageBufferSecondary}},
+            ],
+          })
+        );
+        renderPassInterface.draw(3);
+        renderPassInterface.end();
+
+        this.logicalDevice.queue.submit([commandEncoderInterface.finish()]);
+
+        const temporaryPointer = this.storageBufferPrimary;
+        this.storageBufferPrimary = this.storageBufferSecondary;
+        this.storageBufferSecondary = temporaryPointer;
+
+        this.computationalIterationIndex++;
+
+        const iterationCountLabel = document.getElementById('iteration-count-label');
+        if (iterationCountLabel) {
+          iterationCountLabel.textContent = `Iteration_Count: ${this.computationalIterationIndex}`;
+        }
+
+        requestAnimationFrame((nextTimestampRegister) => {
+          this.executeRenderPass(nextTimestampRegister, kinematicState, peripheralInputBuffer);
+        });
+      }
+
+      /**
+       * Integrates positional transforms and computes scalar differentials from input peripherals.
+       * @param {!KinematicState} kinematicState The spatial parameter abstraction.
+       * @param {!PeripheralInputBuffer} peripheralInputBuffer The device boolean matrices.
+       * @param {number} deltaTimeScalar The differential time scalar.
+       */
+      integrateKinematics(kinematicState, peripheralInputBuffer, deltaTimeScalar) {
+        const translationMagnitude = 10.0 * deltaTimeScalar;
+        const angularVelocity = 2.0 * deltaTimeScalar;
+
+        if (peripheralInputBuffer.keyboardBooleanState['ArrowLeft']) {
+          kinematicState.orientationAngle.azimuth -= angularVelocity;
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['ArrowRight']) {
+          kinematicState.orientationAngle.azimuth += angularVelocity;
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['ArrowUp']) {
+          kinematicState.orientationAngle.inclination = Math.min(1.5, kinematicState.orientationAngle.inclination + angularVelocity);
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['ArrowDown']) {
+          kinematicState.orientationAngle.inclination = Math.max(-1.5, kinematicState.orientationAngle.inclination - angularVelocity);
+        }
+
+        const sineAzimuth = Math.sin(kinematicState.orientationAngle.azimuth);
+        const cosineAzimuth = Math.cos(kinematicState.orientationAngle.azimuth);
+        const sineInclination = Math.sin(kinematicState.orientationAngle.inclination);
+        const cosineInclination = Math.cos(kinematicState.orientationAngle.inclination);
+
+        const forwardVector = {
+          x: sineAzimuth * cosineInclination,
+          y: sineInclination,
+          z: cosineAzimuth * cosineInclination,
+        };
+        const rightVector = {
+          x: cosineAzimuth,
+          y: 0,
+          z: -sineAzimuth,
+        };
+
+        if (peripheralInputBuffer.keyboardBooleanState['KeyW']) {
+          kinematicState.positionCoordinate.x += forwardVector.x * translationMagnitude;
+          kinematicState.positionCoordinate.y += forwardVector.y * translationMagnitude;
+          kinematicState.positionCoordinate.z += forwardVector.z * translationMagnitude;
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['KeyS']) {
+          kinematicState.positionCoordinate.x -= forwardVector.x * translationMagnitude;
+          kinematicState.positionCoordinate.y -= forwardVector.y * translationMagnitude;
+          kinematicState.positionCoordinate.z -= forwardVector.z * translationMagnitude;
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['KeyA']) {
+          kinematicState.positionCoordinate.x -= rightVector.x * translationMagnitude;
+          kinematicState.positionCoordinate.z -= rightVector.z * translationMagnitude;
+        }
+        if (peripheralInputBuffer.keyboardBooleanState['KeyD']) {
+          kinematicState.positionCoordinate.x += rightVector.x * translationMagnitude;
+          kinematicState.positionCoordinate.z += rightVector.z * translationMagnitude;
+        }
+      }
+
+      /**
+       * Reallocates framebuffer attachments upon window dimension mutation.
+       */
+      recalculateDimensions() {
+        if (this.logicalDevice) {
+          this.configureFramebufferAttachment();
+          this.allocateMemoryBuffers();
+        }
+      }
+    }
+
+    /** @type {!KinematicState} */
+    const initialKinematicState = {
+      positionCoordinate: {x: 0, y: 2.0, z: -8.0},
+      orientationAngle: {azimuth: 0, inclination: 0.1},
+    };
+
+    /** @type {!PeripheralInputBuffer} */
+    const initialPeripheralInputBuffer = {
+      keyboardBooleanState: {},
+      touchscreenCoordinateVector: null,
+    };
+
+    const computeEngineInstance = new ComputeEngineArchitecture(
+      /** @type {!HTMLCanvasElement} */ (document.getElementById('render-target-canvas')),
+      (exceptionString) => {
+        const overlayNodeInterface = document.getElementById('runtime-exception-overlay');
+        const exceptionLogInterface = document.getElementById('exception-stack-trace');
+        
+        if (exceptionLogInterface) {
+          exceptionLogInterface.textContent = exceptionString;
+        }
+        if (overlayNodeInterface) {
+          overlayNodeInterface.classList.remove('hidden');
+        }
+      }
+    );
+
+    window.addEventListener('load', () => {
+      computeEngineInstance.initialiseGraphicsContext(initialKinematicState, initialPeripheralInputBuffer).then(() => {
+        const telemetryNodeInterface = document.getElementById('telemetry-buffer-overlay');
+        const inputMappingNodeInterface = document.getElementById('input-mapping-layer');
+        
+        if (telemetryNodeInterface) {
+          telemetryNodeInterface.style.opacity = '1';
+          telemetryNodeInterface.style.transform = 'translateY(0)';
+        }
+        if (inputMappingNodeInterface) {
+          inputMappingNodeInterface.style.opacity = '1';
+        }
+      });
+    });
+
+    window.addEventListener('keydown', (keyboardEvent) => {
+      initialPeripheralInputBuffer.keyboardBooleanState[keyboardEvent.code] = true;
+    });
+
+    window.addEventListener('keyup', (keyboardEvent) => {
+      initialPeripheralInputBuffer.keyboardBooleanState[keyboardEvent.code] = false;
+    });
+
+    window.addEventListener('resize', () => {
+      computeEngineInstance.recalculateDimensions();
+    });
+
+    window.addEventListener('touchstart', (touchEvent) => {
+      if (touchEvent.touches.length === 1) {
+        initialPeripheralInputBuffer.touchscreenCoordinateVector = {
+          x: touchEvent.touches[0].clientX,
+          y: touchEvent.touches[0].clientY,
+        };
+      }
+    }, {passive: false});
+
+    window.addEventListener('touchmove', (touchEvent) => {
+      if (touchEvent.touches.length === 1 && initialPeripheralInputBuffer.touchscreenCoordinateVector) {
+        const differentialX = touchEvent.touches[0].clientX - initialPeripheralInputBuffer.touchscreenCoordinateVector.x;
+        const differentialY = touchEvent.touches[0].clientY - initialPeripheralInputBuffer.touchscreenCoordinateVector.y;
+        
+        initialKinematicState.orientationAngle.azimuth += differentialX * 0.005;
+        initialKinematicState.orientationAngle.inclination = Math.max(
+          -1.5,
+          Math.min(1.5, initialKinematicState.orientationAngle.inclination - differentialY * 0.005)
+        );
+        
+        initialPeripheralInputBuffer.touchscreenCoordinateVector = {
+          x: touchEvent.touches[0].clientX,
+          y: touchEvent.touches[0].clientY,
+        };
+        
+        touchEvent.preventDefault();
+      }
+    }, {passive: false});
+
+    window.addEventListener('touchend', () => {
+      initialPeripheralInputBuffer.touchscreenCoordinateVector = null;
+    });
+  </script>
+</body>
+</html>

@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGPU path tracer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #000;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
+    #rendering-canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100vh;
+      width: 100vw;
+      touch-action: none;
+    }
+    .execution-container {
+      height: 100vh;
+      width: 100vw;
+      background-color: #000;
+      overflow: hidden;
+      position: relative;
+    }
+    .overlay {
+      background: rgba(9, 9, 11, 0.85);
+      backdrop-filter: blur(8px);
+      pointer-events: none;
+    }
+    .controls-hint {
+      position: absolute;
+      bottom: 2rem;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.6);
+      padding: 0.6rem 1.2rem;
+      border-radius: 9999px;
+      font-size: 0.7rem;
+      color: #71717a;
+      pointer-events: none;
+      white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.1);
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+
+  <div class="execution-container">
+    <canvas id="rendering-canvas"></canvas>
+    
+    <div class="absolute top-8 left-8 pointer-events-none select-none">
+      <h1 class="text-white text-xs font-mono tracking-widest uppercase opacity-40 mb-1">Path tracer configuration</h1>
+      <div class="flex items-center space-x-2">
+        <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+        <span id="stat-spp" class="text-emerald-400 font-mono text-sm tracking-tighter">Samples per pixel: 0</span>
+      </div>
+    </div>
+
+    <div class="controls-hint font-mono uppercase tracking-tighter text-zinc-400">
+      WASD: translate camera • Arrows: rotate camera • Space/Shift: translate vertically
+    </div>
+
+    <div id="diagnostic-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-8 overlay hidden">
+      <div class="max-w-md text-center">
+        <div class="text-rose-500 mb-4 font-mono text-xl">[ exception ]</div>
+        <h2 class="text-white text-lg font-medium mb-2">Execution error</h2>
+        <p id="diagnostic-message" class="text-zinc-500 text-sm leading-relaxed font-mono"></p>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    /**
+     * PathTracer
+     * implementation of a bounding volume hierarchy and Monte Carlo path tracing.
+     */
+    class PathTracer {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('webgpu');
+        this.device = null;
+        this.renderFormat = navigator.gpu?.getPreferredCanvasFormat();
+        
+        this.accumulationTextures = [];
+        this.sampleCount = 0;
+        
+        this.uniformBuffer = null;
+        this.bvhBuffer = null;
+        this.exposureBuffer = null;
+
+        this.computePipeline = null;
+        this.displayPipeline = null;
+        this.computeBindGroupLayout = null;
+        this.displayBindGroupLayout = null;
+
+        this.camera = {
+          position: { x: 0, y: 2.0, z: 8 },
+          rotation: { yaw: 0, pitch: 0 },
+          isDirty: false
+        };
+
+        this.input = {
+          keys: {},
+          mouse: { isDown: false, lastX: 0, lastY: 0 }
+        };
+        
+        this.diagnosticOverlay = document.getElementById('diagnostic-overlay');
+        this.diagnosticMessage = document.getElementById('diagnostic-message');
+        this.statSpp = document.getElementById('stat-spp');
+
+        this.#initialiseInputs();
+      }
+
+      #initialiseInputs() {
+        window.addEventListener('keydown', e => { this.input.keys[e.code] = true; });
+        window.addEventListener('keyup', e => { this.input.keys[e.code] = false; });
+        
+        this.canvas.addEventListener('mousedown', e => {
+          this.input.mouse.isDown = true;
+          this.input.mouse.lastX = e.clientX;
+          this.input.mouse.lastY = e.clientY;
+        });
+        
+        window.addEventListener('mouseup', () => { this.input.mouse.isDown = false; });
+        
+        window.addEventListener('mousemove', e => {
+          if (!this.input.mouse.isDown) return;
+          const deltaX = e.clientX - this.input.mouse.lastX;
+          const deltaY = e.clientY - this.input.mouse.lastY;
+          this.camera.rotation.yaw -= deltaX * 0.004;
+          this.camera.rotation.pitch = Math.max(-1.5, Math.min(1.5, this.camera.rotation.pitch - deltaY * 0.004));
+          this.input.mouse.lastX = e.clientX;
+          this.input.mouse.lastY = e.clientY;
+          this.camera.isDirty = true;
+        });
+
+        window.addEventListener('resize', () => {
+          this.#configureCanvas();
+          this.#initialiseResources();
+          this.sampleCount = 0;
+        });
+      }
+
+      async initialiseEngine() {
+        if (!navigator.gpu) {
+          this.#dispatchError("WebGPU unavailable: verify API support in the current execution environment.");
+          return;
+        }
+
+        try {
+          const adapter = await navigator.gpu.requestAdapter();
+          if (!adapter) throw new Error("Hardware adapter unresolvable.");
+          this.device = await adapter.requestDevice();
+          this.#configureCanvas();
+          await this.#initialiseResources();
+          await this.#initialisePipelines();
+          requestAnimationFrame((timestamp) => this.#executeRenderCycle(timestamp));
+        } catch (exception) {
+          this.#dispatchError(exception.message);
+        }
+      }
+
+      #configureCanvas() {
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = Math.floor(window.innerWidth * dpr);
+        this.canvas.height = Math.floor(window.innerHeight * dpr);
+        this.ctx.configure({
+          device: this.device,
+          format: this.renderFormat,
+          alphaMode: 'premultiplied',
+        });
+      }
+
+      async #initialiseResources() {
+        const textureDescriptor = {
+          size: [this.canvas.width, this.canvas.height],
+          format: 'rgba32float',
+          usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        };
+        
+        if (this.accumulationTextures.length > 0) {
+          this.accumulationTextures.forEach(texture => texture.destroy());
+        }
+
+        this.accumulationTextures = [
+          this.device.createTexture(textureDescriptor),
+          this.device.createTexture(textureDescriptor)
+        ];
+
+        if (!this.uniformBuffer) {
+          this.uniformBuffer = this.device.createBuffer({
+            size: 256,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+          });
+
+          this.bvhBuffer = this.device.createBuffer({
+            size: 1024 * 64,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+          });
+
+          this.exposureBuffer = this.device.createBuffer({
+            size: 256, 
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+          });
+
+          // spatial caching: blue noise texture initialisation
+          const noiseDimension = 256;
+          const noiseTexture = this.device.createTexture({
+            size: [noiseDimension, noiseDimension],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+          });
+          const noiseData = new Uint8Array(noiseDimension * noiseDimension * 4);
+          for(let i = 0; i < noiseData.length; i++) {
+            noiseData[i] = Math.floor(Math.random() * 256);
+          }
+          this.device.queue.writeTexture(
+            { texture: noiseTexture },
+            noiseData,
+            { bytesPerRow: noiseDimension * 4, rowsPerImage: noiseDimension },
+            [noiseDimension, noiseDimension]
+          );
+          this.blueNoiseView = noiseTexture.createView();
+
+          const bvhData = new Uint32Array(16384);
+          
+          // quasi-Monte Carlo sequence initialisation: Sobol direction vectors
+          const sobolVectors = [0x9ABCDEF0, 0x12345678, 0x87654321, 0xFEDCBA98, 0x55555555, 0xAAAAAAAA, 0x33333333, 0xCCCCCCCC];
+          for(let i = 0; i < 8; i++) bvhData[i] = sobolVectors[i];
+          
+          // bounding volume hierarchy structure: scene primitive parameters
+          const sceneNodes = [
+            // px, py, pz, radius, material_id, is_emissive, child_pointer, sibling_pointer
+            [0, 0, 0, 2000, 99, 0, 1, 0],         // root bounding volume
+            [0, -1000, 0, 1000, 0, 0, 0, 2],      // plane evaluation
+            [-1.2, 1.5, 0, 1.2, 1, 0, 0, 3],      // diffuse sphere
+            [1.2, 1.0, 0.5, 0.8, 2, 0, 0, 4],     // dielectric sphere
+            [-8, 12, 6, 3.0, 3, 1, 0, 0]          // emissive surface
+          ];
+
+          // memory alignment: 128-bit block allocation per node
+          let memoryPointer = 16;
+          sceneNodes.forEach(node => {
+            const f32 = new Float32Array([node[0], node[1], node[2], node[3]]);
+            const u32 = new Uint32Array(f32.buffer);
+            
+            // x coordinate assignment
+            bvhData[memoryPointer] = 0; bvhData[memoryPointer + 1] = 0; bvhData[memoryPointer + 2] = 0; bvhData[memoryPointer + 3] = u32[0];
+            // y coordinate assignment
+            bvhData[memoryPointer + 4] = 0; bvhData[memoryPointer + 5] = 0; bvhData[memoryPointer + 6] = 0; bvhData[memoryPointer + 7] = u32[1];
+            // z coordinate assignment
+            bvhData[memoryPointer + 8] = 0; bvhData[memoryPointer + 9] = 0; bvhData[memoryPointer + 10] = 0; bvhData[memoryPointer + 11] = u32[2];
+            
+            bvhData[memoryPointer + 12] = u32[3]; // radius scalar
+            bvhData[memoryPointer + 13] = node[4];   // material identification
+            bvhData[memoryPointer + 14] = node[5];   // emissive boolean
+            bvhData[memoryPointer + 15] = (node[6] << 16) | node[7]; // pointer dereference block
+            
+            memoryPointer += 16;
+          });
+
+          this.device.queue.writeBuffer(this.bvhBuffer, 0, bvhData);
+          this.device.queue.writeBuffer(this.exposureBuffer, 0, new Float32Array([1.2]));
+        }
+      }
+
+      async #initialisePipelines() {
+        const computeShaderSource = `
+          struct UniformData {
+            resolution: vec2<f32>,
+            sampleCount: f32,
+            time: f32,
+            cameraPosition: vec4<f32>,
+            cameraForward: vec4<f32>,
+            cameraRight: vec4<f32>,
+            cameraUp: vec4<f32>,
+          };
+
+          @group(0) @binding(0) var<uniform> uniforms: UniformData;
+          @group(0) @binding(1) var previousBuffer: texture_2d<f32>;
+          @group(0) @binding(2) var currentBuffer: texture_storage_2d<rgba32float, write>;
+          @group(0) @binding(3) var<storage, read> bvh_buffer: array<u32>;
+          @group(0) @binding(4) var noise_texture: texture_2d<f32>;
+
+          // arithmetic structure: 128-bit integer parameterization
+          struct Int128 { data: vec4<u32> };
+
+          // computation: 128-bit integer addition
+          fn int128_add(a: Int128, b: Int128) -> Int128 {
+            var result: Int128;
+            var carry: u32 = 0u;
+            
+            let sum0 = a.data[0] + b.data[0];
+            carry = select(0u, 1u, sum0 < a.data[0]);
+            result.data[0] = sum0;
+            
+            let sum1 = a.data[1] + b.data[1] + carry;
+            carry = select(0u, 1u, (sum1 < a.data[1]) || (carry == 1u && sum1 == a.data[1]));
+            result.data[1] = sum1;
+            
+            let sum2 = a.data[2] + b.data[2] + carry;
+            carry = select(0u, 1u, (sum2 < a.data[2]) || (carry == 1u && sum2 == a.data[2]));
+            result.data[2] = sum2;
+            
+            result.data[3] = a.data[3] + b.data[3] + carry;
+            return result;
+          }
+
+          // computation: 128-bit integer multiplication
+          fn int128_mul(a: Int128, b: Int128) -> Int128 {
+            var result: Int128;
+            let prod0 = a.data[0] * b.data[0];
+            let prod1 = a.data[1] * b.data[0] + a.data[0] * b.data[1];
+            let prod2 = a.data[2] * b.data[0] + a.data[1] * b.data[1] + a.data[0] * b.data[2];
+            let prod3 = a.data[3] * b.data[0] + a.data[2] * b.data[1] + a.data[1] * b.data[2] + a.data[0] * b.data[3];
+            result.data[0] = prod0;
+            result.data[1] = prod1;
+            result.data[2] = prod2;
+            result.data[3] = prod3;
+            return result;
+          }
+
+          // intersection geometry: constant scalar offset application
+          fn compute_surface_offset(position: vec3<f32>, normal: vec3<f32>, outgoing_direction: vec3<f32>) -> vec3<f32> {
+            let offset_scalar = 0.0002;
+            let corrected_normal = select(-normal, normal, dot(outgoing_direction, normal) > 0.0);
+            return position + corrected_normal * offset_scalar;
+          }
+
+          // spatial hashing: pseudo-random number generator mapping
+          fn compute_spatial_hash(coordinate: vec2<u32>, sample_index: u32) -> u32 {
+            let dimensions = textureDimensions(noise_texture);
+            let offset_coordinate = (coordinate + vec2<u32>(sample_index * 17u, sample_index * 31u)) % dimensions;
+            let sample_value = textureLoad(noise_texture, vec2<i32>(offset_coordinate), 0).x;
+            return u32(sample_value * 4294967295.0);
+          }
+          
+          // bounds evaluation: axis-aligned bounding box geometric intersection
+          fn compute_aabb_intersection(r: Ray, bound_min: vec3<f32>, bound_max: vec3<f32>) -> bool {
+            let t_min_vector = (bound_min - r.origin) / r.direction;
+            let t_max_vector = (bound_max - r.origin) / r.direction;
+            let t1 = min(t_min_vector, t_max_vector);
+            let t2 = max(t_min_vector, t_max_vector);
+            let t_near = max(max(t1.x, t1.y), t1.z);
+            let t_far = min(min(t2.x, t2.y), t2.z);
+            return t_near <= t_far && t_far > 0.0;
+          }
+
+          // quasi-Monte Carlo sequence: Sobol evaluation with Owen scrambling
+          fn evaluate_sobol_owen(index: u32, dimension: u32, seed: u32) -> f32 {
+            var value: u32 = 0u;
+            var iterator = index + 1u;
+            for(var bit = 0u; bit < 10u; bit++) {
+              value ^= select(0u, bvh_buffer[(dimension + bit) % 8u], (iterator & 1u) != 0u);
+              iterator >>= 1u;
+            }
+            value ^= seed;
+            value ^= (value >> 17u);
+            value ^= (value * 12741261u);
+            return f32(value) / 4294967296.0;
+          }
+
+          // colour space transformation: CIE 1931 standard observer computation
+          fn compute_cie_xyz(wavelength: f32) -> vec3<f32> {
+            let lambda = (wavelength - 380.0) / 400.0;
+            return vec3(
+              exp(-0.5 * pow((lambda - 0.44) / 0.06, 2.0)) * 1.05 + exp(-0.5 * pow((lambda - 0.81) / 0.1, 2.0)) * 0.35,
+              exp(-0.5 * pow((lambda - 0.48) / 0.11, 2.0)) * 1.0,
+              exp(-0.5 * pow((lambda - 0.22) / 0.07, 2.0)) * 1.25
+            );
+          }
+
+          struct Ray { origin: vec3<f32>, direction: vec3<f32> };
+          struct HitRecord { distance: f32, position: vec3<f32>, normal: vec3<f32>, albedo: f32, is_emissive: bool, material_id: u32, is_internal: bool };
+
+          // geometric intersection: analytic sphere evaluation
+          fn compute_sphere_intersection(r: Ray, center: vec3<f32>, radius: f32, albedo: f32, emissive: bool, material_id: u32) -> HitRecord {
+            var record: HitRecord;
+            record.distance = 1e10; // invalid state initialisation
+            record.is_internal = false;
+            
+            let origin_offset = r.origin - center;
+            let coefficient_b = dot(origin_offset, r.direction);
+            let coefficient_c = dot(origin_offset, origin_offset) - radius * radius;
+            
+            // arithmetic test verification block
+            var b_integer: Int128; b_integer.data = vec4(bitcast<u32>(abs(coefficient_b)), 0u, 0u, 0u);
+            var c_integer: Int128; c_integer.data = vec4(bitcast<u32>(abs(coefficient_c)), 0u, 0u, 0u);
+            let b_squared = int128_mul(b_integer, b_integer); 
+            let proxy_discriminant = int128_add(b_squared, c_integer);
+            
+            let discriminant = coefficient_b * coefficient_b - coefficient_c;
+            
+            if (discriminant > 0.0) {
+              let root_discriminant = sqrt(discriminant);
+              let root_1 = -coefficient_b - root_discriminant;
+              let root_2 = -coefficient_b + root_discriminant;
+              
+              // geometry evaluation: front-face and back-face verification
+              var valid_root = select(root_2, root_1, root_1 > 0.0001);
+              
+              if (valid_root > 0.0001) {
+                record.distance = valid_root;
+                record.position = r.origin + r.direction * valid_root;
+                record.normal = normalize(record.position - center);
+                
+                // state resolution: internal reflection configuration
+                let is_internal = dot(record.normal, r.direction) > 0.0;
+                record.normal = select(record.normal, -record.normal, is_internal);
+                
+                record.albedo = albedo;
+                record.is_emissive = emissive;
+                record.material_id = material_id;
+                record.is_internal = is_internal;
+              }
+            }
+            return record;
+          }
+
+          @compute @workgroup_size(8, 8)
+          fn compute_kernel(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+            let resolution = vec2<u32>(uniforms.resolution);
+            if (thread_id.x >= resolution.x || thread_id.y >= resolution.y) { return; }
+
+            let iteration_index = u32(uniforms.sampleCount);
+            let sequence_seed = compute_spatial_hash(thread_id.xy, iteration_index);
+            
+            let offset_x = evaluate_sobol_owen(iteration_index, 0u, sequence_seed);
+            let offset_y = evaluate_sobol_owen(iteration_index, 1u, sequence_seed);
+            let lambda_sample = fract(evaluate_sobol_owen(iteration_index, 2u, sequence_seed) + uniforms.time);
+            
+            let uv_coordinates = (vec2<f32>(thread_id.xy) + vec2(offset_x, offset_y)) / uniforms.resolution;
+            let aspect_ratio = uniforms.resolution.x / uniforms.resolution.y;
+            let projection_coordinate = (uv_coordinates * 2.0 - 1.0) * vec2(aspect_ratio, -1.0);
+
+            let visible_wavelength = 380.0 + lambda_sample * 400.0;
+            let spectral_weight = compute_cie_xyz(visible_wavelength);
+
+            var ray: Ray;
+            ray.origin = uniforms.cameraPosition.xyz;
+            ray.direction = normalize(uniforms.cameraForward.xyz * 1.6 + uniforms.cameraRight.xyz * projection_coordinate.x + uniforms.cameraUp.xyz * projection_coordinate.y);
+
+            // view frustum culling: early exit bounds validation
+            let aabb_min = vec3(-20.0, -1005.0, -20.0);
+            let aabb_max = vec3(20.0, 20.0, 20.0);
+            if (!compute_aabb_intersection(ray, aabb_min, aabb_max)) {
+              let background_intensity = mix(0.005, 0.04, clamp(ray.direction.y, 0.0, 1.0));
+              let background_colour = background_intensity * select(0.8, 1.2, visible_wavelength < 500.0);
+              let pixel_radiance = spectral_weight * background_colour;
+              let previous_pixel = textureLoad(previousBuffer, vec2<i32>(thread_id.xy), 0).rgb;
+              let blending_weight = 1.0 / (uniforms.sampleCount + 1.0);
+              textureStore(currentBuffer, vec2<i32>(thread_id.xy), vec4(mix(previous_pixel, pixel_radiance, blending_weight), 1.0));
+              return;
+            }
+
+            var throughput = 1.0;
+            var is_valid_path = false;
+
+            for(var bounce_index = 0u; bounce_index < 16u; bounce_index++) {
+              var nearest_hit: HitRecord; nearest_hit.distance = 1e10;
+              
+              // memory traversal: stackless bounding volume hierarchy iteration
+              var memory_pointer = 16u;
+
+              for(var traversal_step = 0u; traversal_step < 16u; traversal_step++) {
+                if (memory_pointer == 0u) { break; }
+
+                let node_center = vec3(bitcast<f32>(bvh_buffer[memory_pointer + 3u]), bitcast<f32>(bvh_buffer[memory_pointer + 7u]), bitcast<f32>(bvh_buffer[memory_pointer + 11u]));
+                let node_radius = bitcast<f32>(bvh_buffer[memory_pointer + 12u]);
+                let material_id = bvh_buffer[memory_pointer + 13u];
+                let is_emissive_node = bvh_buffer[memory_pointer + 14u] == 1u;
+                let address_pointers = bvh_buffer[memory_pointer + 15u];
+                let child_address = address_pointers >> 16u;
+                let sibling_address = address_pointers & 0xFFFFu;
+                
+                let bounds_intersection = compute_sphere_intersection(ray, node_center, node_radius, 1.0, false, 99u);
+                
+                let valid_child_address = select(0u, 16u + 16u * child_address, child_address != 0u);
+                let valid_sibling_address = select(0u, 16u + 16u * sibling_address, sibling_address != 0u);
+                
+                if (bounds_intersection.distance < 1e9) {
+                  if (material_id != 99u) {
+                    var diffuse_albedo = 0.6;
+                    // surface parameters: wavelength-dependent albedo sampling
+                    diffuse_albedo = select(diffuse_albedo, select(0.05, 0.95, visible_wavelength > 400.0 && visible_wavelength < 500.0), material_id == 1u);
+                    diffuse_albedo = select(diffuse_albedo, select(0.05, 0.95, visible_wavelength > 560.0), material_id == 2u);
+                    diffuse_albedo = select(diffuse_albedo, 150.0, material_id == 3u);
+                    
+                    let intersection_record = compute_sphere_intersection(ray, node_center, node_radius, diffuse_albedo, is_emissive_node, material_id);
+                    if (intersection_record.distance < nearest_hit.distance) {
+                      nearest_hit = intersection_record;
+                    }
+                  }
+                  
+                  memory_pointer = select(valid_sibling_address, valid_child_address, child_address != 0u);
+                } else {
+                  memory_pointer = valid_sibling_address;
+                }
+              }
+
+              if(nearest_hit.distance > 1e9) { 
+                let background_intensity = mix(0.005, 0.04, clamp(ray.direction.y, 0.0, 1.0));
+                let background_colour = background_intensity * select(0.8, 1.2, visible_wavelength < 500.0);
+                throughput *= background_colour; 
+                is_valid_path = true;
+                break; 
+              }
+              if(nearest_hit.is_emissive) { 
+                throughput *= nearest_hit.albedo; 
+                is_valid_path = true;
+                break; 
+              }
+              
+              // mathematical basis: local tangent space generation
+              let sample_u = evaluate_sobol_owen(iteration_index + bounce_index, 3u, sequence_seed);
+              let sample_v = evaluate_sobol_owen(iteration_index + bounce_index, 4u, sequence_seed);
+              let azimuth_angle = 2.0 * 3.1415926 * sample_u;
+              let zenith_angle = acos(sqrt(sample_v));
+              let normal_vector = nearest_hit.normal;
+              let reference_vector = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), abs(normal_vector.x) > 0.9);
+              let tangent_vector = normalize(cross(reference_vector, normal_vector));
+              let bitangent_vector = cross(normal_vector, tangent_vector);
+              let diffuse_vector = normalize(tangent_vector * cos(azimuth_angle) * sin(zenith_angle) + bitangent_vector * sin(azimuth_angle) * sin(zenith_angle) + normal_vector * cos(zenith_angle));
+              
+              // refraction computation: Snell's law derivation
+              let relative_index = select(1.0 / 1.45, 1.45, nearest_hit.is_internal);
+              let cosine_incident = dot(-ray.direction, normal_vector);
+              let sine_transmitted_squared = (relative_index * relative_index) * (1.0 - cosine_incident * cosine_incident);
+              
+              // reflectance computation: Schlick's approximation mapping
+              let reflectance_at_normal = 0.0337; 
+              let fresnel_reflectance = reflectance_at_normal + (1.0 - reflectance_at_normal) * pow(1.0 - cosine_incident, 5.0);
+              let evaluate_reflection = sample_u < fresnel_reflectance || sine_transmitted_squared > 1.0;
+              
+              // phase mapping: trigonometric boundary resolution
+              let cosine_transmitted = sqrt(abs(1.0 - sine_transmitted_squared));
+              let transmission_vector = select(
+                normalize(ray.direction * relative_index + normal_vector * (relative_index * cosine_incident - cosine_transmitted)),
+                reflect(ray.direction, normal_vector),
+                evaluate_reflection
+              );
+              
+              // coordinate geometry: scalar microfacet perturbation parameters
+              let perturbation_u = floor(fract(transmission_vector.x * 0.5 + 0.5) * 128.0);
+              let perturbation_v = floor(fract(transmission_vector.z * 0.5 + 0.5) * 128.0) + 1.0;
+              let perturbation_scale = 1.0 / (2.0 * perturbation_v * perturbation_v);
+              
+              // vector normalisation: deterministic spatial shifting
+              let normal_perturbation = normal_vector * (perturbation_u / perturbation_v) * perturbation_scale * 0.0005;
+              let final_transmission = normalize(transmission_vector + normal_perturbation);
+              
+              let outgoing_ray = select(diffuse_vector, final_transmission, nearest_hit.material_id == 2u);
+              
+              // energy validation: conservation assertion boundaries
+              var scalar_albedo = min(nearest_hit.albedo, 1.0);
+              
+              // volume attenuation: Beer-Lambert law implementation
+              let attenuation_coefficient = -log(max(scalar_albedo, 0.001));
+              let transmission_decay = exp(-attenuation_coefficient * nearest_hit.distance);
+              let dielectric_albedo = select(1.0, transmission_decay, nearest_hit.is_internal);
+              
+              scalar_albedo = select(scalar_albedo, dielectric_albedo, nearest_hit.material_id == 2u);
+              
+              throughput *= scalar_albedo;
+              ray.origin = compute_surface_offset(nearest_hit.position, nearest_hit.normal, outgoing_ray);
+              ray.direction = outgoing_ray;
+            }
+
+            let path_radiance = spectral_weight * throughput * select(0.0, 1.0, is_valid_path);
+            let previous_pixel = textureLoad(previousBuffer, vec2<i32>(thread_id.xy), 0).rgb;
+            let blending_weight = 1.0 / (uniforms.sampleCount + 1.0);
+            
+            textureStore(currentBuffer, vec2<i32>(thread_id.xy), vec4(mix(previous_pixel, path_radiance, blending_weight), 1.0));
+          }
+        `;
+
+        const displayShaderSource = `
+          @group(0) @binding(1) var displayBuffer: texture_2d<f32>;
+          @group(0) @binding(3) var<storage, read> exposure_data: array<f32>;
+          
+          @vertex
+          fn vertex_main(@builtin(vertex_index) vertex_id: u32) -> @builtin(position) vec4<f32> {
+            var positions = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            return vec4(positions[vertex_id], 0.0, 1.0);
+          }
+          
+          @fragment
+          fn fragment_main(@builtin(position) position: vec4<f32>) -> @location(0) vec4<f32> {
+            // colour mapping: CIE 1931 colour space coordinates transformation
+            let xyz_colour = textureLoad(displayBuffer, vec2<i32>(position.xy), 0).rgb * exposure_data[0];
+            
+            let red_channel = xyz_colour.x * 3.2406 + xyz_colour.y * -1.5372 + xyz_colour.z * -0.4986;
+            let green_channel = xyz_colour.x * -0.9689 + xyz_colour.y * 1.8758 + xyz_colour.z * 0.0415;
+            let blue_channel = xyz_colour.x * 0.0557 + xyz_colour.y * -0.2040 + xyz_colour.z * 1.0570;
+            var rgb_vector = vec3(red_channel, green_channel, blue_channel);
+            
+            let scalar_a = 2.51; let scalar_b = 0.03; let scalar_c = 2.43; let scalar_d = 0.59; let scalar_e = 0.14;
+            rgb_vector = clamp((rgb_vector * (scalar_a * rgb_vector + scalar_b)) / (rgb_vector * (scalar_c * rgb_vector + scalar_d) + scalar_e), vec3(0.0), vec3(1.0));
+            
+            return vec4(pow(rgb_vector, vec3(1.0 / 2.2)), 1.0);
+          }
+        `;
+
+        this.computeBindGroupLayout = this.device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba32float' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } }
+          ]
+        });
+
+        this.displayBindGroupLayout = this.device.createBindGroupLayout({
+          entries: [
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+            { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+          ]
+        });
+
+        this.computePipeline = this.device.createComputePipeline({
+          layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.computeBindGroupLayout] }),
+          compute: { module: this.device.createShaderModule({ code: computeShaderSource }), entryPoint: 'compute_kernel' }
+        });
+
+        this.displayPipeline = this.device.createRenderPipeline({
+          layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.displayBindGroupLayout] }),
+          vertex: { module: this.device.createShaderModule({ code: displayShaderSource }), entryPoint: 'vertex_main' },
+          fragment: {
+            module: this.device.createShaderModule({ code: displayShaderSource }),
+            entryPoint: 'fragment_main',
+            targets: [{ format: this.renderFormat }]
+          },
+          primitive: { topology: 'triangle-list' }
+        });
+      }
+
+      #updateCamera() {
+        let isDirty = false;
+        const velocity = 0.1;
+        const angularVelocity = 0.025;
+
+        if (this.input.keys['ArrowLeft']) { this.camera.rotation.yaw += angularVelocity; isDirty = true; }
+        if (this.input.keys['ArrowRight']) { this.camera.rotation.yaw -= angularVelocity; isDirty = true; }
+        if (this.input.keys['ArrowUp']) { this.camera.rotation.pitch = Math.min(1.5, this.camera.rotation.pitch + angularVelocity); isDirty = true; }
+        if (this.input.keys['ArrowDown']) { this.camera.rotation.pitch = Math.max(-1.5, this.camera.rotation.pitch - angularVelocity); isDirty = true; }
+
+        const vectorForward = {
+          x: -Math.sin(this.camera.rotation.yaw) * Math.cos(this.camera.rotation.pitch),
+          y: Math.sin(this.camera.rotation.pitch),
+          z: -Math.cos(this.camera.rotation.yaw) * Math.cos(this.camera.rotation.pitch)
+        };
+        const vectorRight = { x: Math.cos(this.camera.rotation.yaw), y: 0, z: -Math.sin(this.camera.rotation.yaw) };
+
+        if (this.input.keys['KeyW']) { this.camera.position.x += vectorForward.x * velocity; this.camera.position.y += vectorForward.y * velocity; this.camera.position.z += vectorForward.z * velocity; isDirty = true; }
+        if (this.input.keys['KeyS']) { this.camera.position.x -= vectorForward.x * velocity; this.camera.position.y -= vectorForward.y * velocity; this.camera.position.z -= vectorForward.z * velocity; isDirty = true; }
+        if (this.input.keys['KeyA']) { this.camera.position.x -= vectorRight.x * velocity; this.camera.position.z -= vectorRight.z * velocity; isDirty = true; }
+        if (this.input.keys['KeyD']) { this.camera.position.x += vectorRight.x * velocity; this.camera.position.z += vectorRight.z * velocity; isDirty = true; }
+        if (this.input.keys['Space']) { this.camera.position.y += velocity; isDirty = true; }
+        if (this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']) { this.camera.position.y -= velocity; isDirty = true; }
+
+        if (isDirty || this.camera.isDirty) {
+          this.sampleCount = 0;
+          this.camera.isDirty = false;
+        }
+      }
+
+      #executeRenderCycle(timestamp) {
+        try {
+          this.#updateCamera();
+          const commandEncoder = this.device.createCommandEncoder();
+          const backBufferIndex = this.sampleCount % 2;
+          const frontBufferIndex = (this.sampleCount + 1) % 2;
+
+          const vectorForward = {
+            x: -Math.sin(this.camera.rotation.yaw) * Math.cos(this.camera.rotation.pitch),
+            y: Math.sin(this.camera.rotation.pitch),
+            z: -Math.cos(this.camera.rotation.yaw) * Math.cos(this.camera.rotation.pitch)
+          };
+          const vectorRight = { x: Math.cos(this.camera.rotation.yaw), y: 0, z: -Math.sin(this.camera.rotation.yaw) };
+          const vectorUp = { x: vectorRight.y * vectorForward.z - vectorRight.z * vectorForward.y, y: vectorRight.z * vectorForward.x - vectorRight.x * vectorForward.z, z: vectorRight.x * vectorForward.y - vectorRight.y * vectorForward.x };
+
+          const uniformData = new Float32Array(32);
+          uniformData.set([this.canvas.width, this.canvas.height, this.sampleCount, timestamp / 1000.0], 0);
+          uniformData.set([this.camera.position.x, this.camera.position.y, this.camera.position.z, 0], 4);
+          uniformData.set([vectorForward.x, vectorForward.y, vectorForward.z, 0], 8);
+          uniformData.set([vectorRight.x, vectorRight.y, vectorRight.z, 0], 12);
+          uniformData.set([vectorUp.x, vectorUp.y, vectorUp.z, 0], 16);
+          this.device.queue.writeBuffer(this.uniformBuffer, 0, uniformData);
+
+          const computeBindGroup = this.device.createBindGroup({
+            layout: this.computeBindGroupLayout,
+            entries: [
+              { binding: 0, resource: { buffer: this.uniformBuffer } },
+              { binding: 1, resource: this.accumulationTextures[backBufferIndex].createView() },
+              { binding: 2, resource: this.accumulationTextures[frontBufferIndex].createView() },
+              { binding: 3, resource: { buffer: this.bvhBuffer } },
+              { binding: 4, resource: this.blueNoiseView }
+            ]
+          });
+
+          const computePass = commandEncoder.beginComputePass();
+          computePass.setPipeline(this.computePipeline);
+          computePass.setBindGroup(0, computeBindGroup);
+          computePass.dispatchWorkgroups(Math.ceil(this.canvas.width / 8), Math.ceil(this.canvas.height / 8));
+          computePass.end();
+
+          const renderPass = commandEncoder.beginRenderPass({
+            colorAttachments: [{
+              view: this.ctx.getCurrentTexture().createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 1 },
+              loadOp: 'clear', storeOp: 'store'
+            }]
+          });
+          
+          const displayBindGroup = this.device.createBindGroup({
+            layout: this.displayBindGroupLayout,
+            entries: [
+              { binding: 1, resource: this.accumulationTextures[frontBufferIndex].createView() },
+              { binding: 3, resource: { buffer: this.exposureBuffer } }
+            ]
+          });
+
+          renderPass.setPipeline(this.displayPipeline);
+          renderPass.setBindGroup(0, displayBindGroup);
+          renderPass.draw(3);
+          renderPass.end();
+
+          this.device.queue.submit([commandEncoder.finish()]);
+          this.sampleCount++;
+          this.statSpp.textContent = `Samples per pixel: ${this.sampleCount}`;
+          requestAnimationFrame((timestamp) => this.#executeRenderCycle(timestamp));
+        } catch (exception) {
+          this.#dispatchError("Execution error: " + exception.message);
+        }
+      }
+
+      #dispatchError(message) {
+        this.diagnosticMessage.textContent = message;
+        this.diagnosticOverlay.classList.remove('hidden');
+      }
+    }
+
+    window.onload = () => {
+      const canvas = document.getElementById('rendering-canvas');
+      const renderer = new PathTracer(canvas);
+      renderer.initialiseEngine();
+    };
+  </script>
+</body>
+</html>

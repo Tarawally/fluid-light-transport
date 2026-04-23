@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Stochastic Light Transport Renderer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #030305;
+      color: #a0a0a0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
+    #render-canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100vh;
+      width: 100vw;
+      touch-action: none;
+    }
+    .diagnostic-overlay {
+      background: rgba(3, 3, 5, 0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid #27272a;
+      pointer-events: none;
+    }
+    .diagnostic-panel {
+      position: absolute;
+      top: 2rem;
+      left: 2rem;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      min-width: 340px;
+    }
+    .status-indicator {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      display: inline-block;
+      margin-right: 0.75rem;
+    }
+    .status-computing {
+      background-color: #0ea5e9;
+      box-shadow: 0 0 12px rgba(14, 165, 233, 0.8);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="relative w-full h-full">
+    <canvas id="render-canvas"></canvas>
+
+    <div class="diagnostic-overlay diagnostic-panel z-10">
+      <div class="flex items-center mb-4 border-b border-zinc-800 pb-2">
+        <div id="execution-status" class="status-indicator status-computing"></div>
+        <h1 class="text-sm font-bold text-zinc-100 tracking-wider">RENDERER DIAGNOSTICS CONTEXT</h1>
+      </div>
+      
+      <div class="space-y-2 text-xs text-zinc-400">
+        <div class="flex justify-between">
+          <span>Execution context:</span>
+          <span class="text-zinc-100">webGPU compute pipeline</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Temporal integration:</span>
+          <span class="text-zinc-100">exponential moving average</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Scattering model:</span>
+          <span class="text-zinc-100">Trowbridge-Reitz (GGX) microfacet</span>
+        </div>
+        <div class="flex justify-between mt-4 pt-2 border-t border-zinc-800">
+          <span>Accumulation iteration:</span>
+          <span id="stat-iteration" class="text-emerald-400 font-bold">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Spatial filter state:</span>
+          <span id="stat-filter" class="text-cyan-400">converged</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const wgslSource = `
+      struct UniformState {
+        resolution: vec2<f32>,
+        frame_index: u32,
+        time_seconds: f32,
+        camera_position: vec3<f32>,
+        padding0: f32,
+        camera_forward: vec3<f32>,
+        padding1: f32,
+        camera_right: vec3<f32>,
+        padding2: f32,
+        camera_up: vec3<f32>,
+        padding3: f32,
+        previous_camera_position: vec3<f32>,
+        padding4: f32,
+        previous_camera_forward: vec3<f32>,
+        padding5: f32,
+        previous_camera_right: vec3<f32>,
+        padding6: f32,
+        previous_camera_up: vec3<f32>,
+        padding7: f32
+      };
+
+      struct ScenePrimitive {
+        geometry_parameters: vec4<f32>,
+        reflectance_spectrum: vec4<f32>,
+        radiant_emittance: f32, 
+        surface_roughness: f32, 
+        padding: vec2<f32>
+      };
+
+      @group(0) @binding(0) var<uniform> global_state: UniformState;
+      @group(0) @binding(1) var accumulation_buffer_read: texture_2d<f32>;
+      @group(0) @binding(2) var accumulation_buffer_write: texture_storage_2d<rgba16float, write>;
+      @group(0) @binding(3) var<storage, read_write> primitive_buffer: array<ScenePrimitive>;
+      @group(0) @binding(4) var linear_interpolation_sampler: sampler;
+      @group(0) @binding(5) var downsample_destination: texture_storage_2d<rgba16float, write>;
+
+      fn compute_pcg_hash(seed: u32) -> u32 {
+        var state = seed * 747796405u + 2891336453u;
+        var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+        return (word >> 22u) ^ word;
+      }
+
+      fn evaluate_pseudorandom_float(seed: ptr<function, u32>) -> f32 {
+        *seed = compute_pcg_hash(*seed);
+        return f32(*seed) / 4294967295.0;
+      }
+
+      fn compute_octahedral_encoding(vector: vec3<f32>) -> vec2<f32> {
+        var normalised_vector = vector / (abs(vector.x) + abs(vector.y) + abs(vector.z));
+        if (normalised_vector.z < 0.0) { 
+            normalised_vector = vec3<f32>((1.0 - abs(normalised_vector.yx)) * sign(normalised_vector.xy), normalised_vector.z); 
+        }
+        return normalised_vector.xy * 0.5 + 0.5;
+      }
+
+      struct RayGeometry { origin: vec3<f32>, direction: vec3<f32> };
+      struct IntersectionRecord { intersection_distance: f32, surface_normal: vec3<f32>, intersection_coordinate: vec3<f32>, material_index: f32, is_intersecting: bool };
+      struct TransportResult { spectral_radiance: vec3<f32>, primary_intersection: IntersectionRecord };
+
+      fn evaluate_scene_signed_distance_field(coordinate: vec3<f32>) -> vec2<f32> {
+        let primitive_0 = primitive_buffer[0]; 
+        let primitive_1 = primitive_buffer[1]; 
+        let primitive_2 = primitive_buffer[2]; 
+        let distance_0 = length(coordinate - primitive_0.geometry_parameters.xyz) - primitive_0.geometry_parameters.w;
+        let distance_1 = length(coordinate - primitive_1.geometry_parameters.xyz) - primitive_1.geometry_parameters.w;
+        let distance_2 = length(coordinate - primitive_2.geometry_parameters.xyz) - primitive_2.geometry_parameters.w;
+        let distance_floor = coordinate.y;
+        
+        var minimal_distance = distance_floor; 
+        var index = 0.0;
+        
+        if (distance_0 < minimal_distance) { minimal_distance = distance_0; index = 1.0; }
+        if (distance_1 < minimal_distance) { minimal_distance = distance_1; index = 2.0; }
+        if (distance_2 < minimal_distance) { minimal_distance = distance_2; index = 3.0; }
+        return vec2<f32>(minimal_distance, index);
+      }
+
+      fn execute_sphere_tracing(ray: RayGeometry) -> IntersectionRecord {
+        var record: IntersectionRecord; 
+        record.is_intersecting = false; 
+        var ray_distance = 0.0;
+        
+        for (var iteration = 0; iteration < 180; iteration++) {
+          let evaluation = evaluate_scene_signed_distance_field(ray.origin + ray.direction * ray_distance);
+          if (evaluation.x < max(0.0005, ray_distance * 0.0001)) {
+            record.is_intersecting = true; 
+            record.intersection_distance = ray_distance;
+            record.intersection_coordinate = ray.origin + ray.direction * ray_distance;
+            record.material_index = evaluation.y;
+            let epsilon = vec2<f32>(0.0002, 0.0);
+            record.surface_normal = normalize(vec3<f32>(
+              evaluate_scene_signed_distance_field(record.intersection_coordinate + epsilon.xyy).x - evaluate_scene_signed_distance_field(record.intersection_coordinate - epsilon.xyy).x,
+              evaluate_scene_signed_distance_field(record.intersection_coordinate + epsilon.yxy).x - evaluate_scene_signed_distance_field(record.intersection_coordinate - epsilon.yxy).x,
+              evaluate_scene_signed_distance_field(record.intersection_coordinate + epsilon.yyx).x - evaluate_scene_signed_distance_field(record.intersection_coordinate - epsilon.yyx).x
+            ));
+            break;
+          }
+          ray_distance += evaluation.x * 0.95;
+          if (ray_distance > 100.0) { break; }
+        }
+        return record;
+      }
+
+      // Trowbridge-Reitz (GGX) normal distribution function
+      fn evaluate_ggx_distribution(normal_dot_half: f32, surface_roughness: f32) -> f32 {
+        let alpha = surface_roughness * surface_roughness;
+        let alpha_squared = alpha * alpha;
+        let denominator = (normal_dot_half * normal_dot_half * (alpha_squared - 1.0) + 1.0);
+        return alpha_squared / (3.14159 * denominator * denominator);
+      }
+
+      fn compute_ggx_importance_sample(surface_normal: vec3<f32>, surface_roughness: f32, seed: ptr<function, u32>) -> vec3<f32> {
+        let random_u = evaluate_pseudorandom_float(seed); 
+        let random_v = evaluate_pseudorandom_float(seed);
+        let alpha = surface_roughness * surface_roughness;
+        let azimuthal_angle = 6.283185 * random_u;
+        let cosine_polar = sqrt((1.0 - random_v) / (1.0 + (alpha * alpha - 1.0) * random_v));
+        let sine_polar = sqrt(max(0.0, 1.0 - cosine_polar * cosine_polar));
+        
+        let half_vector = vec3<f32>(sine_polar * cos(azimuthal_angle), sine_polar * sin(azimuthal_angle), cosine_polar);
+        let orthogonal_helper = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(surface_normal.x) > 0.99);
+        let tangent_vector = normalize(cross(orthogonal_helper, surface_normal));
+        let bitangent_vector = cross(surface_normal, tangent_vector);
+        
+        return normalize(tangent_vector * half_vector.x + bitangent_vector * half_vector.y + surface_normal * half_vector.z);
+      }
+
+      fn evaluate_stochastic_path(initial_ray: RayGeometry, seed: ptr<function, u32>) -> TransportResult {
+        var ray = initial_ray; 
+        var path_throughput = vec3<f32>(1.0); 
+        var accumulated_radiance = vec3<f32>(0.0);
+        var integration_result: TransportResult;
+        
+        for (var scattering_event = 0; scattering_event < 4; scattering_event++) {
+          let intersection = execute_sphere_tracing(ray);
+          if (scattering_event == 0) { integration_result.primary_intersection = intersection; }
+          if (!intersection.is_intersecting) { 
+              accumulated_radiance += path_throughput * vec3<f32>(0.08, 0.1, 0.14); 
+              break; 
+          }
+          
+          let primitive_data = primitive_buffer[u32(max(0.0, intersection.material_index - 1.0))];
+          var surface_albedo = vec3<f32>(0.8); 
+          var emittance = 0.0; 
+          var roughness = 0.15;
+          
+          if (intersection.material_index > 0.0) { 
+              surface_albedo = primitive_data.reflectance_spectrum.rgb; 
+              emittance = primitive_data.radiant_emittance; 
+              roughness = primitive_data.surface_roughness; 
+          }
+          
+          let radiance_clamp = select(15.0, 200.0, scattering_event == 0);
+          accumulated_radiance += path_throughput * min(emittance, radiance_clamp);
+          
+          let half_vector = compute_ggx_importance_sample(intersection.surface_normal, roughness, seed);
+          let probability_specular = evaluate_pseudorandom_float(seed) < (1.0 - roughness);
+          
+          ray.direction = select(reflect(ray.direction, intersection.surface_normal), reflect(ray.direction, half_vector), probability_specular);
+          ray.direction = normalize(select(compute_ggx_importance_sample(intersection.surface_normal, 1.0, seed), ray.direction, probability_specular));
+          ray.origin = intersection.intersection_coordinate + intersection.surface_normal * 0.005;
+          
+          path_throughput *= surface_albedo;
+          let termination_probability = max(max(path_throughput.x, path_throughput.y), path_throughput.z);
+          if (evaluate_pseudorandom_float(seed) > termination_probability) { break; }
+          path_throughput *= 1.0 / max(termination_probability, 0.01);
+        }
+        
+        let invalid_radiance = any(accumulated_radiance != accumulated_radiance) || any(abs(accumulated_radiance) > vec3<f32>(1000.0));
+        integration_result.spectral_radiance = select(clamp(accumulated_radiance, vec3<f32>(0.0), vec3<f32>(1000.0)), vec3<f32>(0.0), invalid_radiance);
+        return integration_result;
+      }
+
+      @compute @workgroup_size(8, 8)
+      fn compute_radiance_integration(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+        let buffer_dimensions = vec2<u32>(global_state.resolution);
+        if (thread_id.x >= buffer_dimensions.x || thread_id.y >= buffer_dimensions.y) { return; }
+        
+        var random_seed = compute_pcg_hash(thread_id.x + thread_id.y * buffer_dimensions.x + global_state.frame_index * 19283u);
+        let screen_coordinate = (vec2<f32>(thread_id.xy) + vec2<f32>(evaluate_pseudorandom_float(&random_seed), evaluate_pseudorandom_float(&random_seed))) / global_state.resolution;
+        let normalized_device_coordinate = (screen_coordinate * 2.0 - 1.0) * vec2<f32>(1.0, -1.0);
+        let aspect_ratio = global_state.resolution.x / global_state.resolution.y;
+        
+        let ray_direction = normalize(global_state.camera_forward + global_state.camera_right * normalized_device_coordinate.x * aspect_ratio + global_state.camera_up * normalized_device_coordinate.y);
+        let transport_evaluation = evaluate_stochastic_path(RayGeometry(global_state.camera_position, ray_direction), &random_seed);
+        let primary_intersection = transport_evaluation.primary_intersection;
+        
+        var previous_coordinate = vec2<f32>(-1.0); 
+        var is_reprojection_valid = false;
+        
+        if (primary_intersection.is_intersecting) {
+          let relative_position = primary_intersection.intersection_coordinate - global_state.previous_camera_position;
+          let view_depth = dot(relative_position, global_state.previous_camera_forward);
+          if (view_depth > 0.1) {
+            let relative_right = dot(relative_position, global_state.previous_camera_right); 
+            let relative_up = dot(relative_position, global_state.previous_camera_up);
+            previous_coordinate = vec2<f32>(relative_right / (view_depth * aspect_ratio), -relative_up / view_depth) * 0.5 + 0.5;
+            
+            if (all(previous_coordinate >= vec2<f32>(0.0)) && all(previous_coordinate <= vec2<f32>(1.0))) {
+              let temporal_history = textureSampleLevel(accumulation_buffer_read, linear_interpolation_sampler, previous_coordinate, 0.0);
+              let geometric_divergence = length(unpack2x16unorm(bitcast<u32>(temporal_history.a)) - compute_octahedral_encoding(primary_intersection.surface_normal));
+              if (geometric_divergence < 0.015) { is_reprojection_valid = true; }
+            }
+          }
+        }
+
+        // 3x3 spatial neighbourhood variance clipping for temporal reprojection stabilisation
+        var neighbourhood_colour_sum = vec3<f32>(0.0);
+        var neighbourhood_colour_squared_sum = vec3<f32>(0.0);
+        
+        for (var spatial_y = -1; spatial_y <= 1; spatial_y++) {
+          for (var spatial_x = -1; spatial_x <= 1; spatial_x++) {
+            let spatial_neighbour = textureLoad(accumulation_buffer_read, vec2<u32>(vec2<i32>(thread_id.xy) + vec2<i32>(spatial_x, spatial_y)), 0).rgb;
+            neighbourhood_colour_sum += spatial_neighbour;
+            neighbourhood_colour_squared_sum += spatial_neighbour * spatial_neighbour;
+          }
+        }
+        
+        let statistical_mean = neighbourhood_colour_sum / 9.0;
+        let statistical_variance = sqrt(max(vec3<f32>(0.0), (neighbourhood_colour_squared_sum / 9.0) - (statistical_mean * statistical_mean)));
+        let minimal_colour_bound = statistical_mean - 1.5 * statistical_variance;
+        let maximal_colour_bound = statistical_mean + 1.5 * statistical_variance;
+
+        let accumulation_age = f32(global_state.frame_index + 1u);
+        var temporal_weight = clamp(1.0 - (1.0 / accumulation_age), 0.0, 0.98); 
+        if (!is_reprojection_valid) { temporal_weight = 0.0; }
+        
+        var history_colour = vec3<f32>(0.0);
+        if (is_reprojection_valid) { 
+          // bilinear reprojection interpolation
+          history_colour = textureSampleLevel(accumulation_buffer_read, linear_interpolation_sampler, previous_coordinate, 0.0).rgb;
+          // radiometric clipping ensures uniform noise variance distribution between integration phases
+          history_colour = clamp(history_colour, minimal_colour_bound, maximal_colour_bound);
+        }
+        
+        let integrated_radiance = mix(transport_evaluation.spectral_radiance, history_colour, temporal_weight);
+        let normal_encoded = bitcast<f32>(pack2x16unorm(compute_octahedral_encoding(primary_intersection.surface_normal)));
+        
+        textureStore(accumulation_buffer_write, thread_id.xy, vec4<f32>(integrated_radiance, normal_encoded));
+      }
+
+      @compute @workgroup_size(8, 8)
+      fn compute_hierarchical_downsample(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+        let destination_dimensions = textureDimensions(downsample_destination);
+        if (thread_id.x >= destination_dimensions.x || thread_id.y >= destination_dimensions.y) { return; }
+        
+        let coordinate_base = vec2<i32>(thread_id.xy) * 2;
+        let texel_00 = textureLoad(accumulation_buffer_read, coordinate_base + vec2<i32>(0, 0), 0);
+        let texel_10 = textureLoad(accumulation_buffer_read, coordinate_base + vec2<i32>(1, 0), 0);
+        let texel_01 = textureLoad(accumulation_buffer_read, coordinate_base + vec2<i32>(0, 1), 0);
+        let texel_11 = textureLoad(accumulation_buffer_read, coordinate_base + vec2<i32>(1, 1), 0);
+        
+        textureStore(downsample_destination, thread_id.xy, (texel_00 + texel_10 + texel_01 + texel_11) * 0.25);
+      }
+
+      @compute @workgroup_size(64)
+      fn update_scene_state(@builtin(global_invocation_id) thread_id: vec3<u32>) {
+        if (thread_id.x >= arrayLength(&primitive_buffer)) { return; }
+        var active_primitive = primitive_buffer[thread_id.x];
+        if (active_primitive.radiant_emittance > 0.0) { 
+            active_primitive.radiant_emittance = 14.0 + sin(global_state.time_seconds * 1.5) * 4.0; 
+        }
+        primitive_buffer[thread_id.x] = active_primitive;
+      }
+
+      @vertex
+      fn execute_vertex_shader(@builtin(vertex_index) index: u32) -> @builtin(position) vec4<f32> {
+        var vertex_positions = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+        return vec4<f32>(vertex_positions[index], 0.0, 1.0);
+      }
+
+      @fragment
+      fn execute_fragment_shader(@builtin(position) fragment_position: vec4<f32>) -> @location(0) vec4<f32> {
+        let pixel_coordinate = vec2<i32>(fragment_position.xy);
+        let normalized_coordinate = fragment_position.xy / global_state.resolution;
+        let centre_sample = textureLoad(accumulation_buffer_read, vec2<u32>(pixel_coordinate), 0);
+        var fragment_colour = centre_sample.rgb;
+        
+        let relative_luminance = dot(fragment_colour, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let is_luminance_minimum = relative_luminance < 0.01;
+        let frame_age = f32(global_state.frame_index);
+        let filter_coefficient = select(clamp(1.0 - (frame_age / 120.0), 0.0, 1.0), 1.0, is_luminance_minimum);
+
+        if (filter_coefficient > 0.01) {
+            let encoded_normal_centre = unpack2x16unorm(bitcast<u32>(centre_sample.a));
+            var hierarchical_colour = vec3<f32>(0.0);
+            var hierarchical_weight = 0.0001;
+            let spatial_scales = array<f32, 4>(1.0, 2.0, 3.0, 4.0);
+            
+            for (var level = 0; level < 4; level++) {
+              let level_of_detail = spatial_scales[level];
+              let macroscopic_state = textureSampleLevel(accumulation_buffer_read, linear_interpolation_sampler, normalized_coordinate, level_of_detail);
+              let geometric_affinity = exp(-length(unpack2x16unorm(bitcast<u32>(macroscopic_state.a)) - encoded_normal_centre) * 20.0);
+              let scale_influence = exp(-level_of_detail * 0.4) * geometric_affinity;
+              
+              hierarchical_colour += macroscopic_state.rgb * scale_influence;
+              hierarchical_weight += scale_influence;
+            }
+            
+            fragment_colour = mix(fragment_colour, hierarchical_colour / hierarchical_weight, select(0.15, 0.85, is_luminance_minimum) * filter_coefficient);
+            
+            var bilateral_colour = fragment_colour; 
+            var bilateral_weight = 1.0;
+            
+            for (var spatial_y = -1; spatial_y <= 1; spatial_y++) {
+              for (var spatial_x = -1; spatial_x <= 1; spatial_x++) {
+                if (spatial_x == 0 && spatial_y == 0) { continue; }
+                let sample_coordinate = vec2<u32>(clamp(pixel_coordinate + vec2<i32>(spatial_x, spatial_y), vec2<i32>(0), vec2<i32>(global_state.resolution) - 1));
+                let adjacent_sample = textureLoad(accumulation_buffer_read, sample_coordinate, 0);
+                let affinity_weight = exp(-length(unpack2x16unorm(bitcast<u32>(adjacent_sample.a)) - encoded_normal_centre) * 35.0) * filter_coefficient;
+                
+                bilateral_colour += adjacent_sample.rgb * affinity_weight; 
+                bilateral_weight += affinity_weight;
+              }
+            }
+            fragment_colour = mix(fragment_colour, bilateral_colour / bilateral_weight, filter_coefficient);
+        }
+        
+        // Academy Colour Encoding System (ACES) luminance compression curve
+        let coefficient_a = 2.51; 
+        let coefficient_b = 0.03; 
+        let coefficient_c = 2.43; 
+        let coefficient_d = 0.59; 
+        let coefficient_e = 0.14;
+        
+        let tone_mapped_colour = saturate((fragment_colour * (coefficient_a * fragment_colour + coefficient_b)) / (fragment_colour * (coefficient_c * fragment_colour + coefficient_d) + coefficient_e));
+        return vec4<f32>(pow(tone_mapped_colour, vec3<f32>(0.4545)), 1.0);
+      }
+    `;
+
+    class StochasticLightTransport {
+      constructor(canvas) {
+        this.canvas = canvas; 
+        this.context = canvas.getContext('webgpu'); 
+        this.frame_index = 0;
+        this.camera = { 
+            position: [0.0, 3.0, -14.0], 
+            previous_position: [0.0, 3.0, -14.0], 
+            forward: [0.0, 0.0, 1.0], 
+            previous_forward: [0.0, 0.0, 1.0], 
+            right: [1.0, 0.0, 0.0], 
+            previous_right: [1.0, 0.0, 0.0], 
+            up: [0.0, 1.0, 0.0], 
+            previous_up: [0.0, 1.0, 0.0], 
+            yaw: Math.PI / 2, 
+            pitch: 0.0, 
+            is_translating: false 
+        };
+        this.keyboard_state = {}; 
+        this.mouse_state = { is_down: false, last_x: 0, last_y: 0, delta_x: 0, delta_y: 0 };
+        this.ui = { 
+            iteration_counter: document.getElementById('stat-iteration'), 
+            spatial_filter_state: document.getElementById('stat-filter') 
+        };
+      }
+
+      async initialise_graphics_context() {
+        if (!navigator.gpu) return;
+        this.graphics_adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        this.logical_device = await this.graphics_adapter.requestDevice();
+        this.canvas.width = window.innerWidth; 
+        this.canvas.height = window.innerHeight;
+        
+        this.context.configure({ 
+            device: this.logical_device, 
+            format: navigator.gpu.getPreferredCanvasFormat(), 
+            alphaMode: 'premultiplied' 
+        });
+        
+        const shader_module = this.logical_device.createShaderModule({ code: wgslSource });
+        this.linear_sampler = this.logical_device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+        
+        this.compute_bind_layout = this.logical_device.createBindGroupLayout({ 
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }, 
+                { binding: 1, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }, 
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba16float' } }, 
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, 
+                { binding: 4, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }
+            ] 
+        });
+        
+        this.hierarchical_bind_layout = this.logical_device.createBindGroupLayout({ 
+            entries: [
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float' } }, 
+                { binding: 5, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba16float' } }
+            ] 
+        });
+        
+        this.pipeline_states = { 
+            compute: this.logical_device.createComputePipeline({ layout: this.logical_device.createPipelineLayout({ bindGroupLayouts: [this.compute_bind_layout] }), compute: { module: shader_module, entryPoint: 'compute_radiance_integration' } }), 
+            update: this.logical_device.createComputePipeline({ layout: this.logical_device.createPipelineLayout({ bindGroupLayouts: [this.compute_bind_layout] }), compute: { module: shader_module, entryPoint: 'update_scene_state' } }), 
+            downsample: this.logical_device.createComputePipeline({ layout: this.logical_device.createPipelineLayout({ bindGroupLayouts: [this.hierarchical_bind_layout] }), compute: { module: shader_module, entryPoint: 'compute_hierarchical_downsample' } }), 
+            render: this.logical_device.createRenderPipeline({ layout: this.logical_device.createPipelineLayout({ bindGroupLayouts: [this.compute_bind_layout] }), vertex: { module: shader_module, entryPoint: 'execute_vertex_shader' }, fragment: { module: shader_module, entryPoint: 'execute_fragment_shader', targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }] } }) 
+        };
+        
+        this.uniform_buffer = this.logical_device.createBuffer({ size: 320, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        this.uniform_payload = new Float32Array(80);
+        
+        this.allocate_texture_resources(); 
+        this.register_input_listeners(); 
+        this.execute_render_loop();
+      }
+
+      allocate_texture_resources() {
+        this.mip_level_count = 6;
+        const allocate_texture = () => this.logical_device.createTexture({ size: [this.canvas.width, this.canvas.height], format: 'rgba16float', mipLevelCount: this.mip_level_count, usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST });
+        this.accumulation_textures = [allocate_texture(), allocate_texture()];
+        
+        const primitive_data = new Float32Array([-1.5, 1.0, 0.0, 1.0, 0.2, 0.7, 0.3, 0.0, 0.0, 0.3, 0.0, 0.0, 1.5, 1.0, 0.0, 1.0, 0.7, 0.2, 0.7, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 5.0, -2.0, 1.5, 0.0, 0.0, 0.0, 0.0, 15.0, 1.0, 0.0, 0.0]);
+        this.primitive_buffer = this.logical_device.createBuffer({ size: primitive_data.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        this.logical_device.queue.writeBuffer(this.primitive_buffer, 0, primitive_data);
+        
+        this.compute_bind_groups = [0, 1].map(index => this.logical_device.createBindGroup({ layout: this.compute_bind_layout, entries: [{ binding: 0, resource: { buffer: this.uniform_buffer } }, { binding: 1, resource: this.accumulation_textures[index].createView() }, { binding: 2, resource: this.accumulation_textures[1 - index].createView({ baseMipLevel: 0, mipLevelCount: 1 }) }, { binding: 3, resource: { buffer: this.primitive_buffer } }, { binding: 4, resource: this.linear_sampler }] }));
+        this.hierarchical_bind_groups = [[], []];
+        
+        for (let target_index = 0; target_index < 2; target_index++) { 
+            for (let level = 1; level < this.mip_level_count; level++) { 
+                this.hierarchical_bind_groups[target_index].push(this.logical_device.createBindGroup({ layout: this.hierarchical_bind_layout, entries: [{ binding: 1, resource: this.accumulation_textures[target_index].createView({ baseMipLevel: level - 1, mipLevelCount: 1 }) }, { binding: 5, resource: this.accumulation_textures[target_index].createView({ baseMipLevel: level, mipLevelCount: 1 }) }] })); 
+            } 
+        }
+        
+        this.render_bind_groups = [0, 1].map(index => this.logical_device.createBindGroup({ layout: this.compute_bind_layout, entries: [{ binding: 0, resource: { buffer: this.uniform_buffer } }, { binding: 1, resource: this.accumulation_textures[index].createView() }, { binding: 2, resource: this.accumulation_textures[1 - index].createView({ baseMipLevel: 0, mipLevelCount: 1 }) }, { binding: 3, resource: { buffer: this.primitive_buffer } }, { binding: 4, resource: this.linear_sampler }] }));
+      }
+
+      register_input_listeners() {
+        window.addEventListener('keydown', event => this.keyboard_state[event.code] = true);
+        window.addEventListener('keyup', event => this.keyboard_state[event.code] = false);
+        this.canvas.addEventListener('mousedown', event => { this.mouse_state.is_down = true; this.mouse_state.last_x = event.clientX; this.mouse_state.last_y = event.clientY; });
+        window.addEventListener('mouseup', () => { this.mouse_state.is_down = false; this.mouse_state.delta_x = 0; this.mouse_state.delta_y = 0; });
+        window.addEventListener('mousemove', event => { if (!this.mouse_state.is_down) return; this.mouse_state.delta_x += event.clientX - this.mouse_state.last_x; this.mouse_state.delta_y += event.clientY - this.mouse_state.last_y; this.mouse_state.last_x = event.clientX; this.mouse_state.last_y = event.clientY; });
+      }
+
+      compute_camera_transform() {
+        const translation_velocity = 0.12, rotation_velocity = 0.035; 
+        let has_transform_updated = false;
+        
+        Object.assign(this.camera, { previous_position: [...this.camera.position], previous_forward: [...this.camera.forward], previous_right: [...this.camera.right], previous_up: [...this.camera.up] });
+        
+        const rotation_clamp = 25.0; 
+        let delta_yaw = Math.max(-rotation_clamp, Math.min(rotation_clamp, this.mouse_state.delta_x));
+        let delta_pitch = Math.max(-rotation_clamp, Math.min(rotation_clamp, this.mouse_state.delta_y));
+        
+        if (delta_yaw !== 0 || delta_pitch !== 0) { this.camera.yaw -= delta_yaw * 0.004; this.camera.pitch += delta_pitch * 0.004; has_transform_updated = true; }
+        this.mouse_state.delta_x -= delta_yaw; this.mouse_state.delta_y -= delta_pitch;
+        
+        if (this.keyboard_state['ArrowLeft']) { this.camera.yaw += rotation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['ArrowRight']) { this.camera.yaw -= rotation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['ArrowUp']) { this.camera.pitch += rotation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['ArrowDown']) { this.camera.pitch -= rotation_velocity; has_transform_updated = true; }
+        
+        this.camera.pitch = Math.max(-1.5, Math.min(1.5, this.camera.pitch));
+        this.camera.forward = [Math.cos(this.camera.pitch) * Math.cos(this.camera.yaw), Math.sin(this.camera.pitch), Math.cos(this.camera.pitch) * Math.sin(this.camera.yaw)];
+        
+        const up_vector = [0, 1, 0]; 
+        let right_x = up_vector[1] * this.camera.forward[2] - up_vector[2] * this.camera.forward[1];
+        let right_y = up_vector[2] * this.camera.forward[0] - up_vector[0] * this.camera.forward[2];
+        let right_z = up_vector[0] * this.camera.forward[1] - up_vector[1] * this.camera.forward[0];
+        let right_magnitude = Math.sqrt(right_x*right_x + right_y*right_y + right_z*right_z);
+        
+        this.camera.right = [right_x/right_magnitude, right_y/right_magnitude, right_z/right_magnitude];
+        this.camera.up = [this.camera.forward[1] * this.camera.right[2] - this.camera.forward[2] * this.camera.right[1], this.camera.forward[2] * this.camera.right[0] - this.camera.forward[0] * this.camera.right[2], this.camera.forward[0] * this.camera.right[1] - this.camera.forward[1] * this.camera.right[0]];
+        
+        if (this.keyboard_state['KeyW']) { this.camera.position[0] += this.camera.forward[0]*translation_velocity; this.camera.position[1] += this.camera.forward[1]*translation_velocity; this.camera.position[2] += this.camera.forward[2]*translation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['KeyS']) { this.camera.position[0] -= this.camera.forward[0]*translation_velocity; this.camera.position[1] -= this.camera.forward[1]*translation_velocity; this.camera.position[2] -= this.camera.forward[2]*translation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['KeyA']) { this.camera.position[0] -= this.camera.right[0]*translation_velocity; this.camera.position[1] -= this.camera.right[1]*translation_velocity; this.camera.position[2] -= this.camera.right[2]*translation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['KeyD']) { this.camera.position[0] += this.camera.right[0]*translation_velocity; this.camera.position[1] += this.camera.right[1]*translation_velocity; this.camera.position[2] += this.camera.right[2]*translation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['Space']) { this.camera.position[1] += translation_velocity; has_transform_updated = true; }
+        if (this.keyboard_state['ShiftLeft']) { this.camera.position[1] -= translation_velocity; has_transform_updated = true; }
+        
+        if (has_transform_updated) { 
+            this.ui.spatial_filter_state.textContent = 'spatial filtering (variance-clipped)'; 
+            this.ui.spatial_filter_state.className = 'text-cyan-400'; 
+        }
+        else if (this.frame_index > 120) { 
+            this.ui.spatial_filter_state.textContent = 'converged'; 
+            this.ui.spatial_filter_state.className = 'text-emerald-400'; 
+        }
+      }
+
+      execute_render_loop() {
+        this.compute_camera_transform();
+        this.uniform_payload.set([this.canvas.width, this.canvas.height, this.frame_index, performance.now()/1000, ...this.camera.position, 0.0, ...this.camera.forward, 0, ...this.camera.right, 0, ...this.camera.up, 0, ...this.camera.previous_position, 0, ...this.camera.previous_forward, 0, ...this.camera.previous_right, 0, ...this.camera.previous_up, 0]);
+        this.logical_device.queue.writeBuffer(this.uniform_buffer, 0, this.uniform_payload);
+        
+        const command_encoder = this.logical_device.createCommandEncoder();
+        const state_index = this.frame_index % 2;
+        
+        const update_pass = command_encoder.beginComputePass(); 
+        update_pass.setPipeline(this.pipeline_states.update); 
+        update_pass.setBindGroup(0, this.compute_bind_groups[state_index]); 
+        update_pass.dispatchWorkgroups(1); 
+        update_pass.end();
+        
+        const integration_pass = command_encoder.beginComputePass(); 
+        integration_pass.setPipeline(this.pipeline_states.compute); 
+        integration_pass.setBindGroup(0, this.compute_bind_groups[state_index]); 
+        integration_pass.dispatchWorkgroups(Math.ceil(this.canvas.width/8), Math.ceil(this.canvas.height/8)); 
+        integration_pass.end();
+        
+        const filter_pass = command_encoder.beginComputePass(); 
+        filter_pass.setPipeline(this.pipeline_states.downsample);
+        for (let level = 1; level < this.mip_level_count; level++) { 
+            filter_pass.setBindGroup(0, this.hierarchical_bind_groups[1 - state_index][level - 1]); 
+            filter_pass.dispatchWorkgroups(Math.max(1, Math.ceil((this.canvas.width/Math.pow(2,level))/8)), Math.max(1, Math.ceil((this.canvas.height/Math.pow(2,level))/8))); 
+        }
+        filter_pass.end();
+        
+        const render_pass = command_encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: {r:0,g:0,b:0,a:1} }] });
+        render_pass.setPipeline(this.pipeline_states.render); 
+        render_pass.setBindGroup(0, this.render_bind_groups[state_index]); 
+        render_pass.draw(3); 
+        render_pass.end();
+        
+        this.logical_device.queue.submit([command_encoder.finish()]);
+        
+        this.frame_index++; 
+        this.ui.iteration_counter.textContent = this.frame_index;
+        
+        requestAnimationFrame(() => this.execute_render_loop());
+      }
+    }
+    
+    window.onload = () => new StochasticLightTransport(document.getElementById('render-canvas')).initialise_graphics_context();
+  </script>
+</body>
+</html>

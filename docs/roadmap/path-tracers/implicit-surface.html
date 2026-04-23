@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Implicit surface Monte Carlo path tracer: deterministic analytic execution.">
+  <title>Monte Carlo path tracer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    html,
+    body {
+      background: #020617;
+      color: #a1a1aa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      padding: 0;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100%;
+      width: 100%;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500/30">
+  <div class="relative w-full h-screen bg-[#020617] overflow-hidden">
+    <canvas id="renderCanvas" class="block w-full h-full cursor-crosshair touch-none"></canvas>
+
+    <div class="absolute top-8 left-8 pointer-events-none select-none z-10 transition-opacity duration-500"
+         id="stats-overlay"
+         style="opacity: 0; transform: translateY(-20px); transition: all 0.5s ease-out;">
+      <div class="space-y-0.5">
+        <h1 class="text-white text-[10px] tracking-[0.3em] uppercase opacity-40 font-bold">
+          Radiative transfer simulation: build 4.9.11
+        </h1>
+        <p class="text-[10px] text-zinc-600 tracking-widest uppercase">
+          Memory architecture: static allocation and loop unrolling
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2 mt-4">
+        <div class="flex items-center space-x-3 bg-zinc-950/50 backdrop-blur-sm px-3 py-2 border border-zinc-800/50 rounded-sm w-max">
+          <div id="status-dot" class="w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]"></div>
+          <div class="flex flex-col">
+            <span class="text-emerald-500/80 text-[10px] font-bold tracking-tighter uppercase mb-0.5">
+              Compute kernel state: deterministic execution
+            </span>
+            <span id="convergence-label" class="text-white text-sm tabular-nums tracking-tighter font-medium underline underline-offset-4 decoration-emerald-500/20">
+              Temporal accumulation iteration: 1
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 bg-zinc-950/50 backdrop-blur-sm px-3 py-2 border border-zinc-800/50 rounded-sm w-max">
+          <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-widest">Topological characteristics: Betti numbers</span>
+          <div class="flex gap-4">
+            <div class="flex flex-col"><span class="text-zinc-600 text-[8px]">B0</span><span id="betti-0" class="text-white text-xs tabular-nums">0</span></div>
+            <div class="flex flex-col"><span class="text-zinc-600 text-[8px]">B1</span><span id="betti-1" class="text-white text-xs tabular-nums">0</span></div>
+            <div class="flex flex-col"><span class="text-zinc-600 text-[8px]">B2</span><span id="betti-2" class="text-white text-xs tabular-nums">0</span></div>
+          </div>
+        </div>
+
+        <div class="flex items-center space-x-3 bg-zinc-950/50 backdrop-blur-sm px-3 py-2 border border-zinc-800/50 rounded-sm w-max">
+          <div class="flex flex-col">
+            <span class="text-zinc-500 text-[9px] font-bold tracking-tighter uppercase mb-0.5">
+              Cryptographic provenance
+            </span>
+            <span id="provenance-hash" class="text-zinc-400 text-[9px] tabular-nums tracking-widest font-mono uppercase">
+              0x...
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="absolute top-8 right-8 z-10"
+         id="control-panel"
+         style="opacity: 0; transform: translateX(20px); transition: all 0.5s ease-out;">
+      <div class="bg-zinc-950/50 backdrop-blur-md border border-zinc-900 px-4 py-4 rounded-lg space-y-4">
+        <div class="space-y-1 border-b border-zinc-900 pb-2">
+          <h3 class="text-zinc-500 text-[9px] uppercase tracking-[0.2em] font-bold">Rendering parameters</h3>
+        </div>
+        
+        <div class="flex items-center justify-between gap-8">
+          <div class="flex flex-col gap-0.5 pointer-events-none">
+            <span class="text-white text-[10px] font-medium tracking-tight">Implicit surface evaluation</span>
+            <span class="text-zinc-500 text-[8px] uppercase tracking-tighter">Non-Euclidean coordinate transformation</span>
+          </div>
+          
+          <button id="checkerboard-btn"
+                  class="relative w-10 h-5 rounded-full transition-colors duration-200 focus:outline-none bg-zinc-800 cursor-pointer">
+            <div id="checkerboard-knob"
+                 class="absolute top-1 w-3 h-3 bg-white rounded-full transition-transform duration-200 translate-x-1 pointer-events-none"></div>
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <div id="instructions"
+         class="absolute bottom-8 left-1/2 -translate-x-1/2 flex items-center gap-6 px-6 py-3 bg-zinc-950/40 backdrop-blur-md border border-zinc-900 rounded-full z-10 pointer-events-none"
+         style="opacity: 0; transition: opacity 1s ease 1s;">
+      <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500">
+        <span>Translation vector modification: keys W, A, S, D</span>
+      </div>
+      <div class="w-px h-3 bg-zinc-800"></div>
+      <div class="flex items-center gap-2 text-[10px] uppercase tracking-widest text-zinc-500">
+        <span>Orientation tensor modification: directional arrow keys</span>
+      </div>
+    </div>
+
+    <div id="error-overlay"
+         class="absolute inset-0 z-50 flex items-center justify-center p-8 bg-black/90 backdrop-blur-xl hidden">
+      <div class="max-w-md w-full border border-rose-900/50 bg-rose-950/10 p-8 rounded-lg text-center space-y-6">
+        <div class="space-y-2">
+          <h2 class="text-rose-500 text-[11px] font-bold uppercase tracking-[0.2em]">Execution context exception</h2>
+        </div>
+        <p id="error-msg" class="text-zinc-400 text-xs leading-relaxed font-mono px-4"></p>
+        <button onclick="window.location.reload()"
+                class="px-6 py-2 bg-rose-950 text-rose-500 text-[10px] uppercase font-bold tracking-widest border border-rose-900 hover:bg-rose-900 transition-colors rounded-sm cursor-pointer">
+          Reinitialise API context
+        </button>
+      </div>
+    </div>
+  </div>
+
+<script>
+/**
+ * RadiativeTransferContext: computes analytic non-Euclidean radiative transfer equations and evaluates scalar phase-fields.
+ */
+class RadiativeTransferContext {
+  constructor(canvasElement, exceptionCallbackFunction) {
+    this.hardwareDevice = null;
+    this.graphicsContext = null;
+    this.renderFormat = 'rgba8unorm';
+    this.temporalAccumulationBuffer = null;
+    this.uniformParametersBuffer = null;
+    this.sceneGraphBuffer = null;
+    this.sceneGraphDataU32 = new Uint32Array(256); 
+    this.sceneGraphDataF32 = new Float32Array(this.sceneGraphDataU32.buffer);
+    this.uniformParametersF32 = new Float32Array(40);
+    this.uniformParametersU32 = new Uint32Array(this.uniformParametersF32.buffer);
+    this.computeShaderPipeline = null;
+    this.displayShaderPipeline = null;
+    this.booleanEvaluationState = false;
+    this.temporalAccumulationFrame = 0;
+    this.internalSimulationTime = 0.0;
+    this.previousFrameTimestamp = 0.0;
+    this.filteredDeltaTemporalScalar = 0.016; 
+    this.renderCanvas = canvasElement;
+    this.exceptionCallback = exceptionCallbackFunction;
+    this.previousViewFrustumState = "";
+  }
+
+  async executeContextInitialisation(viewFrustumState, keyboardState) {
+    if (!navigator.gpu) {
+      this.exceptionCallback('Hardware abstraction layer unavailable: WebGPU API requirement unmet.');
+      return;
+    }
+    try {
+      const adapterInstance = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+      if (!adapterInstance) throw new Error('Hardware adapter instance acquisition failed.');
+      this.hardwareDevice = await adapterInstance.requestDevice();
+      this.renderFormat = navigator.gpu.getPreferredCanvasFormat();
+      this.graphicsContext = this.renderCanvas.getContext('webgpu');
+      
+      this.initialiseCanvasDimensions();
+      await this.initialiseHardwareResources();
+      await this.compileShaderPipelines();
+      await this.computeCryptographicHash();
+      
+      this.previousFrameTimestamp = performance.now();
+      this.dispatchRenderIteration(this.previousFrameTimestamp);
+    } catch (runtimeException) {
+      this.exceptionCallback(`API execution context exception: ${runtimeException.message}`);
+    }
+  }
+
+  async computeCryptographicHash() {
+    const stringEncoder = new TextEncoder();
+    const encodedData = stringEncoder.encode("Radiative transfer simulation – cryptographic digest generation");
+    const digestBuffer = await crypto.subtle.digest('SHA-256', encodedData);
+    const hexadecimalHash = Array.from(new Uint8Array(digestBuffer)).map(byteSequence => byteSequence.toString(16).padStart(2, '0')).join('').substring(0, 16);
+    const provenanceElement = document.getElementById('provenance-hash');
+    if (provenanceElement) provenanceElement.textContent = `0x${hexadecimalHash}`;
+  }
+
+  initialiseCanvasDimensions() {
+    if (!this.hardwareDevice || !this.graphicsContext) return;
+    const displayPixelRatio = Math.min(window.devicePixelRatio || 1.0, 1.0); 
+    this.renderCanvas.width = Math.floor(this.renderCanvas.clientWidth * displayPixelRatio);
+    this.renderCanvas.height = Math.floor(this.renderCanvas.clientHeight * displayPixelRatio);
+    this.graphicsContext.configure({
+      device: this.hardwareDevice,
+      format: this.renderFormat,
+      alphaMode: 'premultiplied',
+    });
+  }
+
+  computeTopologicalInvariants(primitiveGeometries) {
+    let topologicalEdges = 0;
+    let bettiZero = primitiveGeometries.length;
+    
+    for (let iteratorI = 0; iteratorI < primitiveGeometries.length; iteratorI++) {
+      for (let iteratorJ = iteratorI + 1; iteratorJ < primitiveGeometries.length; iteratorJ++) {
+        const deltaX = primitiveGeometries[iteratorI][0] - primitiveGeometries[iteratorJ][0];
+        const deltaY = primitiveGeometries[iteratorI][1] - primitiveGeometries[iteratorJ][1];
+        const deltaZ = primitiveGeometries[iteratorI][2] - primitiveGeometries[iteratorJ][2];
+        const euclideanDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY + deltaZ * deltaZ);
+        const intersectionThreshold = (primitiveGeometries[iteratorI][3] + primitiveGeometries[iteratorJ][3]) * 1.2;
+        
+        if (euclideanDistance < intersectionThreshold) {
+          topologicalEdges++;
+          bettiZero--;
+        }
+      }
+    }
+    
+    bettiZero = Math.max(1, bettiZero);
+    const bettiOne = Math.max(0, topologicalEdges - primitiveGeometries.length + bettiZero);
+    
+    document.getElementById('betti-0').textContent = bettiZero.toString();
+    document.getElementById('betti-1').textContent = bettiOne.toString();
+    document.getElementById('betti-2').textContent = '0';
+  }
+
+  async initialiseHardwareResources() {
+    if (!this.hardwareDevice) return;
+    
+    const pixelScalarCount = this.renderCanvas.width * this.renderCanvas.height;
+    this.temporalAccumulationBuffer = this.hardwareDevice.createBuffer({
+      size: pixelScalarCount * 16,
+      usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+    });
+    
+    this.uniformParametersBuffer = this.hardwareDevice.createBuffer({ size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    this.sceneGraphBuffer = this.hardwareDevice.createBuffer({ size: 1024, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+    
+    // Four primitive geometries are defined for the simulation.
+    const implicitPrimitiveGeometries = [
+      [-4.0, 1.5, 0.0, 1.5, 1, 0], 
+      [0.0, 1.5, 0.0, 1.5, 3, 0], 
+      [4.0, 1.5, 0.0, 1.5, 2, 0], 
+      [-8.0, 12.0, 6.0, 4.0, 4, 1], 
+    ];
+    
+    this.computeTopologicalInvariants(implicitPrimitiveGeometries);
+    
+    this.sceneGraphDataU32[0] = implicitPrimitiveGeometries.length;
+    let memoryPointer = 4; 
+    
+    implicitPrimitiveGeometries.forEach((geometryParameters) => {
+      this.sceneGraphDataF32[memoryPointer + 0] = geometryParameters[0];
+      this.sceneGraphDataF32[memoryPointer + 1] = geometryParameters[1];
+      this.sceneGraphDataF32[memoryPointer + 2] = geometryParameters[2];
+      this.sceneGraphDataF32[memoryPointer + 3] = geometryParameters[3];
+      this.sceneGraphDataU32[memoryPointer + 4] = geometryParameters[4];
+      this.sceneGraphDataU32[memoryPointer + 5] = geometryParameters[5];
+      this.sceneGraphDataF32[memoryPointer + 6] = (geometryParameters[3] + 0.1) * (geometryParameters[3] + 0.1); 
+      this.sceneGraphDataU32[memoryPointer + 7] = 0;
+      memoryPointer += 8;
+    });
+    
+    this.hardwareDevice.queue.writeBuffer(this.sceneGraphBuffer, 0, this.sceneGraphDataU32);
+  }
+
+  async compileShaderPipelines() {
+    const sourceCodeComputeShader = `
+      struct UniformParameters {
+        inverse_view_projection_matrix: mat4x4<f32>,
+        padding_matrix: mat4x4<f32>,
+        camera_position_vector: vec4<f32>,
+        viewport_resolution_vector: vec2<f32>,
+        accumulation_iteration: u32,
+        simulation_time: f32,
+      };
+
+      struct BoundingVolume {
+        bounding_sphere: vec4<f32>,
+        material_parameters: vec4<u32>,
+      };
+
+      struct SceneGraph {
+        geometry_count: vec4<u32>, 
+        geometries: array<BoundingVolume, 16>,
+      };
+
+      const GEOMETRY_COUNT: u32 = ${this.sceneGraphDataU32[0]}u;
+
+      @group(0) @binding(0) var<uniform> uniform_struct: UniformParameters;
+      @group(0) @binding(1) var<storage, read_write> accumulation_tensor: array<vec4<f32>>;
+      @group(0) @binding(2) var<uniform> scene_graph_struct: SceneGraph;
+
+      struct Ray { origin_vector: vec3<f32>, direction_vector: vec3<f32> };
+      struct IntersectionRecord { intersection_scalar_t: f32, normal_vector: vec3<f32>, material_index: u32, is_emissive_boolean: bool };
+
+      fn compute_quasirandom_sequence_r2(sequence_index: u32) -> vec2<f32> {
+        let golden_ratio_generalised = 1.32471795724474602596;
+        let alpha_one = 1.0 / golden_ratio_generalised;
+        let alpha_two = 1.0 / (golden_ratio_generalised * golden_ratio_generalised);
+        let sequence_scalar = f32(sequence_index);
+        return fract(vec2<f32>(0.5 + alpha_one * sequence_scalar, 0.5 + alpha_two * sequence_scalar)) - 0.5;
+      }
+
+      fn compute_mobius_vector_addition(vector_alpha: vec3<f32>, vector_beta: vec3<f32>) -> vec3<f32> {
+        let inverse_curvature = 0.01;
+        let scaled_alpha = vector_alpha * inverse_curvature;
+        let scaled_beta = vector_beta * inverse_curvature;
+        let dot_product_scalar = dot(scaled_alpha, scaled_beta); 
+        let magnitude_squared_alpha = dot(scaled_alpha, scaled_alpha); 
+        let magnitude_squared_beta = dot(scaled_beta, scaled_beta);
+        let denominator_scalar = 1.0 / max(1.0 + 2.0 * dot_product_scalar + magnitude_squared_alpha * magnitude_squared_beta, 1e-7);
+        let resultant_vector = ((1.0 + 2.0 * dot_product_scalar + magnitude_squared_beta) * scaled_alpha + (1.0 - magnitude_squared_alpha) * scaled_beta) * denominator_scalar;
+        return resultant_vector * 100.0;
+      }
+
+      fn evaluate_implicit_surface_scalar_field(position_vector: vec3<f32>) -> vec3<f32> {
+        var amplitude_scalar = 0.0;
+        var surface_material_index = 0u;
+        var emissive_boolean_integer = 0u;
+        var maximum_weight = 0.0;
+        
+        for (var iterator_index = 0u; iterator_index < GEOMETRY_COUNT; iterator_index = iterator_index + 1u) {
+          let bounding_volume = scene_graph_struct.geometries[iterator_index];
+          let displacement_vector = position_vector - bounding_volume.bounding_sphere.xyz;
+          let distance_squared = dot(displacement_vector, displacement_vector);
+          let outer_radius_squared = bitcast<f32>(bounding_volume.material_parameters.z);
+          
+          if (distance_squared < outer_radius_squared) {
+            let euclidean_distance = sqrt(distance_squared);
+            let interpolation_parameter = saturate((euclidean_distance - (bounding_volume.bounding_sphere.w - 0.1)) * 5.0);
+            let field_weight = 1.0 - (interpolation_parameter * (2.0 - interpolation_parameter));
+            
+            amplitude_scalar += field_weight;
+            if (field_weight > maximum_weight) {
+              maximum_weight = field_weight;
+              surface_material_index = bounding_volume.material_parameters.x;
+              emissive_boolean_integer = bounding_volume.material_parameters.y;
+            }
+          }
+        }
+        return vec3(amplitude_scalar, bitcast<f32>(surface_material_index), bitcast<f32>(emissive_boolean_integer));
+      }
+
+      fn evaluate_signed_distance_function(position_vector: vec3<f32>) -> f32 {
+        var minimum_distance = 1e10;
+        for (var iterator_index = 0u; iterator_index < GEOMETRY_COUNT; iterator_index = iterator_index + 1u) {
+          let bounding_volume = scene_graph_struct.geometries[iterator_index];
+          let scalar_distance = length(position_vector - bounding_volume.bounding_sphere.xyz) - bounding_volume.bounding_sphere.w;
+          minimum_distance = min(minimum_distance, scalar_distance);
+        }
+        return minimum_distance;
+      }
+
+      fn compute_visibility_function(ray_struct: Ray, penumbra_coefficient: f32) -> vec3<f32> {
+        var depth_scalar = 0.05;
+        var transmission_throughput = vec3(1.0);
+        var penumbra_scalar = 1.0;
+        
+        if (ray_struct.direction_vector.y < -1e-6) {
+          let plane_intersection_scalar = -ray_struct.origin_vector.y / ray_struct.direction_vector.y;
+          if (plane_intersection_scalar > 1e-4) { return vec3(0.0); }
+        }
+
+        for (var ray_march_iterator = 0; ray_march_iterator < 48; ray_march_iterator = ray_march_iterator + 1) {
+          let ray_position_vector = ray_struct.origin_vector + ray_struct.direction_vector * depth_scalar;
+          let signed_distance_scalar = evaluate_signed_distance_function(ray_position_vector);
+          
+          if (abs(signed_distance_scalar) < 0.005) {
+             let surface_scalar_field = evaluate_implicit_surface_scalar_field(ray_position_vector);
+             if (surface_scalar_field.x >= 0.1) { 
+                let material_index = bitcast<u32>(surface_scalar_field.y);
+                if (material_index == 3u) {
+                   transmission_throughput *= vec3(0.7, 0.85, 0.95);
+                   depth_scalar += 0.15;
+                   continue;
+                }
+                return vec3(0.0);
+             }
+          }
+          penumbra_scalar = min(penumbra_scalar, penumbra_coefficient * abs(signed_distance_scalar) / depth_scalar);
+          depth_scalar += max(0.005, abs(signed_distance_scalar)); 
+          if (depth_scalar > 60.0) { break; }
+        }
+        return transmission_throughput * clamp(penumbra_scalar, 0.0, 1.0);
+      }
+
+      fn compute_ray_surface_intersection(ray_struct: Ray) -> IntersectionRecord {
+        var intersection_record: IntersectionRecord; intersection_record.intersection_scalar_t = 1e10; intersection_record.material_index = 0u; intersection_record.is_emissive_boolean = false;
+        var ray_depth_scalar = 0.0;
+        
+        if (ray_struct.direction_vector.y < -1e-6) {
+          let plane_intersection_scalar = -ray_struct.origin_vector.y / ray_struct.direction_vector.y;
+          if (plane_intersection_scalar > 1e-4) {
+             intersection_record.intersection_scalar_t = plane_intersection_scalar;
+             intersection_record.normal_vector = vec3(0.0, 1.0, 0.0);
+             intersection_record.material_index = 0u;
+             intersection_record.is_emissive_boolean = false;
+          }
+        }
+
+        for (var intersection_iterator = 0; intersection_iterator < 64; intersection_iterator = intersection_iterator + 1) {
+          if (ray_depth_scalar >= intersection_record.intersection_scalar_t) { break; }
+
+          let ray_position_vector = ray_struct.origin_vector + ray_struct.direction_vector * ray_depth_scalar;
+          let signed_distance_scalar = evaluate_signed_distance_function(ray_position_vector);
+          
+          if (abs(signed_distance_scalar) < 0.002) {
+             let surface_scalar_field = evaluate_implicit_surface_scalar_field(ray_position_vector);
+             if (surface_scalar_field.x >= 0.1) { 
+                intersection_record.intersection_scalar_t = ray_depth_scalar;
+                intersection_record.material_index = bitcast<u32>(surface_scalar_field.y);
+                intersection_record.is_emissive_boolean = (bitcast<u32>(surface_scalar_field.z) == 1u);
+                
+                let epsilon_vector = vec2(0.002, 0.0);
+                intersection_record.normal_vector = normalize(vec3(
+                  evaluate_implicit_surface_scalar_field(ray_position_vector + epsilon_vector.xyy).x - evaluate_implicit_surface_scalar_field(ray_position_vector - epsilon_vector.xyy).x,
+                  evaluate_implicit_surface_scalar_field(ray_position_vector + epsilon_vector.yxy).x - evaluate_implicit_surface_scalar_field(ray_position_vector - epsilon_vector.yxy).x,
+                  evaluate_implicit_surface_scalar_field(ray_position_vector + epsilon_vector.yyx).x - evaluate_implicit_surface_scalar_field(ray_position_vector - epsilon_vector.yyx).x
+                ));
+                intersection_record.normal_vector = -intersection_record.normal_vector;
+                return intersection_record;
+             }
+          }
+          ray_depth_scalar += max(0.002, abs(signed_distance_scalar)); 
+          if (ray_depth_scalar > 60.0) { break; }
+        }
+        return intersection_record;
+      }
+
+      fn evaluate_hemispherical_illumination(direction_vector: vec3<f32>) -> vec3<f32> {
+        let solar_direction_vector = normalize(vec3(0.5, 0.7, -1.0));
+        let base_gradient_colour = mix(vec3(0.4, 0.6, 0.95), vec3(0.02, 0.15, 0.45), clamp(direction_vector.y, 0.0, 1.0));
+        return base_gradient_colour + pow(max(0.0, dot(direction_vector, solar_direction_vector)), 48.0) * vec3(1.2, 1.0, 0.8);
+      }
+
+      @compute @workgroup_size(16, 16)
+      fn dispatch_radiance_evaluation(@builtin(global_invocation_id) thread_identifier: vec3<u32>) {
+        if (thread_identifier.x >= u32(uniform_struct.viewport_resolution_vector.x) || thread_identifier.y >= u32(uniform_struct.viewport_resolution_vector.y)) { return; }
+        
+        let scalar_buffer_index = thread_identifier.y * u32(uniform_struct.viewport_resolution_vector.x) + thread_identifier.x;
+        
+        var antialiasing_jitter_vector = vec2<f32>(0.0);
+        if (uniform_struct.accumulation_iteration > 1u) {
+            antialiasing_jitter_vector = compute_quasirandom_sequence_r2(uniform_struct.accumulation_iteration);
+        }
+        
+        let normalized_device_coordinates = (vec2<f32>(thread_identifier.xy) + antialiasing_jitter_vector) / uniform_struct.viewport_resolution_vector;
+        let viewport_aspect_ratio = uniform_struct.viewport_resolution_vector.x / uniform_struct.viewport_resolution_vector.y;
+        let screen_space_vector = vec2((normalized_device_coordinates.x * 2.0 - 1.0) * viewport_aspect_ratio, 1.0 - 2.0 * normalized_device_coordinates.y);
+        let target_position_vector = uniform_struct.inverse_view_projection_matrix * vec4(screen_space_vector.x, screen_space_vector.y, 0.5, 1.0);
+        
+        var primary_ray: Ray; primary_ray.origin_vector = uniform_struct.camera_position_vector.xyz;
+        primary_ray.direction_vector = normalize(target_position_vector.xyz / target_position_vector.w - uniform_struct.camera_position_vector.xyz);
+
+        var throughput_vector = vec3(1.0); var accumulated_radiance = vec3(0.0);
+        
+        for (var reflection_bounce = 0u; reflection_bounce < 4u; reflection_bounce = reflection_bounce + 1u) {
+          let intersection_record = compute_ray_surface_intersection(primary_ray);
+          
+          if (intersection_record.intersection_scalar_t > 1e9) { accumulated_radiance += throughput_vector * evaluate_hemispherical_illumination(primary_ray.direction_vector); break; }
+          if (intersection_record.is_emissive_boolean) { accumulated_radiance += throughput_vector * 15.0; break; }
+
+          let intersection_position_vector = primary_ray.origin_vector + primary_ray.direction_vector * intersection_record.intersection_scalar_t;
+          var albedo_colour = vec3(0.5); var metallic_coefficient = 0.0;
+          if (intersection_record.material_index == 0u) {
+            albedo_colour = select(vec3(0.6), select(vec3(0.05), vec3(0.95), (i32(floor(intersection_position_vector.x)) + i32(floor(intersection_position_vector.z))) % 2 == 0), false);
+          } else if (intersection_record.material_index == 1u) { albedo_colour = vec3(0.05, 0.35, 0.9); metallic_coefficient = 1.0; }
+          else if (intersection_record.material_index == 2u) { albedo_colour = vec3(0.99, 0.95, 0.9); }
+          else if (intersection_record.material_index == 3u) { 
+            let boolean_internal_reflection = dot(primary_ray.direction_vector, intersection_record.normal_vector) < 0.0; 
+            let indices_of_refraction_ratio = select(1.5, 0.666, boolean_internal_reflection); 
+            let oriented_normal = select(-intersection_record.normal_vector, intersection_record.normal_vector, boolean_internal_reflection);
+            let refracted_direction = refract(primary_ray.direction_vector, oriented_normal, indices_of_refraction_ratio); 
+            
+            if (dot(refracted_direction, refracted_direction) < 0.01) {
+              primary_ray.direction_vector = reflect(primary_ray.direction_vector, oriented_normal);
+              primary_ray.origin_vector = compute_mobius_vector_addition(intersection_position_vector, oriented_normal * 1e-2);
+            } else {
+              primary_ray.direction_vector = refracted_direction; 
+              primary_ray.origin_vector = compute_mobius_vector_addition(intersection_position_vector, -oriented_normal * 1e-2); 
+            }
+            throughput_vector *= 0.98; 
+            continue;
+          }
+
+          if (metallic_coefficient > 0.5) {
+            primary_ray.direction_vector = reflect(primary_ray.direction_vector, intersection_record.normal_vector); 
+            primary_ray.origin_vector = compute_mobius_vector_addition(intersection_position_vector, intersection_record.normal_vector * 1e-2); 
+            throughput_vector *= albedo_colour;
+          } else {
+            let shadow_ray_direction = normalize(vec3(0.5, 0.7, -1.0));
+            let shadow_ray_struct = Ray(compute_mobius_vector_addition(intersection_position_vector, intersection_record.normal_vector * 1e-2), shadow_ray_direction);
+            let visibility_colour = compute_visibility_function(shadow_ray_struct, 12.0);
+            
+            let direct_illumination_tensor = albedo_colour * max(dot(intersection_record.normal_vector, shadow_ray_direction), 0.0) * visibility_colour * vec3(10.0, 8.0, 5.0) * 0.5;
+            let ambient_illumination_tensor = albedo_colour * evaluate_hemispherical_illumination(intersection_record.normal_vector) * 0.15;
+            
+            accumulated_radiance += throughput_vector * (direct_illumination_tensor + ambient_illumination_tensor);
+            break;
+          }
+        }
+
+        if (uniform_struct.accumulation_iteration == 1u) {
+           accumulation_tensor[scalar_buffer_index] = vec4(accumulated_radiance, 1.0);
+        } else {
+           let temporal_previous_radiance = accumulation_tensor[scalar_buffer_index];
+           let temporal_blended_radiance = mix(temporal_previous_radiance.rgb, accumulated_radiance, 1.0 / f32(uniform_struct.accumulation_iteration));
+           accumulation_tensor[scalar_buffer_index] = vec4(temporal_blended_radiance, 1.0);
+        }
+      }
+    `;
+
+    const sourceCodeDisplayShader = `
+      struct UniformParameters {
+        inverse_view_projection_matrix: mat4x4<f32>,
+        padding_matrix: mat4x4<f32>,
+        camera_position_vector: vec4<f32>,
+        viewport_resolution_vector: vec2<f32>,
+        accumulation_iteration: u32,
+        simulation_time: f32,
+      };
+      
+      @group(0) @binding(0) var<uniform> uniform_struct: UniformParameters;
+      @group(0) @binding(1) var<storage, read> accumulation_tensor: array<vec4<f32>>;
+
+      @vertex fn process_vertex_data(@builtin(vertex_index) vertex_iterator: u32) -> @builtin(position) vec4<f32> {
+        let coordinate_array = array<vec2<f32>, 3>(vec2(-1,-1), vec2(3,-1), vec2(-1,3));
+        return vec4(coordinate_array[vertex_iterator], 0, 1);
+      }
+      
+      @fragment fn evaluate_fragment_colour(@builtin(position) screen_position: vec4<f32>) -> @location(0) vec4<f32> {
+        let buffer_index_scalar = u32(screen_position.y) * u32(uniform_struct.viewport_resolution_vector.x) + u32(screen_position.x);
+        let linear_radiance_tensor = accumulation_tensor[buffer_index_scalar];
+        var mapped_colour_tensor = linear_radiance_tensor.rgb;
+        mapped_colour_tensor = mapped_colour_tensor / (1.0 + mapped_colour_tensor);
+        return vec4(pow(mapped_colour_tensor, vec3(0.4545)), 1.0);
+      }
+    `;
+
+    const computeShaderModule = this.hardwareDevice.createShaderModule({ code: sourceCodeComputeShader });
+    const displayShaderModule = this.hardwareDevice.createShaderModule({ code: sourceCodeDisplayShader });
+    
+    const computeBindGroupLayout = this.hardwareDevice.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+        { binding: 2, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+      ],
+    });
+
+    this.computeShaderPipeline = this.hardwareDevice.createComputePipeline({
+      layout: this.hardwareDevice.createPipelineLayout({ bindGroupLayouts: [computeBindGroupLayout] }),
+      compute: { module: computeShaderModule, entryPoint: 'dispatch_radiance_evaluation' },
+    });
+
+    const displayBindGroupLayout = this.hardwareDevice.createBindGroupLayout({
+      entries: [
+        { binding: 0, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } },
+        { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+      ],
+    });
+
+    this.displayShaderPipeline = this.hardwareDevice.createRenderPipeline({
+      layout: this.hardwareDevice.createPipelineLayout({ bindGroupLayouts: [displayBindGroupLayout] }),
+      vertex: { module: displayShaderModule, entryPoint: 'process_vertex_data' },
+      fragment: { module: displayShaderModule, entryPoint: 'evaluate_fragment_colour', targets: [{ format: this.renderFormat }] },
+      primitive: { topology: 'triangle-list' },
+    });
+  }
+
+  dispatchRenderIteration(timestampScalar) {
+    if (!this.hardwareDevice || !this.graphicsContext) return;
+    
+    let rawDeltaTemporalScalar = Math.min((timestampScalar - this.previousFrameTimestamp) / 1000.0, 0.05);
+    this.filteredDeltaTemporalScalar = this.filteredDeltaTemporalScalar * 0.8 + rawDeltaTemporalScalar * 0.2;
+    this.previousFrameTimestamp = timestampScalar;
+    this.internalSimulationTime += this.filteredDeltaTemporalScalar;
+    
+    this.updateViewFrustumMatrix(this.filteredDeltaTemporalScalar);
+    
+    const currentViewFrustumState = `${viewFrustumState.position.x.toFixed(3)},${viewFrustumState.position.y.toFixed(3)},${viewFrustumState.position.z.toFixed(3)},${viewFrustumState.rotation.yaw.toFixed(3)},${viewFrustumState.rotation.pitch.toFixed(3)}`;
+    if (currentViewFrustumState !== this.previousViewFrustumState) {
+      this.temporalAccumulationFrame = 1;
+      this.previousViewFrustumState = currentViewFrustumState;
+    } else {
+      this.temporalAccumulationFrame++;
+    }
+    
+    const sineYawScalar = Math.sin(viewFrustumState.rotation.yaw);
+    const cosineYawScalar = Math.cos(viewFrustumState.rotation.yaw);
+    const sinePitchScalar = Math.sin(viewFrustumState.rotation.pitch);
+    const cosinePitchScalar = Math.cos(viewFrustumState.rotation.pitch);
+    
+    const forwardVectorX = sineYawScalar * cosinePitchScalar;
+    const forwardVectorY = sinePitchScalar;
+    const forwardVectorZ = cosineYawScalar * cosinePitchScalar;
+    
+    const rightVectorX = cosineYawScalar;
+    const rightVectorY = 0;
+    const rightVectorZ = -sineYawScalar;
+    
+    const upVectorX = forwardVectorY * rightVectorZ - forwardVectorZ * rightVectorY;
+    const upVectorY = forwardVectorZ * rightVectorX - forwardVectorX * rightVectorZ;
+    const upVectorZ = forwardVectorX * rightVectorY - forwardVectorY * rightVectorX;
+
+    this.uniformParametersF32[0] = rightVectorX;
+    this.uniformParametersF32[1] = rightVectorY;
+    this.uniformParametersF32[2] = rightVectorZ;
+    this.uniformParametersF32[3] = 0;
+    
+    this.uniformParametersF32[4] = upVectorX;
+    this.uniformParametersF32[5] = upVectorY;
+    this.uniformParametersF32[6] = upVectorZ;
+    this.uniformParametersF32[7] = 0;
+    
+    this.uniformParametersF32[8] = 0;
+    this.uniformParametersF32[9] = 0;
+    this.uniformParametersF32[10] = 0;
+    this.uniformParametersF32[11] = 0;
+    
+    this.uniformParametersF32[12] = viewFrustumState.position.x + forwardVectorX * 1.6;
+    this.uniformParametersF32[13] = viewFrustumState.position.y + forwardVectorY * 1.6;
+    this.uniformParametersF32[14] = viewFrustumState.position.z + forwardVectorZ * 1.6;
+    this.uniformParametersF32[15] = 1;
+
+    this.uniformParametersF32[32] = viewFrustumState.position.x;
+    this.uniformParametersF32[33] = viewFrustumState.position.y;
+    this.uniformParametersF32[34] = viewFrustumState.position.z;
+    this.uniformParametersF32[35] = 0;
+    
+    this.uniformParametersF32[36] = this.renderCanvas.width;
+    this.uniformParametersF32[37] = this.renderCanvas.height;
+    this.uniformParametersU32[38] = this.temporalAccumulationFrame;
+    this.uniformParametersF32[39] = this.internalSimulationTime;
+
+    this.hardwareDevice.queue.writeBuffer(this.uniformParametersBuffer, 0, this.uniformParametersF32);
+    
+    const commandEncoderInstance = this.hardwareDevice.createCommandEncoder();
+    
+    const computeBindGroupInstance = this.hardwareDevice.createBindGroup({
+      layout: this.computeShaderPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniformParametersBuffer } },
+        { binding: 1, resource: { buffer: this.temporalAccumulationBuffer } },
+        { binding: 2, resource: { buffer: this.sceneGraphBuffer } },
+      ],
+    });
+
+    const computePassEncoder = commandEncoderInstance.beginComputePass();
+    computePassEncoder.setPipeline(this.computeShaderPipeline);
+    computePassEncoder.setBindGroup(0, computeBindGroupInstance);
+    computePassEncoder.dispatchWorkgroups(Math.ceil(this.renderCanvas.width / 16), Math.ceil(this.renderCanvas.height / 16));
+    computePassEncoder.end();
+
+    const renderPassEncoder = commandEncoderInstance.beginRenderPass({
+      colorAttachments: [{ view: this.graphicsContext.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: [0, 0, 0, 1] }],
+    });
+    
+    const displayBindGroupInstance = this.hardwareDevice.createBindGroup({
+      layout: this.displayShaderPipeline.getBindGroupLayout(0),
+      entries: [
+        { binding: 0, resource: { buffer: this.uniformParametersBuffer } },
+        { binding: 1, resource: { buffer: this.temporalAccumulationBuffer } }
+      ],
+    });
+    
+    renderPassEncoder.setPipeline(this.displayShaderPipeline);
+    renderPassEncoder.setBindGroup(0, displayBindGroupInstance);
+    renderPassEncoder.draw(3);
+    renderPassEncoder.end();
+
+    this.hardwareDevice.queue.submit([commandEncoderInstance.finish()]);
+    requestAnimationFrame((timestampScalar) => this.dispatchRenderIteration(timestampScalar));
+    this.updateTelemetryInterface();
+  }
+
+  updateTelemetryInterface() {
+    const documentElement = document.getElementById('convergence-label');
+    if (documentElement) documentElement.textContent = `Temporal accumulation iteration: ${this.temporalAccumulationFrame}`;
+  }
+
+  updateViewFrustumMatrix(deltaTemporalScalar) {
+    const translationScalar = 15.0 * deltaTemporalScalar; 
+    const rotationScalar = 2.5 * deltaTemporalScalar;
+    if (keyboardState.keyRegisters['ArrowLeft']) viewFrustumState.rotation.yaw -= rotationScalar; if (keyboardState.keyRegisters['ArrowRight']) viewFrustumState.rotation.yaw += rotationScalar;
+    if (keyboardState.keyRegisters['ArrowUp']) viewFrustumState.rotation.pitch = Math.min(1.5, viewFrustumState.rotation.pitch + rotationScalar);
+    if (keyboardState.keyRegisters['ArrowDown']) viewFrustumState.rotation.pitch = Math.max(-1.5, viewFrustumState.rotation.pitch - rotationScalar);
+    
+    const yawScalar = viewFrustumState.rotation.yaw; const pitchScalar = viewFrustumState.rotation.pitch;
+    const forwardVector = {x: Math.sin(yawScalar) * Math.cos(pitchScalar), y: Math.sin(pitchScalar), z: Math.cos(yawScalar) * Math.cos(pitchScalar)};
+    const rightVector = {x: Math.cos(yawScalar), y: 0, z: -Math.sin(yawScalar)};
+    
+    if (keyboardState.keyRegisters['KeyW']) { viewFrustumState.position.x += forwardVector.x * translationScalar; viewFrustumState.position.y += forwardVector.y * translationScalar; viewFrustumState.position.z += forwardVector.z * translationScalar; }
+    if (keyboardState.keyRegisters['KeyS']) { viewFrustumState.position.x -= forwardVector.x * translationScalar; viewFrustumState.position.y -= forwardVector.y * translationScalar; viewFrustumState.position.z -= forwardVector.z * translationScalar; }
+    if (keyboardState.keyRegisters['KeyA']) { viewFrustumState.position.x -= rightVector.x * translationScalar; viewFrustumState.position.z -= rightVector.z * translationScalar; }
+    if (keyboardState.keyRegisters['KeyD']) { viewFrustumState.position.x += rightVector.x * translationScalar; viewFrustumState.position.z += rightVector.z * translationScalar; }
+  }
+
+  executeContextReallocation() { 
+    if (this.hardwareDevice) {
+      this.initialiseCanvasDimensions();
+      this.initialiseHardwareResources(); 
+    }
+  }
+}
+
+const viewFrustumState = { position: {x: 0, y: 2, z: -10}, rotation: {yaw: 0, pitch: 0} };
+const keyboardState = { keyRegisters: {} };
+
+const computeContext = new RadiativeTransferContext(document.getElementById('renderCanvas'), (diagnosticString) => {
+  const overlayNode = document.getElementById('error-overlay');
+  const messageNode = document.getElementById('error-msg');
+  if (messageNode) messageNode.textContent = diagnosticString;
+  if (overlayNode) overlayNode.classList.remove('hidden');
+});
+
+window.addEventListener('load', () => {
+  computeContext.executeContextInitialisation(viewFrustumState, keyboardState).then(() => {
+    const statisticsOverlay = document.getElementById('stats-overlay');
+    const controlOverlay = document.getElementById('control-panel');
+    if (statisticsOverlay) { statisticsOverlay.style.opacity = '1'; statisticsOverlay.style.transform = 'translateY(0)'; }
+    if (controlOverlay) { controlOverlay.style.opacity = '1'; controlOverlay.style.transform = 'translateX(0)'; }
+  });
+});
+
+window.addEventListener('keydown', (keyboardEvent) => keyboardState.keyRegisters[keyboardEvent.code] = true);
+window.addEventListener('keyup', (keyboardEvent) => keyboardState.keyRegisters[keyboardEvent.code] = false);
+window.addEventListener('resize', () => computeContext.executeContextReallocation());
+</script>
+</body>
+</html>
