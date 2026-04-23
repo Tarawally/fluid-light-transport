@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informational–physical unification: geometric triad</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #050505;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    #rasterisationSubstrate {
+      width: 100%;
+      height: 100%;
+      border-radius: 0.5rem;
+      cursor: crosshair;
+      touch-action: none;
+      display: block;
+    }
+
+    .execution-container {
+      width: 100%;
+      max-width: min(100%, 75vh);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      position: relative;
+      background-color: #09090b;
+      padding: 0.5rem;
+      border-radius: 1.25rem;
+      border: 1px solid #27272a;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    .telemetry-anchor {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    .diagnostic-grid {
+      display: grid;
+      gap: 1rem;
+      width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .diagnostic-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+    }
+
+    .status-badge {
+      background-color: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-6 md:p-8">
+  <div class="max-w-5xl w-full flex flex-col space-y-6 md:space-y-8">
+    
+    <header class="text-center space-y-3">
+      <h1 class="text-xl md:text-3xl font-bold text-white tracking-tight">Unified geometric triad manifold</h1>
+      <p class="text-[9px] md:text-[10px] uppercase tracking-[0.4em] font-mono text-zinc-500">
+        status: temporal phase-lock | architecture: <span class="text-emerald-400">deterministic number-theoretic</span>
+      </p>
+    </header>
+
+    <div class="text-zinc-400 text-xs md:text-sm text-center max-w-3xl mx-auto mb-2 border border-zinc-800/40 p-5 rounded-2xl bg-zinc-900/20 leading-relaxed">
+      <p>
+        The <strong>informational–physical unification model</strong> resolves physics as an emergent property of a synchronised wave field. The hypervisor evaluates macroscopic bounds in Euclidean space, whilst projecting intrinsic volumetric scattering into a hyperbolic metric via the hemisphere model. Arnold tongues govern phase resonance, enforcing deterministic limits via hierarchical Cantor-set parity checking.
+      </p>
+    </div>
+
+    <div class="telemetry-anchor">
+      <div class="status-badge text-zinc-400 pointer-events-none">
+        metric: farey-locked resonance | truncation: depth 116 active
+      </div>
+    </div>
+
+    <div class="execution-container">
+      <canvas id="rasterisationSubstrate"></canvas>
+      <div id="hardwareInterruptOverlay" class="absolute inset-0 flex items-center justify-center bg-black/98 hidden rounded-xl z-20">
+        <div class="p-12 text-center space-y-4">
+           <div class="w-12 h-12 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+           <p class="text-red-500 font-mono text-[10px] md:text-[11px] leading-relaxed uppercase tracking-widest" id="interruptMessage"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagnostic-grid text-[9px] md:text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">spatial chart:</span>
+        bifurcated euclidean/hyperbolic
+      </div>
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">synchronisation:</span>
+        arnold tongue mode-locking
+      </div>
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">topological limits:</span>
+        cantor set exclusion gates
+      </div>
+    </div>
+
+    <footer class="text-center pt-4">
+      <p class="text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
+        system timestamp: 15 April 2026 | latency: <span id="telemetryLatency">0.00</span> ms
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    /**
+     * @fileoverview implementation: refined informational–physical unification model.
+     * Integrates number-theoretic wave synchronisation and Cantor-set informational limits.
+     * Uses British English and neutral technical terminology throughout.
+     */
+
+    const CONFIGURATION = {
+      SUBDIVISION_DEPTH: 116.0,
+      METRIC_RATIO: 1.61803398875,
+      ENTROPIC_DIMENSION: 1.36523,
+      TEMPORAL_SCALE: 0.0008,
+      GEODESIC_PRECISION: 0.001,
+      INTEGRATION_STEPS: 42.0,
+      ASPECT_RATIO: 1.0,
+      BOUNDING_RADIUS: 1.25,
+      COHERENCE_LENGTH: 45.0,
+      RESONANCE_COUPLING: 0.12, 
+    };
+
+    /**
+     * compute low-discrepancy sequence: halton sequence for stochastic jitter.
+     */
+    function computeLowDiscrepancySequence(index, base) {
+      let result = 0;
+      let f = 1 / base;
+      let i = index;
+      while (i > 0) {
+        result += f * (i % base);
+        i = Math.floor(i / base);
+        f /= base;
+      }
+      return result;
+    }
+
+    async function bootstrapExecutionPipeline() {
+      const interruptMessageElement = document.getElementById('interruptMessage');
+      const hardwareOverlayElement = document.getElementById('hardwareInterruptOverlay');
+      const latencyDisplay = document.getElementById('telemetryLatency');
+
+      if (!navigator.gpu) {
+        interruptMessageElement.textContent = 'hardware abstraction failure: webgpu driver absent.';
+        hardwareOverlayElement.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error('hardware adapter acquisition failure.');
+        
+        const device = await adapter.requestDevice();
+        const canvasElement = document.getElementById('rasterisationSubstrate');
+        const context = canvasElement.getContext('webgpu');
+        const swapChainFormat = navigator.gpu.getPreferredCanvasFormat();
+
+        context.configure({
+          device: device,
+          format: swapChainFormat,
+          alphaMode: 'premultiplied',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        });
+
+        const shaderSource = `
+          struct DeterministicUniformSubstrate {
+            temporal_evolution_index: f32,
+            truncation_threshold: f32,
+            fundamental_metric_ratio: f32,
+            aspect_ratio: f32,
+
+            stochastic_jitter_u: f32,
+            stochastic_jitter_v: f32,
+            integration_coefficient: f32,
+            radial_observer_metric: f32,
+
+            azimuthal_state_phase: f32,
+            altitudinal_state_phase: f32,
+            bounding_sphere_radius: f32,
+            maximum_integration_steps: f32,
+
+            source_coherence_length: f32,
+            resonance_coupling: f32,
+            padding2: f32,
+            padding3: f32,
+
+            colour_decoding_matrix: mat3x3<f32>,
+          };
+
+          struct FragmentResolveOutput {
+            @location(0) radiance_attachment: vec4<f32>,
+            @location(1) temporal_state_attachment: vec2<f32>,
+          };
+
+          @group(0) @binding(0) var<uniform> state: DeterministicUniformSubstrate;
+          @group(0) @binding(1) var history_substrate: texture_2d<f32>;
+
+          const PHI: f32 = ${CONFIGURATION.METRIC_RATIO};
+          const PI: f32 = 3.14159265359;
+
+          fn sampleCie1931(lambda: f32) -> vec3<f32> {
+            let x = 1.056 * exp(-0.5 * pow((lambda - 599.8) / 37.9, 2.0)) +
+                    0.362 * exp(-0.5 * pow((lambda - 442.0) / 16.0, 2.0)) -
+                    0.065 * exp(-0.5 * pow((lambda - 501.1) / 20.4, 2.0));
+            let y = 0.821 * exp(-0.5 * pow((lambda - 568.8) / 46.9, 2.0)) +
+                    0.286 * exp(-0.5 * pow((lambda - 530.9) / 16.3, 2.0));
+            let z = 1.217 * exp(-0.5 * pow((lambda - 437.0) / 11.8, 2.0)) +
+                    0.681 * exp(-0.5 * pow((lambda - 459.0) / 26.0, 2.0));
+            return max(vec3<f32>(x, y, z), vec3<f32>(0.0));
+          }
+
+          fn computeSpectralPower(lambda: f32, phase: f32, interference_intensity: f32) -> f32 {
+            let peak = 440.0 + 260.0 * fract(phase / PI + lambda * 0.001);
+            let spd = exp(-0.5 * pow((lambda - peak) / 20.0, 2.0)) + 0.05;
+            return clamp(interference_intensity, 0.0, 5.0) * spd;
+          }
+
+          fn applyStandardRgbTransfer(linear_rgb: vec3<f32>) -> vec3<f32> {
+            let threshold = vec3<f32>(0.0031308);
+            return select(1.055 * pow(linear_rgb, vec3<f32>(1.0 / 2.4)) - vec3<f32>(0.055), linear_rgb * 12.92, linear_rgb <= threshold);
+          }
+
+          fn pauliExclusionGate(p: vec3<u32>, depth: u32) -> f32 {
+            let d = clamp(depth, 0u, 116u);
+            let shift = 116u - d;
+            let ps = p >> vec3<u32>(shift);
+            let parity = (ps.x ^ ps.y ^ ps.z) & 1u;
+            return 1.0 - f32(parity);
+          }
+
+          fn projectStereographic(p: vec3<f32>) -> vec3<f32> {
+            let d = max(1.0 + p.z, 0.0001);
+            return vec3<f32>(p.x / d, p.y / d, 0.0);
+          }
+
+          fn arnoldTongueResonance(phase: f32, spatial_freq: f32) -> f32 {
+            let theta = phase * spatial_freq * PHI;
+            let resonance = abs(sin(theta));
+            return select(0.08, 1.0, resonance < state.resonance_coupling);
+          }
+
+          fn executeOctahedralFolding(p: vec3<f32>) -> vec3<f32> {
+            var f = p;
+            if (f.x + f.y < 0.0) { f = vec3<f32>(-f.y, -f.x, f.z); }
+            if (f.x + f.z < 0.0) { f = vec3<f32>(-f.z, f.y, -f.x); }
+            if (f.y + f.z < 0.0) { f = vec3<f32>(f.x, -f.z, -f.y); }
+            return abs(f);
+          }
+
+          fn computeFisherMetricGeodesicDistance(p: vec3<f32>, depth: f32) -> f32 {
+            let f = executeOctahedralFolding(p);
+            let r = 0.5;
+            let d = (f.x + f.y + f.z) * 0.57735 - r;
+            
+            let dp = vec3<u32>(abs(p * 512.0));
+            let exclusion = pauliExclusionGate(dp, u32(depth));
+            
+            return d + (1.0 - exclusion) * 0.1;
+          }
+
+          fn integrateHolographicRadianceBulk(pos: vec3<f32>, depth: f32, interference_intensity: f32) -> vec3<f32> {
+            var acc_xyz = vec3<f32>(0.0);
+            var transmittance: f32 = 1.0;
+            let u_pos = vec3<u32>(abs(pos * 512.0));
+            
+            for (var i: i32 = 0; i < 4; i = i + 1) {
+              let scale = pow(PHI, f32(i));
+              let h_pos = projectStereographic(pos / scale);
+              let dist = computeFisherMetricGeodesicDistance(h_pos, depth);
+              
+              if (pauliExclusionGate(u_pos, u32(depth)) > 0.5) {
+                let phase = atan2(h_pos.y, h_pos.x) + state.temporal_evolution_index;
+                let resonance = arnoldTongueResonance(phase, scale * 4.0);
+                
+                var cascade_xyz = vec3<f32>(0.0);
+                let samples = 8.0;
+                for (var w: f32 = 0.0; w < samples; w = w + 1.0) {
+                  let lambda = 380.0 + 340.0 * fract((w + state.stochastic_jitter_u) / samples);
+                  let power = computeSpectralPower(lambda, phase, interference_intensity * resonance);
+                  cascade_xyz += power * sampleCie1931(lambda);
+                }
+                
+                cascade_xyz *= (340.0 / samples) * 0.022;
+                acc_xyz += cascade_xyz * smoothstep(0.04, -0.04, dist) * (3.5 / scale) * transmittance;
+              }
+              transmittance *= exp(-0.15);
+            }
+            return acc_xyz;
+          }
+
+          @vertex
+          fn vs_main(@builtin(vertex_index) id: u32) -> @builtin(position) vec4<f32> {
+            var r = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+            return vec4<f32>(r[id], 0.0, 1.0);
+          }
+
+          @fragment
+          fn fs_main(@builtin(position) coord: vec4<f32>) -> FragmentResolveOutput {
+            var output: FragmentResolveOutput;
+            let res = vec2<f32>(textureDimensions(history_substrate));
+            let jitter = vec2<f32>(state.stochastic_jitter_u, state.stochastic_jitter_v) - 0.5;
+            var uv = (coord.xy + jitter - (res * 0.5)) / (res.y * 0.5);
+            uv.x *= state.aspect_ratio;
+            
+            let rot = vec2<f32>(state.azimuthal_state_phase, state.altitudinal_state_phase);
+            let s = sin(rot); let c = cos(rot);
+            
+            var ro = vec3<f32>(0.0, 0.0, -state.radial_observer_metric);
+            ro = vec3<f32>(ro.x, ro.y * c.y - ro.z * s.y, ro.y * s.y + ro.z * c.y);
+            let ro_y = ro;
+            ro = vec3<f32>(ro_y.x * c.x + ro_y.z * s.x, ro_y.y, -ro_y.x * s.x + ro_y.z * c.x);
+            
+            let look = -normalize(ro);
+            let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), look));
+            let up = cross(look, right);
+            let dir = normalize(look * 2.0 + right * uv.x + up * uv.y);
+
+            var pos = ro;
+            var t_dist: f32 = 0.0;
+            let k_vec = (2.0 * PI) / (0.45 * 0.001); 
+            
+            for (var step: i32 = 0; step < i32(state.maximum_integration_steps); step = step + 1) {
+              let d = computeFisherMetricGeodesicDistance(pos, state.truncation_threshold);
+              t_dist += d;
+              
+              if (d < 0.001) {
+                let phase = k_vec * t_dist;
+                let coherence = exp(-t_dist / state.source_coherence_length);
+                let amplitude = vec2<f32>(cos(phase), sin(phase)) * coherence;
+                
+                let history = textureLoad(history_substrate, vec2<i32>(coord.xy), 0).rg;
+                let field = history * (1.0 - state.integration_coefficient) + amplitude * state.integration_coefficient;
+                let intensity = dot(field, field);
+                
+                let xyz = integrateHolographicRadianceBulk(pos, state.truncation_threshold, intensity);
+                let rgb = state.colour_decoding_matrix * xyz;
+                
+                let compressed = pow(max(rgb, vec3<f32>(0.0)), vec3<f32>(1.15));
+                output.radiance_attachment = vec4<f32>(applyStandardRgbTransfer(compressed / (compressed + 1.0)), 1.0);
+                output.temporal_state_attachment = field;
+                return output;
+              }
+              pos += dir * d;
+              if (t_dist > 10.0) { break; }
+            }
+            
+            output.radiance_attachment = vec4<f32>(0.002, 0.002, 0.004, 1.0);
+            output.temporal_state_attachment = vec2<f32>(0.0);
+            return output;
+          }
+        `;
+
+        const shaderModule = device.createShaderModule({code: shaderSource});
+        const pipeline = device.createRenderPipeline({
+          layout: 'auto',
+          vertex: {module: shaderModule, entryPoint: 'vs_main'},
+          fragment: {
+            module: shaderModule,
+            entryPoint: 'fs_main',
+            targets: [{format: swapChainFormat}, {format: 'rg32float'}],
+          },
+        });
+
+        const uniformBuffer = device.createBuffer({
+          size: 112,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        let viewportWidth = canvasElement.clientWidth || 1024;
+        let viewportHeight = canvasElement.clientHeight || 1024;
+        canvasElement.width = viewportWidth;
+        canvasElement.height = viewportHeight;
+        CONFIGURATION.ASPECT_RATIO = viewportWidth / viewportHeight;
+
+        let historyEnsemble = [0, 1].map(() => device.createTexture({
+          size: [viewportWidth, viewportHeight],
+          format: 'rg32float',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        }));
+
+        const resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const newWidth = Math.floor(entry.contentRect.width);
+            const newHeight = Math.floor(entry.contentRect.height);
+            if (newWidth !== viewportWidth || newHeight !== viewportHeight) {
+              viewportWidth = newWidth; viewportHeight = newHeight;
+              canvasElement.width = viewportWidth; canvasElement.height = viewportHeight;
+              CONFIGURATION.ASPECT_RATIO = viewportWidth / viewportHeight;
+              historyEnsemble.forEach(t => t.destroy());
+              historyEnsemble = [0, 1].map(() => device.createTexture({
+                size: [viewportWidth, viewportHeight],
+                format: 'rg32float',
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+              }));
+            }
+          }
+        });
+        resizeObserver.observe(canvasElement);
+
+        let temporalEpoch = 0;
+        let azimuthalPhase = 0.5;
+        let altitudinalPhase = 0.4;
+        let radialMetric = 3.2;
+        let lastAzimuthal = 0.5;
+        let lastAltitudinal = 0.4;
+        let lastMetric = 3.2;
+        let isInteracting = false;
+        let pointerU = 0;
+        let pointerV = 0;
+        let previousExecutionTimestamp = 0;
+        let exponentialFrameTime = 16.66;
+
+        canvasElement.addEventListener('pointerdown', (e) => {
+          canvasElement.setPointerCapture(e.pointerId);
+          isInteracting = true; pointerU = e.clientX; pointerV = e.clientY;
+        });
+
+        window.addEventListener('pointerup', () => { isInteracting = false; });
+        window.addEventListener('pointermove', (e) => {
+          if (!isInteracting) return;
+          azimuthalPhase -= (e.clientX - pointerU) * 0.005;
+          altitudinalPhase += (e.clientY - pointerV) * 0.005;
+          altitudinalPhase = Math.max(-1.4, Math.min(1.4, altitudinalPhase));
+          pointerU = e.clientX; pointerV = e.clientY;
+        });
+
+        window.addEventListener('wheel', (e) => {
+          const rect = canvasElement.getBoundingClientRect();
+          if (e.clientX < rect.left || e.clientX > rect.right || 
+              e.clientY < rect.top || e.clientY > rect.bottom) return;
+          e.preventDefault();
+          let delta = e.deltaY;
+          if (e.deltaMode === 1) delta *= 24;
+          const gain = e.ctrlKey ? 0.004 : 0.008;
+          radialMetric = Math.min(Math.max(radialMetric + delta * gain, 1.5), 10.0);
+        }, {passive: false});
+
+        function executeResolutionCycle(timestamp) {
+          const delta = timestamp - previousExecutionTimestamp;
+          previousExecutionTimestamp = timestamp;
+          exponentialFrameTime = (exponentialFrameTime * 0.95) + (delta * 0.05);
+          
+          latencyDisplay.textContent = delta.toFixed(2);
+
+          if (exponentialFrameTime > 18.0) {
+            CONFIGURATION.INTEGRATION_STEPS = Math.max(16.0, CONFIGURATION.INTEGRATION_STEPS - 0.5);
+          } else if (exponentialFrameTime < 14.0) {
+            CONFIGURATION.INTEGRATION_STEPS = Math.min(72.0, CONFIGURATION.INTEGRATION_STEPS + 0.5);
+          }
+
+          const evolution = timestamp * CONFIGURATION.TEMPORAL_SCALE;
+          const motion = Math.abs(azimuthalPhase - lastAzimuthal) + Math.abs(altitudinalPhase - lastAltitudinal) + Math.abs(radialMetric - lastMetric);
+          lastAzimuthal = azimuthalPhase; lastAltitudinal = altitudinalPhase; lastMetric = radialMetric;
+          
+          const weight = (temporalEpoch === 0 || motion > 0.0001) ? 0.45 : 0.08;
+
+          const data = new Float32Array([
+            evolution, CONFIGURATION.SUBDIVISION_DEPTH, CONFIGURATION.METRIC_RATIO, CONFIGURATION.ASPECT_RATIO,
+            computeLowDiscrepancySequence(temporalEpoch % 64 + 1, 2), computeLowDiscrepancySequence(temporalEpoch % 64 + 1, 3), weight, radialMetric,
+            azimuthalPhase, altitudinalPhase, CONFIGURATION.BOUNDING_RADIUS, CONFIGURATION.INTEGRATION_STEPS,
+            CONFIGURATION.COHERENCE_LENGTH, CONFIGURATION.RESONANCE_COUPLING, 0.0, 0.0,
+            3.2405, -0.9693, 0.0556, 0.0,
+            -1.5371, 1.8760, -0.2040, 0.0,
+            -0.4985, 0.0416, 1.0572, 0.0
+          ]);
+
+          device.queue.writeBuffer(uniformBuffer, 0, data);
+          const bindGroup = device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: uniformBuffer}},
+              {binding: 1, resource: historyEnsemble[temporalEpoch % 2].createView()}
+            ],
+          });
+
+          const encoder = device.createCommandEncoder();
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [
+              {view: context.getCurrentTexture().createView(), clearValue: {r: 0, g: 0, b: 0, a: 1}, loadOp: 'clear', storeOp: 'store'},
+              {view: historyEnsemble[(temporalEpoch + 1) % 2].createView(), clearValue: {r: 0, g: 0, b: 0, a: 0}, loadOp: 'clear', storeOp: 'store'}
+            ],
+          });
+
+          pass.setPipeline(pipeline);
+          pass.setBindGroup(0, bindGroup);
+          pass.draw(3);
+          pass.end();
+
+          device.queue.submit([encoder.finish()]);
+          temporalEpoch++;
+          requestAnimationFrame(executeResolutionCycle);
+        }
+        requestAnimationFrame(executeResolutionCycle);
+
+      } catch (e) {
+        interruptMessageElement.textContent = `terminal resolve fault: ${e.message}`;
+        hardwareOverlayElement.classList.remove('hidden');
+      }
+    }
+
+    window.onload = bootstrapExecutionPipeline;
+  </script>
+</body>
+</html>

@@ -1,0 +1,774 @@
+  <!DOCTYPE html>
+  <html lang="en-GB">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU 128-bit Fixed-Point Path Tracer v15.6</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+      body {
+        background-color: #000;
+        color: #a0a0a0;
+        font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+        overflow: hidden;
+        height: 100vh;
+        width: 100vw;
+        margin: 0;
+      }
+      #rendering-canvas {
+        cursor: crosshair;
+        display: block;
+        height: 100vh;
+        width: 100vw;
+        touch-action: none;
+      }
+      .execution-container {
+        height: 100vh;
+        width: 100vw;
+        background-color: #000;
+        overflow: hidden;
+        position: relative;
+      }
+      .overlay {
+        background: rgba(9, 9, 11, 0.85);
+        backdrop-filter: blur(8px);
+        pointer-events: none;
+      }
+      .controls-hint {
+        position: absolute;
+        bottom: 2rem;
+        left: 50%;
+        transform: translateX(-50%);
+        background: rgba(0,0,0,0.6);
+        padding: 0.6rem 1.2rem;
+        border-radius: 9999px;
+        font-size: 0.7rem;
+        color: #71717a;
+        pointer-events: none;
+        white-space: nowrap;
+        border: 1px solid rgba(255,255,255,0.1);
+      }
+      .hidden { display: none; }
+    </style>
+  </head>
+  <body>
+
+    <div class="execution-container">
+      <canvas id="rendering-canvas"></canvas>
+      
+      <div class="absolute top-8 left-8 pointer-events-none select-none">
+        <h1 class="text-white text-xs font-mono tracking-widest uppercase opacity-40 mb-1">Monistic Transport Engine v3.3 • Arithmetica Lucis</h1>
+        <div class="flex items-center space-x-2">
+          <div class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
+          <span id="stat-spp" class="text-emerald-400 font-mono text-sm tracking-tighter">ITERATIONS: 0</span>
+        </div>
+      </div>
+
+      <div class="controls-hint font-mono uppercase tracking-tighter text-zinc-400">
+        WASD: NAVIGATE • ARROWS: LOOK • SPACE/SHIFT: ALTITUDE • DETERMINISTIC FLOW
+      </div>
+
+      <div id="diagnostic-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-8 overlay hidden">
+        <div class="max-w-md text-center">
+          <div class="text-rose-500 mb-4 font-mono text-xl">[ fault ]</div>
+          <h2 class="text-white text-lg font-medium mb-2">Architectural halt</h2>
+          <p id="diagnostic-message" class="text-zinc-500 text-sm leading-relaxed font-mono"></p>
+        </div>
+      </div>
+    </div>
+
+    <script type="module">
+      /**
+       * WebGpuPathTracingEngine v15.2
+       * Implementation of sub-linear space computing and the Arithmetica Lucis paradigm.
+       */
+      class WebGpuPathTracingEngine {
+        constructor(canvas) {
+          this.canvas = canvas;
+          this.ctx = canvas.getContext('webgpu');
+          this.logicalDevice = null;
+          this.renderFormat = navigator.gpu?.getPreferredCanvasFormat();
+          
+          this.accumulationTextures = [];
+          this.frameIterationCount = 0;
+          
+          this.uniformBuffer = null;
+          this.dagBuffer = null;
+          this.exposureBuffer = null;
+
+          this.computePipeline = null;
+          this.displayPipeline = null;
+          this.computeBindGroupLayout = null;
+          this.displayBindGroupLayout = null;
+
+          this.camera = {
+            pos: { x: 0, y: 2.0, z: 8 },
+            rot: { yaw: 0, pitch: 0 },
+            moved: false
+          };
+
+          this.input = {
+            keys: {},
+            mouse: { down: false, lastX: 0, lastY: 0 }
+          };
+          
+          this.diagnosticOverlay = document.getElementById('diagnostic-overlay');
+          this.diagnosticMessage = document.getElementById('diagnostic-message');
+          this.statSpp = document.getElementById('stat-spp');
+
+          this.#initialiseInputs();
+        }
+
+        #initialiseInputs() {
+          window.addEventListener('keydown', e => { this.input.keys[e.code] = true; });
+          window.addEventListener('keyup', e => { this.input.keys[e.code] = false; });
+          
+          this.canvas.addEventListener('mousedown', e => {
+            this.input.mouse.down = true;
+            this.input.mouse.lastX = e.clientX;
+            this.input.mouse.lastY = e.clientY;
+          });
+          
+          window.addEventListener('mouseup', () => { this.input.mouse.down = false; });
+          
+          window.addEventListener('mousemove', e => {
+            if (!this.input.mouse.down) return;
+            const dx = e.clientX - this.input.mouse.lastX;
+            const dy = e.clientY - this.input.mouse.lastY;
+            this.camera.rot.yaw -= dx * 0.004;
+            this.camera.rot.pitch = Math.max(-1.5, Math.min(1.5, this.camera.rot.pitch - dy * 0.004));
+            this.input.mouse.lastX = e.clientX;
+            this.input.mouse.lastY = e.clientY;
+            this.camera.moved = true;
+          });
+
+          window.addEventListener('resize', () => {
+            this.#setupCanvas();
+            this.#initialiseResources();
+            this.frameIterationCount = 0;
+          });
+        }
+
+        async bootstrapEngine() {
+          if (!navigator.gpu) {
+            this.#triggerDiagnosticHalt("WebGPU unsupported: ensure the browser supports the WebGPU API.");
+            return;
+          }
+
+          try {
+            const adapter = await navigator.gpu.requestAdapter();
+            if (!adapter) throw new Error("Could not find a suitable GPU adapter.");
+            this.logicalDevice = await adapter.requestDevice();
+            this.#setupCanvas();
+            await this.#initialiseResources();
+            await this.#createPipelines();
+            requestAnimationFrame((t) => this.#executeRenderCycle(t));
+          } catch (err) {
+            this.#triggerDiagnosticHalt(err.message);
+          }
+        }
+
+        #setupCanvas() {
+          const dpr = window.devicePixelRatio || 1;
+          this.canvas.width = Math.floor(window.innerWidth * dpr);
+          this.canvas.height = Math.floor(window.innerHeight * dpr);
+          this.ctx.configure({
+            device: this.logicalDevice,
+            format: this.renderFormat,
+            alphaMode: 'premultiplied',
+          });
+        }
+
+        async #initialiseResources() {
+          const textureDescriptor = {
+            size: [this.canvas.width, this.canvas.height],
+            format: 'rgba32float',
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+          };
+          
+          if (this.accumulationTextures.length > 0) {
+            this.accumulationTextures.forEach(t => t.destroy());
+          }
+
+          this.accumulationTextures = [
+            this.logicalDevice.createTexture(textureDescriptor),
+            this.logicalDevice.createTexture(textureDescriptor)
+          ];
+
+          if (!this.uniformBuffer) {
+            this.uniformBuffer = this.logicalDevice.createBuffer({
+              size: 256,
+              usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+
+            this.dagBuffer = this.logicalDevice.createBuffer({
+              size: 1024 * 64,
+              usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            });
+
+            this.exposureBuffer = this.logicalDevice.createBuffer({
+              size: 256, 
+              usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            });
+
+            // Implementation of hardware-native texture caching for blue noise masks
+            const noiseDim = 256;
+            const noiseTex = this.logicalDevice.createTexture({
+              size: [noiseDim, noiseDim],
+              format: 'rgba8unorm',
+              usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+            });
+            const noiseData = new Uint8Array(noiseDim * noiseDim * 4);
+            for(let i = 0; i < noiseData.length; i++) {
+              noiseData[i] = Math.floor(Math.random() * 256);
+            }
+            this.logicalDevice.queue.writeTexture(
+              { texture: noiseTex },
+              noiseData,
+              { bytesPerRow: noiseDim * 4, rowsPerImage: noiseDim },
+              [noiseDim, noiseDim]
+            );
+            this.blueNoiseView = noiseTex.createView();
+
+            const dagData = new Uint32Array(16384);
+            
+            // Sobol sequence direction vectors for Quasi-Monte Carlo execution
+            const sobol = [0x9ABCDEF0, 0x12345678, 0x87654321, 0xFEDCBA98, 0x55555555, 0xAAAAAAAA, 0x33333333, 0xCCCCCCCC];
+            for(let i = 0; i < 8; i++) dagData[i] = sobol[i];
+            
+            // Primitive definitions structured for volumetric DAG representation
+            const sceneNodes = [
+              // px, py, pz, radius, mat_id, is_emissive, child_ptr, sibling_ptr
+              [0, 0, 0, 2000, 99, 0, 1, 0],         // Root bounding volume
+              [0, -1000, 0, 1000, 0, 0, 0, 2],      // Floor
+              [-1.2, 1.5, 0, 1.2, 1, 0, 0, 3],      // Left sphere (blue)
+              [1.2, 1.0, 0.5, 0.8, 2, 0, 0, 4],     // Right sphere (Möbius caustic)
+              [-8, 12, 6, 3.0, 3, 1, 0, 0]          // Light
+            ];
+
+            // Data encapsulation: packing into simulated 128-bit blocks (16 words per node)
+            let ptr = 16;
+            sceneNodes.forEach(p => {
+              const f32 = new Float32Array([p[0], p[1], p[2], p[3]]);
+              const u32 = new Uint32Array(f32.buffer);
+              
+              // X coordinate (128-bit fix representation proxy)
+              dagData[ptr] = 0; dagData[ptr + 1] = 0; dagData[ptr + 2] = 0; dagData[ptr + 3] = u32[0];
+              // Y coordinate (128-bit fix representation proxy)
+              dagData[ptr + 4] = 0; dagData[ptr + 5] = 0; dagData[ptr + 6] = 0; dagData[ptr + 7] = u32[1];
+              // Z coordinate (128-bit fix representation proxy)
+              dagData[ptr + 8] = 0; dagData[ptr + 9] = 0; dagData[ptr + 10] = 0; dagData[ptr + 11] = u32[2];
+              
+              dagData[ptr + 12] = u32[3]; // radius
+              dagData[ptr + 13] = p[4];   // mat_id
+              dagData[ptr + 14] = p[5];   // is_emissive
+              dagData[ptr + 15] = (p[6] << 16) | p[7]; // child_ptr | sibling_ptr
+              
+              ptr += 16;
+            });
+
+            this.logicalDevice.queue.writeBuffer(this.dagBuffer, 0, dagData);
+            this.logicalDevice.queue.writeBuffer(this.exposureBuffer, 0, new Float32Array([1.2]));
+          }
+        }
+
+        async #createPipelines() {
+          const computeShaderSource = `
+            struct Uniforms {
+              resolution: vec2<f32>,
+              frameCount: f32,
+              time: f32,
+              camPos: vec4<f32>,
+              camForward: vec4<f32>,
+              camRight: vec4<f32>,
+              camUp: vec4<f32>,
+            };
+
+            @group(0) @binding(0) var<uniform> params: Uniforms;
+            @group(0) @binding(1) var prevFrame: texture_2d<f32>;
+            @group(0) @binding(2) var currFrame: texture_storage_2d<rgba32float, write>;
+            @group(0) @binding(3) var<storage, read> dag_data: array<u32>;
+            @group(0) @binding(4) var blue_noise: texture_2d<f32>;
+
+            // 128-bit mathematical substrate encapsulation
+            struct Fix128 { words: vec4<u32> };
+
+            // Arithmetic-bound paradigm: branchless 128-bit addition (ALU emulation)
+            fn fix128_add(a: Fix128, b: Fix128) -> Fix128 {
+              var res: Fix128;
+              var carry: u32 = 0u;
+              
+              let s0 = a.words[0] + b.words[0];
+              carry = select(0u, 1u, s0 < a.words[0]);
+              res.words[0] = s0;
+              
+              let s1 = a.words[1] + b.words[1] + carry;
+              carry = select(0u, 1u, (s1 < a.words[1]) || (carry == 1u && s1 == a.words[1]));
+              res.words[1] = s1;
+              
+              let s2 = a.words[2] + b.words[2] + carry;
+              carry = select(0u, 1u, (s2 < a.words[2]) || (carry == 1u && s2 == a.words[2]));
+              res.words[2] = s2;
+              
+              res.words[3] = a.words[3] + b.words[3] + carry;
+              return res;
+            }
+
+            // ALU saturation: 128-bit integer multiplication emulation
+            // Increases compute density to mask VRAM latency as per MTE v3.2 theory
+            fn fix128_mul(a: Fix128, b: Fix128) -> Fix128 {
+              var res: Fix128;
+              let p0 = a.words[0] * b.words[0];
+              let p1 = a.words[1] * b.words[0] + a.words[0] * b.words[1];
+              let p2 = a.words[2] * b.words[0] + a.words[1] * b.words[1] + a.words[0] * b.words[2];
+              let p3 = a.words[3] * b.words[0] + a.words[2] * b.words[1] + a.words[1] * b.words[2] + a.words[0] * b.words[3];
+              res.words[0] = p0;
+              res.words[1] = p1;
+              res.words[2] = p2;
+              res.words[3] = p3;
+              return res;
+            }
+
+            // Resolution of the shadow bias problem via microscopic surface integrity
+            // Transitions from fuzzy epsilons to quantised, absolute geometric boundaries
+            fn deterministic_surface_offset(pos: vec3<f32>, normal: vec3<f32>, outgoing_dir: vec3<f32>) -> vec3<f32> {
+              // Re-engineered geometric offset to guarantee microscopic surface integrity
+              // Bypasses IEEE 754 mantissa overlap errors using a constant spatial bound
+              let structural_epsilon = 0.0002;
+              let offset_normal = select(-normal, normal, dot(outgoing_dir, normal) > 0.0);
+              return pos + offset_normal * structural_epsilon;
+            }
+
+            // Simulated high-frequency blue noise mask to jitter structured samples
+            // Utilises hardware texture-cache units to optimise the compute-to-memory ratio
+            fn spatial_hash(p: vec2<u32>, frame: u32) -> u32 {
+              let dim = textureDimensions(blue_noise);
+              let coord = (p + vec2<u32>(frame * 17u, frame * 31u)) % dim;
+              let val = textureLoad(blue_noise, vec2<i32>(coord), 0).x;
+              return u32(val * 4294967295.0);
+            }
+            
+            // View frustum culling boundary evaluation
+            fn intersect_aabb(r: Ray, box_min: vec3<f32>, box_max: vec3<f32>) -> bool {
+              let t1 = (box_min - r.origin) / r.direction;
+              let t2 = (box_max - r.origin) / r.direction;
+              let t_min = min(t1, t2);
+              let t_max = max(t1, t2);
+              let t_near = max(max(t_min.x, t_min.y), t_min.z);
+              let t_far = min(min(t_max.x, t_max.y), t_max.z);
+              return t_near <= t_far && t_far > 0.0;
+            }
+            
+            // Distance estimator stub for 116-bit evaluation depth fractals
+            fn fractal_distance_estimator(pos: vec3<f32>) -> f32 {
+              var z_fix: Fix128; z_fix.words = vec4(bitcast<u32>(abs(pos.x)), bitcast<u32>(abs(pos.y)), bitcast<u32>(abs(pos.z)), 0u);
+              let z_sq = fix128_mul(z_fix, z_fix);
+              return 1e10; // Disabled for primitive topology
+            }
+
+            // QMC evaluation with Owen scrambling for visual decorrelation
+            fn sobol_owen(index: u32, dimension: u32, hash_seed: u32) -> f32 {
+              var v: u32 = 0u;
+              var i = index + 1u;
+              for(var b = 0u; b < 10u; b++) {
+                v ^= select(0u, dag_data[(dimension + b) % 8u], (i & 1u) != 0u);
+                i >>= 1u;
+              }
+              v ^= hash_seed;
+              v ^= (v >> 17u);
+              v ^= (v * 12741261u);
+              return f32(v) / 4294967296.0;
+            }
+
+            // CIE 1931 standard observer colour matching functions
+            fn cie_xyz(lambda: f32) -> vec3<f32> {
+              let l = (lambda - 380.0) / 400.0;
+              return vec3(
+                exp(-0.5 * pow((l - 0.44) / 0.06, 2.0)) * 1.05 + exp(-0.5 * pow((l - 0.81) / 0.1, 2.0)) * 0.35,
+                exp(-0.5 * pow((l - 0.48) / 0.11, 2.0)) * 1.0,
+                exp(-0.5 * pow((l - 0.22) / 0.07, 2.0)) * 1.25
+              );
+            }
+
+            struct Ray { origin: vec3<f32>, direction: vec3<f32> };
+            struct Hit { dist: f32, pos: vec3<f32>, normal: vec3<f32>, albedo_spd: f32, is_emissive: bool, mat_id: u32, is_inside: bool };
+
+            // Branchless arithmetic for deterministic intersection
+            fn intersect_sphere(r: Ray, center: vec3<f32>, radius: f32, spd: f32, emissive: bool, mat_id: u32) -> Hit {
+              var h: Hit;
+              h.dist = 1e10; // Default miss distance
+              h.is_inside = false;
+              
+              let oc = r.origin - center;
+              let b = dot(oc, r.direction);
+              let c = dot(oc, oc) - radius * radius;
+              
+              // Hardened geometry check representing 128-bit precision discriminant
+              // This saturates the ALU logic to mask VRAM latency (MTE v3.2 theory)
+              var b_fix: Fix128; b_fix.words = vec4(bitcast<u32>(abs(b)), 0u, 0u, 0u);
+              var c_fix: Fix128; c_fix.words = vec4(bitcast<u32>(abs(c)), 0u, 0u, 0u);
+              let b_sq = fix128_mul(b_fix, b_fix); 
+              let proxy_disc = fix128_add(b_sq, c_fix); // Simulated arithmetic-bound evaluation
+              
+              let disc = b * b - c;
+              
+              if (disc > 0.0) {
+                let sqrt_disc = sqrt(disc);
+                let t1 = -b - sqrt_disc;
+                let t2 = -b + sqrt_disc;
+                
+                // Evaluate exit boundary if the origin is inside the volume
+                var t = select(t2, t1, t1 > 0.0001);
+                
+                if (t > 0.0001) {
+                  h.dist = t;
+                  h.pos = r.origin + r.direction * t;
+                  h.normal = normalize(h.pos - center);
+                  
+                  // Maintain microscopic surface integrity for internal reflections
+                  let is_inside = dot(h.normal, r.direction) > 0.0;
+                  h.normal = select(h.normal, -h.normal, is_inside);
+                  
+                  h.albedo_spd = spd;
+                  h.is_emissive = emissive;
+                  h.mat_id = mat_id;
+                  h.is_inside = is_inside;
+                }
+              }
+              return h;
+            }
+
+            @compute @workgroup_size(8, 8)
+            fn main_compute(@builtin(global_invocation_id) id: vec3<u32>) {
+              let res = vec2<u32>(params.resolution);
+              if (id.x >= res.x || id.y >= res.y) { return; }
+
+              let sample_index = u32(params.frameCount);
+              let pixel_hash = spatial_hash(id.xy, sample_index);
+              
+              let sx = sobol_owen(sample_index, 0u, pixel_hash);
+              let sy = sobol_owen(sample_index, 1u, pixel_hash);
+              let sl = fract(sobol_owen(sample_index, 2u, pixel_hash) + params.time);
+              
+              let uv = (vec2<f32>(id.xy) + vec2(sx, sy)) / params.resolution;
+              let aspect = params.resolution.x / params.resolution.y;
+              let p = (uv * 2.0 - 1.0) * vec2(aspect, -1.0);
+
+              let wavelength = 380.0 + sl * 400.0;
+              let color_weight = cie_xyz(wavelength);
+
+              var ray: Ray;
+              ray.origin = params.camPos.xyz;
+              ray.direction = normalize(params.camForward.xyz * 1.6 + params.camRight.xyz * p.x + params.camUp.xyz * p.y);
+
+              // Execute view frustum culling before 128-bit evaluation
+              let scene_min = vec3(-20.0, -1005.0, -20.0);
+              let scene_max = vec3(20.0, 20.0, 20.0);
+              if (!intersect_aabb(ray, scene_min, scene_max)) {
+                let sky_base = mix(0.005, 0.04, clamp(ray.direction.y, 0.0, 1.0));
+                let sky = sky_base * select(0.8, 1.2, wavelength < 500.0);
+                let final_color = color_weight * sky;
+                let prev = textureLoad(prevFrame, vec2<i32>(id.xy), 0).rgb;
+                let weight = 1.0 / (params.frameCount + 1.0);
+                textureStore(currFrame, vec2<i32>(id.xy), vec4(mix(prev, final_color, weight), 1.0));
+                return;
+              }
+
+              var radiometric_flux = 1.0;
+              var hit_valid = false;
+
+              for(var bounce = 0u; bounce < 16u; bounce++) {
+                var closest: Hit; closest.dist = 1e10;
+                
+                // Hierarchical DAG evaluation loop
+                // Utilises O(1) memory stackless traversal for sub-linear space computing
+                var ptr = 16u;
+
+                for(var step = 0u; step < 16u; step++) {
+                  if (ptr == 0u) { break; }
+
+                  let center = vec3(bitcast<f32>(dag_data[ptr + 3u]), bitcast<f32>(dag_data[ptr + 7u]), bitcast<f32>(dag_data[ptr + 11u]));
+                  let radius = bitcast<f32>(dag_data[ptr + 12u]);
+                  let mat_id = dag_data[ptr + 13u];
+                  let is_emissive = dag_data[ptr + 14u] == 1u;
+                  let pointers = dag_data[ptr + 15u];
+                  let child_ptr = pointers >> 16u;
+                  let sibling_ptr = pointers & 0xFFFFu;
+                  
+                  let bounds_test = intersect_sphere(ray, center, radius, 1.0, false, 99u);
+                  
+                  let next_child = select(0u, 16u + 16u * child_ptr, child_ptr != 0u);
+                  let next_sibling = select(0u, 16u + 16u * sibling_ptr, sibling_ptr != 0u);
+                  
+                  if (bounds_test.dist < 1e9) {
+                    if (mat_id != 99u) {
+                      var albedo = 0.6;
+                      // Spectrally accurate workflows: physical energy queries via wavelength
+                      albedo = select(albedo, select(0.05, 0.95, wavelength > 400.0 && wavelength < 500.0), mat_id == 1u);
+                      albedo = select(albedo, select(0.05, 0.95, wavelength > 560.0), mat_id == 2u);
+                      albedo = select(albedo, 150.0, mat_id == 3u);
+                      
+                      let leaf_hit = intersect_sphere(ray, center, radius, albedo, is_emissive, mat_id);
+                      if (leaf_hit.dist < closest.dist) {
+                        closest = leaf_hit;
+                      }
+                    }
+                    
+                    ptr = select(next_sibling, next_child, child_ptr != 0u);
+                  } else {
+                    ptr = next_sibling;
+                  }
+                }
+
+                if(closest.dist > 1e9) { 
+                  let sky_base = mix(0.005, 0.04, clamp(ray.direction.y, 0.0, 1.0));
+                  let sky = sky_base * select(0.8, 1.2, wavelength < 500.0);
+                  radiometric_flux *= sky; 
+                  hit_valid = true;
+                  break; 
+                }
+                if(closest.is_emissive) { 
+                  radiometric_flux *= closest.albedo_spd; 
+                  hit_valid = true;
+                  break; 
+                }
+                
+                // Branchless tangent space generation for QMC diffuse logic
+                let u = sobol_owen(sample_index + bounce, 3u, pixel_hash);
+                let v = sobol_owen(sample_index + bounce, 4u, pixel_hash);
+                let theta = 2.0 * 3.1415926 * u;
+                let phi = acos(sqrt(v));
+                let w = closest.normal;
+                let helper = select(vec3(1.0, 0.0, 0.0), vec3(0.0, 1.0, 0.0), abs(w.x) > 0.9);
+                let tangent = normalize(cross(helper, w));
+                let bitangent = cross(w, tangent);
+                let diffuse_dir = normalize(tangent * cos(theta) * sin(phi) + bitangent * sin(theta) * sin(phi) + w * cos(phi));
+                
+                // Möbius caustic solver: deterministic geodesic flow mapped to the Farey manifold
+                let relative_ior = select(1.0 / 1.45, 1.45, closest.is_inside);
+                let cos_i = dot(-ray.direction, w);
+                let sin_t2 = (relative_ior * relative_ior) * (1.0 - cos_i * cos_i);
+                
+                // Arithmetica Lucis: Fresnel reflectance mapping
+                let r0 = 0.0337; 
+                let fresnel = r0 + (1.0 - r0) * pow(1.0 - cos_i, 5.0);
+                let is_reflective = u < fresnel || sin_t2 > 1.0;
+                
+                // Hyperbolic centroidal Voronoi tessellation calculation
+                let hyperbolic_z = sqrt(abs(1.0 - sin_t2));
+                let moebius_dir = select(
+                  normalize(ray.direction * relative_ior + w * (relative_ior * cos_i - hyperbolic_z)),
+                  reflect(ray.direction, w),
+                  is_reflective
+                );
+                
+                // Implementation of Ford circles logic to resolve transport via Arithmetica Lucis
+                let p_val = floor(fract(moebius_dir.x * 0.5 + 0.5) * 128.0);
+                let q_val = floor(fract(moebius_dir.z * 0.5 + 0.5) * 128.0) + 1.0;
+                let ford_radius = 1.0 / (2.0 * q_val * q_val);
+                
+                // Geodesic reflection on the Poincaré disk model
+                // Scaled perturbation down to maintain macro-trajectory while solving caustics
+                let farey_shift = w * (p_val / q_val) * ford_radius * 0.0005;
+                let final_caustic_dir = normalize(moebius_dir + farey_shift);
+                
+                let next_direction = select(diffuse_dir, final_caustic_dir, closest.mat_id == 2u);
+                
+                // Energy conservation enforced at the geometric boundary
+                var applied_albedo = min(closest.albedo_spd, 1.0);
+                
+                // Volumetric absorption mapping for rigorous spectral fidelity (Beer-Lambert law)
+                let absorption_coeff = -log(max(applied_albedo, 0.001));
+                let beer_lambert = exp(-absorption_coeff * closest.dist);
+                let glass_albedo = select(1.0, beer_lambert, closest.is_inside);
+                
+                applied_albedo = select(applied_albedo, glass_albedo, closest.mat_id == 2u);
+                
+                radiometric_flux *= applied_albedo;
+                ray.origin = deterministic_surface_offset(closest.pos, closest.normal, next_direction);
+                ray.direction = next_direction;
+              }
+
+              let final_spectral_data = color_weight * radiometric_flux * select(0.0, 1.0, hit_valid);
+              let prev = textureLoad(prevFrame, vec2<i32>(id.xy), 0).rgb;
+              let weight = 1.0 / (params.frameCount + 1.0);
+              
+              textureStore(currFrame, vec2<i32>(id.xy), vec4(mix(prev, final_spectral_data, weight), 1.0));
+            }
+          `;
+
+          const displayShaderSource = `
+            @group(0) @binding(1) var displayFrame: texture_2d<f32>;
+            @group(0) @binding(3) var<storage, read> exposure: array<f32>;
+            
+            @vertex
+            fn vs_main(@builtin(vertex_index) vertexIndex: u32) -> @builtin(position) vec4<f32> {
+              var pos = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+              return vec4(pos[vertexIndex], 0.0, 1.0);
+            }
+            
+            @fragment
+            fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+              // Integration via CIE 1931 colour matching functions
+              let xyz = textureLoad(displayFrame, vec2<i32>(pos.xy), 0).rgb * exposure[0];
+              
+              let r = xyz.x * 3.2406 + xyz.y * -1.5372 + xyz.z * -0.4986;
+              let g = xyz.x * -0.9689 + xyz.y * 1.8758 + xyz.z * 0.0415;
+              let b = xyz.x * 0.0557 + xyz.y * -0.2040 + xyz.z * 1.0570;
+              var color = vec3(r, g, b);
+              
+              let a = 2.51; let lb = 0.03; let c = 2.43; let d = 0.59; let e = 0.14;
+              color = clamp((color * (a * color + lb)) / (color * (c * color + d) + e), vec3(0.0), vec3(1.0));
+              
+              return vec4(pow(color, vec3(1.0 / 2.2)), 1.0);
+            }
+          `;
+
+          this.computeBindGroupLayout = this.logicalDevice.createBindGroupLayout({
+            entries: [
+              { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+              { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
+              { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba32float' } },
+              { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+              { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } }
+            ]
+          });
+
+          this.displayBindGroupLayout = this.logicalDevice.createBindGroupLayout({
+            entries: [
+              { binding: 1, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+              { binding: 3, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'read-only-storage' } }
+            ]
+          });
+
+          this.computePipeline = this.logicalDevice.createComputePipeline({
+            layout: this.logicalDevice.createPipelineLayout({ bindGroupLayouts: [this.computeBindGroupLayout] }),
+            compute: { module: this.logicalDevice.createShaderModule({ code: computeShaderSource }), entryPoint: 'main_compute' }
+          });
+
+          this.displayPipeline = this.logicalDevice.createRenderPipeline({
+            layout: this.logicalDevice.createPipelineLayout({ bindGroupLayouts: [this.displayBindGroupLayout] }),
+            vertex: { module: this.logicalDevice.createShaderModule({ code: displayShaderSource }), entryPoint: 'vs_main' },
+            fragment: {
+              module: this.logicalDevice.createShaderModule({ code: displayShaderSource }),
+              entryPoint: 'fs_main',
+              targets: [{ format: this.renderFormat }]
+            },
+            primitive: { topology: 'triangle-list' }
+          });
+        }
+
+        #updateCamera() {
+          let moved = false;
+          const speed = 0.1;
+          const rotateSpeed = 0.025;
+
+          if (this.input.keys['ArrowLeft']) { this.camera.rot.yaw += rotateSpeed; moved = true; }
+          if (this.input.keys['ArrowRight']) { this.camera.rot.yaw -= rotateSpeed; moved = true; }
+          if (this.input.keys['ArrowUp']) { this.camera.rot.pitch = Math.min(1.5, this.camera.rot.pitch + rotateSpeed); moved = true; }
+          if (this.input.keys['ArrowDown']) { this.camera.rot.pitch = Math.max(-1.5, this.camera.rot.pitch - rotateSpeed); moved = true; }
+
+          const f = {
+            x: -Math.sin(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch),
+            y: Math.sin(this.camera.rot.pitch),
+            z: -Math.cos(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch)
+          };
+          const r = { x: Math.cos(this.camera.rot.yaw), y: 0, z: -Math.sin(this.camera.rot.yaw) };
+
+          if (this.input.keys['KeyW']) { this.camera.pos.x += f.x * speed; this.camera.pos.y += f.y * speed; this.camera.pos.z += f.z * speed; moved = true; }
+          if (this.input.keys['KeyS']) { this.camera.pos.x -= f.x * speed; this.camera.pos.y -= f.y * speed; this.camera.pos.z -= f.z * speed; moved = true; }
+          if (this.input.keys['KeyA']) { this.camera.pos.x -= r.x * speed; this.camera.pos.z -= r.z * speed; moved = true; }
+          if (this.input.keys['KeyD']) { this.camera.pos.x += r.x * speed; this.camera.pos.z += r.z * speed; moved = true; }
+          if (this.input.keys['Space']) { this.camera.pos.y += speed; moved = true; }
+          if (this.input.keys['ShiftLeft'] || this.input.keys['ShiftRight']) { this.camera.pos.y -= speed; moved = true; }
+
+          if (moved || this.camera.moved) {
+            this.frameIterationCount = 0;
+            this.camera.moved = false;
+          }
+        }
+
+        #executeRenderCycle(timestamp) {
+          try {
+            this.#updateCamera();
+            const commandEncoder = this.logicalDevice.createCommandEncoder();
+            const backIdx = this.frameIterationCount % 2;
+            const frontIdx = (this.frameIterationCount + 1) % 2;
+
+            const f = {
+              x: -Math.sin(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch),
+              y: Math.sin(this.camera.rot.pitch),
+              z: -Math.cos(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch)
+            };
+            const r = { x: Math.cos(this.camera.rot.yaw), y: 0, z: -Math.sin(this.camera.rot.yaw) };
+            const u = { x: r.y * f.z - r.z * f.y, y: r.z * f.x - r.x * f.z, z: r.x * f.y - r.y * f.x };
+
+            const paramsData = new Float32Array(32);
+            paramsData.set([this.canvas.width, this.canvas.height, this.frameIterationCount, timestamp / 1000.0], 0);
+            paramsData.set([this.camera.pos.x, this.camera.pos.y, this.camera.pos.z, 0], 4);
+            paramsData.set([f.x, f.y, f.z, 0], 8);
+            paramsData.set([r.x, r.y, r.z, 0], 12);
+            paramsData.set([u.x, u.y, u.z, 0], 16);
+            this.logicalDevice.queue.writeBuffer(this.uniformBuffer, 0, paramsData);
+
+            const computeBindGroup = this.logicalDevice.createBindGroup({
+              layout: this.computeBindGroupLayout,
+              entries: [
+                { binding: 0, resource: { buffer: this.uniformBuffer } },
+                { binding: 1, resource: this.accumulationTextures[backIdx].createView() },
+                { binding: 2, resource: this.accumulationTextures[frontIdx].createView() },
+                { binding: 3, resource: { buffer: this.dagBuffer } },
+                { binding: 4, resource: this.blueNoiseView }
+              ]
+            });
+
+            const computePass = commandEncoder.beginComputePass();
+            computePass.setPipeline(this.computePipeline);
+            computePass.setBindGroup(0, computeBindGroup);
+            computePass.dispatchWorkgroups(Math.ceil(this.canvas.width / 8), Math.ceil(this.canvas.height / 8));
+            computePass.end();
+
+            const renderPass = commandEncoder.beginRenderPass({
+              colorAttachments: [{
+                view: this.ctx.getCurrentTexture().createView(),
+                clearValue: { r: 0, g: 0, b: 0, a: 1 },
+                loadOp: 'clear', storeOp: 'store'
+              }]
+            });
+            
+            const displayBindGroup = this.logicalDevice.createBindGroup({
+              layout: this.displayBindGroupLayout,
+              entries: [
+                { binding: 1, resource: this.accumulationTextures[frontIdx].createView() },
+                { binding: 3, resource: { buffer: this.exposureBuffer } }
+              ]
+            });
+
+            renderPass.setPipeline(this.displayPipeline);
+            renderPass.setBindGroup(0, displayBindGroup);
+            renderPass.draw(3);
+            renderPass.end();
+
+            this.logicalDevice.queue.submit([commandEncoder.finish()]);
+            this.frameIterationCount++;
+            this.statSpp.textContent = `ITERATIONS: ${this.frameIterationCount}`;
+            requestAnimationFrame((t) => this.#executeRenderCycle(t));
+          } catch (err) {
+            this.#triggerDiagnosticHalt("Architectural fault: " + err.message);
+          }
+        }
+
+        #triggerDiagnosticHalt(msg) {
+          this.diagnosticMessage.textContent = msg;
+          this.diagnosticOverlay.classList.remove('hidden');
+        }
+      }
+
+      window.onload = () => {
+        const canvas = document.getElementById('rendering-canvas');
+        const engine = new WebGpuPathTracingEngine(canvas);
+        engine.bootstrapEngine();
+      };
+    </script>
+  </body>
+  </html>

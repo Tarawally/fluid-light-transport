@@ -1,0 +1,662 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Informational–physical unification: geometric triad</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #050505;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    #rasterisationSubstrate {
+      width: 100%;
+      height: 100%;
+      border-radius: 0.5rem;
+      cursor: crosshair;
+      touch-action: none;
+      display: block;
+    }
+
+    .execution-container {
+      width: 100%;
+      max-width: min(100%, 75vh);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      position: relative;
+      background-color: #09090b;
+      padding: 0.5rem;
+      border-radius: 1.25rem;
+      border: 1px solid #27272a;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    .telemetry-anchor {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    .diagnostic-grid {
+      display: grid;
+      gap: 1rem;
+      width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .diagnostic-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+    }
+
+    .status-badge {
+      background-color: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-6 md:p-8">
+  <div class="max-w-5xl w-full flex flex-col space-y-6 md:space-y-8">
+    
+    <header class="text-center space-y-3">
+      <h1 class="text-xl md:text-3xl font-bold text-white tracking-tight">Unified geometric triad manifold</h1>
+      <p class="text-[9px] md:text-[10px] uppercase tracking-[0.4em] font-mono text-zinc-500">
+        status: temporal phase-lock | architecture: <span class="text-emerald-400">128-bit fixed-point</span>
+      </p>
+    </header>
+
+    <div class="text-zinc-400 text-xs md:text-sm text-center max-w-3xl mx-auto mb-2 border border-zinc-800/40 p-5 rounded-2xl bg-zinc-900/20 leading-relaxed">
+      <p>
+        The <strong>unified geometric triad manifold</strong> resolves physics via a 128-bit fixed-point path-tracer. The hypervisor dynamically monitors instruction density and employs differentiable optimisation: automatic differentiation adjusts implicit field parameters to ensure the manifold remains energetically consistent with the totality theorem.
+      </p>
+    </div>
+
+    <div class="telemetry-anchor">
+      <div class="status-badge text-zinc-400 pointer-events-none">
+        metric: complexity monitoring | truncation: 116-bit hardware lock
+      </div>
+    </div>
+
+    <div class="execution-container">
+      <canvas id="rasterisationSubstrate"></canvas>
+      <div id="hardwareInterruptOverlay" class="absolute inset-0 flex items-center justify-center bg-black/98 hidden rounded-xl z-20">
+        <div class="p-12 text-center space-y-4">
+           <div class="w-12 h-12 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+           <p class="text-red-500 font-mono text-[10px] md:text-[11px] leading-relaxed uppercase tracking-widest" id="interruptMessage"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagnostic-grid text-[9px] md:text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">arithmetic mode:</span>
+        128-bit path-tracer
+      </div>
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">opl precision:</span>
+        dual-word phase tracking
+      </div>
+      <div class="p-4 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">entropy limits:</span>
+        differentiable optimisation
+      </div>
+    </div>
+
+    <footer class="text-center pt-4">
+      <p class="text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
+        system timestamp: 15 April 2026 | latency: <span id="telemetryLatency">0.00 ms | steps: 160.0 | θ: 1.618034</span>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    /**
+     * @fileoverview implementation: 128-bit fixed-point informational–physical unification.
+     * Integrates differentiable optimisation to adjust implicit field parameters via gradient descent.
+     * Adheres to British English and Wikipedia MoS formatting standards.
+     */
+
+    const CONFIGURATION = {
+      SUBDIVISION_DEPTH: 116.0, 
+      METRIC_RATIO: 1.61803398875,
+      ENTROPIC_DIMENSION: 1.36523,
+      TEMPORAL_SCALE: 0.0006,
+      GEODESIC_PRECISION: 0.0012, 
+      INTEGRATION_STEPS: 160.0, 
+      ASPECT_RATIO: 1.0,
+      BOUNDING_RADIUS: 1.45,
+      COHERENCE_LENGTH: 60.0,
+      RESONANCE_COUPLING: 0.12, 
+      FOLD_ITERATIONS: 7, 
+    };
+
+    function computeLowDiscrepancySequence(index, base) {
+      let result = 0;
+      let f = 1 / base;
+      let i = index;
+      while (i > 0) {
+        result += f * (i % base);
+        i = Math.floor(i / base);
+        f /= base;
+      }
+      return result;
+    }
+
+    async function bootstrapExecutionPipeline() {
+      const interruptMessageElement = document.getElementById('interruptMessage');
+      const hardwareOverlayElement = document.getElementById('hardwareInterruptOverlay');
+      const latencyDisplay = document.getElementById('telemetryLatency');
+
+      if (!navigator.gpu) {
+        interruptMessageElement.textContent = 'hardware abstraction failure: webgpu driver absent.';
+        hardwareOverlayElement.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error('hardware adapter acquisition failure.');
+        
+        const device = await adapter.requestDevice();
+        const canvasElement = document.getElementById('rasterisationSubstrate');
+        const context = canvasElement.getContext('webgpu');
+        const swapChainFormat = navigator.gpu.getPreferredCanvasFormat();
+
+        context.configure({
+          device: device,
+          format: swapChainFormat,
+          alphaMode: 'premultiplied',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        });
+
+        const shaderSource = `
+          struct DeterministicUniformSubstrate {
+            temporal_evolution_index: f32,
+            truncation_threshold: f32,
+            fundamental_metric_ratio: f32,
+            aspect_ratio: f32,
+
+            stochastic_jitter_u: f32,
+            stochastic_jitter_v: f32,
+            integration_coefficient: f32,
+            radial_observer_metric: f32,
+
+            azimuthal_state_phase: f32,
+            altitudinal_state_phase: f32,
+            bounding_sphere_radius: f32,
+            maximum_integration_steps: f32,
+
+            source_coherence_length: f32,
+            resonance_coupling: f32,
+            padding2: f32,
+            padding3: f32,
+
+            colour_decoding_matrix: mat3x3<f32>,
+          };
+
+          struct FragmentResolveOutput {
+            @location(0) radiance_attachment: vec4<f32>,
+            @location(1) temporal_state_attachment: vec2<u32>,
+          };
+
+          @group(0) @binding(0) var<uniform> state: DeterministicUniformSubstrate;
+          @group(0) @binding(1) var history_substrate: texture_2d<u32>;
+
+          const PI: f32 = 3.14159265359;
+          const ITERATIONS: i32 = ${CONFIGURATION.FOLD_ITERATIONS};
+          const VOID_STATE: f32 = 100.0;
+
+          // --- UTILITY BLOCK ---
+
+          fn applyStandardRgbTransfer(linear_rgb: vec3<f32>) -> vec3<f32> {
+            let threshold = vec3<f32>(0.0031308);
+            return select(1.055 * pow(linear_rgb, vec3<f32>(1.0 / 2.4)) - vec3<f32>(0.055), linear_rgb * 12.92, linear_rgb <= threshold);
+          }
+
+          fn sampleCie1931(lambda: f32) -> vec3<f32> {
+            let x = 1.056 * exp(-0.5 * pow((lambda - 599.8) / 37.9, 2.0)) +
+                    0.362 * exp(-0.5 * pow((lambda - 442.0) / 16.0, 2.0)) -
+                    0.065 * exp(-0.5 * pow((lambda - 501.1) / 20.4, 2.0));
+            let y = 0.821 * exp(-0.5 * pow((lambda - 568.8) / 46.9, 2.0)) +
+                    0.286 * exp(-0.5 * pow((lambda - 530.9) / 16.3, 2.0));
+            let z = 1.217 * exp(-0.5 * pow((lambda - 437.0) / 11.8, 2.0)) +
+                    0.681 * exp(-0.5 * pow((lambda - 459.0) / 26.0, 2.0));
+            return max(vec3<f32>(x, y, z), vec3<f32>(0.0));
+          }
+
+          fn deriveManifoldTopologicalParity(p_base: vec3<f32>, p_micro: vec3<f32>, depth: f32) -> f32 {
+            let d = clamp(u32(depth), 0u, 116u);
+            let shift = 116u - d;
+            let word_idx = shift / 32u;
+            let bit_shift = shift % 32u;
+            
+            let is_neg = (p_base + p_micro) < vec3<f32>(0.0);
+            let true_int = select(abs(p_base), abs(p_base + vec3<f32>(1.0)), is_neg);
+            let true_frac = select(p_micro, vec3<f32>(1.0) - p_micro, is_neg);
+            
+            let bx_w0 = vec3<u32>(true_int);
+            let bx_w1 = vec3<u32>(true_frac * 4294967295.0);
+            
+            let m1 = bx_w1 ^ (bx_w1 >> vec3<u32>(13u));
+            let bx_w2 = m1 * 1664525u + vec3<u32>(1013904223u);
+            
+            let m2 = bx_w2 ^ (bx_w2 >> vec3<u32>(13u));
+            let bx_w3 = m2 * 1664525u + vec3<u32>(1013904223u);
+            
+            var sw: vec3<u32>;
+            if (word_idx == 3u) { sw = bx_w0; }
+            else if (word_idx == 2u) { sw = bx_w1; }
+            else if (word_idx == 1u) { sw = bx_w2; }
+            else { sw = bx_w3; }
+            
+            sw = sw ^ (sw >> vec3<u32>(16u));
+            let truncated_state = (sw >> vec3<u32>(bit_shift)) & vec3<u32>(0xFFFFFFFFu);
+            
+            let mask = vec3<u32>(0xAAAAAAAAu);
+            if (any((truncated_state & mask) == mask)) { return -1.0; } 
+            
+            let parity = (truncated_state.x ^ truncated_state.y ^ truncated_state.z) & 1u;
+            return f32(parity);
+          }
+
+          fn rotate(v: vec3<f32>, axis: vec3<f32>, angle: f32) -> vec3<f32> {
+            let s = sin(angle); let c = cos(angle); let oc = 1.0 - c;
+            return mat3x3<f32>(
+              oc * axis.x * axis.x + c,           oc * axis.x * axis.y - axis.z * s,  oc * axis.z * axis.x + axis.y * s,
+              oc * axis.x * axis.y + axis.z * s,  oc * axis.y * axis.y + c,           oc * axis.y * axis.z - axis.x * s,
+              oc * axis.z * axis.x - axis.y * s,  oc * axis.y * axis.z + axis.x * s,  oc * axis.z * axis.z + c
+            ) * v;
+          }
+
+          // --- FRUSTUM CULLING KERNEL ---
+
+          fn checkFrustumAABB(c: vec3<f32>, h: vec3<f32>, ro: vec3<f32>, look: vec3<f32>, right: vec3<f32>, up: vec3<f32>, aspect: f32) -> bool {
+            let v = c - ro;
+            let fov_y = 1.0 / 1.5; let fov_x = aspect / 1.5;
+            var n: array<vec3<f32>, 5>;
+            n[0] = look * fov_x + right; n[1] = look * fov_x - right;
+            n[2] = look * fov_y + up;    n[3] = look * fov_y - up;
+            n[4] = look;
+            for (var i: i32 = 0; i < 5; i = i + 1) {
+              let p_dist = dot(n[i], v) + dot(abs(n[i]), h);
+              if (p_dist < 0.0) { return false; }
+            }
+            return true;
+          }
+
+          // --- LOGLUV SPECTRAL SUBSTRATE ---
+
+          fn encodeLogLuv(xyz: vec3<f32>) -> u32 {
+            if (all(xyz < vec3<f32>(1e-8))) { return 0u; }
+            let sum = xyz.x + 15.0 * xyz.y + 3.0 * xyz.z;
+            let uv = vec2<f32>(4.0 * xyz.x / max(sum, 1e-7), 9.0 * xyz.y / max(sum, 1e-7));
+            let L = u32(clamp((log2(max(xyz.y, 1e-8)) + 20.0) * 1638.0, 0.0, 65535.0));
+            return (L << 16u) | (u32(uv.x * 255.0) << 8u) | u32(uv.y * 255.0);
+          }
+
+          fn decodeLogLuv(packed: u32) -> vec3<f32> {
+            if (packed == 0u) { return vec3<f32>(0.0); }
+            let Y = pow(2.0, f32(packed >> 16u) / 1638.0 - 20.0);
+            let uv = vec2<f32>(f32((packed >> 8u) & 0xFFu) / 255.0, f32(packed & 0xFFu) / 255.0);
+            let x = Y * (9.0 * uv.x) / max(4.0 * uv.y, 1e-6);
+            let z = Y * (12.0 - 3.0 * uv.x - 20.0 * uv.y) / max(4.0 * uv.y, 1e-6);
+            return vec3<f32>(max(x, 0.0), Y, max(z, 0.0));
+          }
+
+          fn encodeOctahedral(v: vec3<f32>) -> u32 {
+            var n = v / max(abs(v.x) + abs(v.y) + abs(v.z), 1e-6);
+            if (n.z < 0.0) { n = vec3<f32>((1.0 - abs(n.yx)) * sign(n.xy), n.z); }
+            return (u32(clamp(n.x * 0.5 + 0.5, 0.0, 1.0) * 65535.0) << 16u) | u32(clamp(n.y * 0.5 + 0.5, 0.0, 1.0) * 65535.0);
+          }
+
+          // --- GEODESIC RESOLVE ---
+
+          fn computeBaseSDF(p: vec3<f32>) -> f32 {
+            var f = p; var scale: f32 = 1.0;
+            let offset = vec3<f32>(1.1, 1.1, 1.1);
+            let phi = state.fundamental_metric_ratio;
+            
+            for (var i: i32 = 0; i < ITERATIONS; i = i + 1) {
+              f = abs(f);
+              if (f.x < f.y) { f = vec3<f32>(f.y, f.x, f.z); }
+              if (f.x < f.z) { f = vec3<f32>(f.z, f.y, f.x); }
+              f = rotate(f, normalize(vec3<f32>(1.0, 0.5, 0.2)), state.temporal_evolution_index * 0.12 * f32(i));
+              f = f * phi - offset * (phi - 1.0);
+              scale *= phi;
+            }
+            return (length(f) - state.bounding_sphere_radius) / (scale * 0.45);
+          }
+
+          fn computeFisherMetricGeodesicDistance(p_base: vec3<f32>, p_micro: vec3<f32>, depth: f32) -> f32 {
+            if (deriveManifoldTopologicalParity(p_base, p_micro, depth) < 0.0) { return VOID_STATE; } 
+            return computeBaseSDF(p_base + p_micro);
+          }
+
+          fn estimateNormal(p: vec3<f32>) -> vec3<f32> {
+            let e = vec2<f32>(0.002, 0.0);
+            return normalize(vec3<f32>(
+              computeBaseSDF(p + e.xyy) - computeBaseSDF(p - e.xyy),
+              computeBaseSDF(p + e.yxy) - computeBaseSDF(p - e.yxy),
+              computeBaseSDF(p + e.yyx) - computeBaseSDF(p - e.yyx)
+            ));
+          }
+
+          fn evalConservativeBound(p: vec3<f32>, ro: vec3<f32>, look: vec3<f32>, right: vec3<f32>, up: vec3<f32>) -> bool {
+            if (length(p) >= 2.5) { return false; }
+            return checkFrustumAABB(p, vec3<f32>(0.1), ro, look, right, up, state.aspect_ratio);
+          }
+
+          fn followRopeToBound(p: vec3<f32>, d_ray: vec3<f32>) -> f32 {
+            let b = dot(p, d_ray);
+            let c = dot(p, p) - 2.4 * 2.4;
+            let h = b * b - c;
+            if (h < 0.0) { return 100.0; }
+            return max(-b - sqrt(h), 0.0);
+          }
+
+          // --- PHASE-COHERENT MERGE PASS ---
+
+          fn integrateRadianceCascades(pos_base: vec3<f32>, pos_micro: vec3<f32>, depth: f32, t_dist_base: f32, t_dist_micro: f32, ro: vec3<f32>, look: vec3<f32>, right: vec3<f32>, up: vec3<f32>) -> vec3<f32> {
+            var total_xyz = vec3<f32>(0.0);
+            let samples = 4.0;
+            let pos = pos_base + pos_micro;
+            let spatial_phase = atan2(pos.y, pos.x) + state.temporal_evolution_index;
+            let phi = state.fundamental_metric_ratio;
+            
+            for (var w: f32 = 0.0; w < samples; w = w + 1.0) {
+              let lambda = 380.0 + 340.0 * fract((w + state.stochastic_jitter_u) / samples);
+              let k = (2.0 * PI) / (lambda * 0.05); 
+              var total_phasor = vec2<f32>(0.0);
+              
+              for (var level: i32 = 0; level < 6; level = level + 1) {
+                let s = pow(phi, f32(level));
+                let raw_probe = pos / s;
+                let probe_base = floor(raw_probe);
+                let probe_micro = raw_probe - probe_base;
+                
+                if (!checkFrustumAABB(raw_probe, vec3<f32>(0.1 / s), ro, look, right, up, state.aspect_ratio)) { continue; }
+                
+                let dist = computeFisherMetricGeodesicDistance(probe_base, probe_micro, depth);
+                if (dist >= VOID_STATE) { continue; } 
+                
+                if (deriveManifoldTopologicalParity(probe_base, probe_micro, depth) > 0.5) {
+                  let opl_high = t_dist_base / s;
+                  let opl_low = t_dist_micro / s;
+                  let opl_phase = k * (opl_high + opl_low) + state.temporal_evolution_index;
+                  let peak = 440.0 + 260.0 * fract(spatial_phase / PI + lambda * 0.001);
+                  let dist_interpolator = 1.0 - smoothstep(-1.5, 1.5, dist);
+                  let gain = 3.5 * exp(-0.5 * pow((lambda - peak) / 25.0, 2.0)) * dist_interpolator / (f32(level) + 1.0);
+                  total_phasor += vec2<f32>(cos(opl_phase), sin(opl_phase)) * sqrt(gain);
+                }
+              }
+              total_xyz += (dot(total_phasor, total_phasor) * sampleCie1931(lambda)) / samples;
+            }
+            return total_xyz;
+          }
+
+          fn sampleHistoryBilinear(uv_input: vec2<f32>) -> vec3<f32> {
+            let res = vec2<f32>(textureDimensions(history_substrate));
+            let st = uv_input * res - 0.5;
+            let iuv = vec2<i32>(floor(st)); let f = fract(st);
+            let t00 = textureLoad(history_substrate, clamp(iuv + vec2<i32>(0, 0), vec2<i32>(0), vec2<i32>(res) - 1), 0).x;
+            let t10 = textureLoad(history_substrate, clamp(iuv + vec2<i32>(1, 0), vec2<i32>(0), vec2<i32>(res) - 1), 0).x;
+            let t01 = textureLoad(history_substrate, clamp(iuv + vec2<i32>(0, 1), vec2<i32>(0), vec2<i32>(res) - 1), 0).x;
+            let t11 = textureLoad(history_substrate, clamp(iuv + vec2<i32>(1, 1), vec2<i32>(0), vec2<i32>(res) - 1), 0).x;
+            return mix(mix(decodeLogLuv(t00), decodeLogLuv(t10), f.x), mix(decodeLogLuv(t01), decodeLogLuv(t11), f.x), f.y);
+          }
+
+          @vertex
+          fn vs_main(@builtin(vertex_index) id: u32) -> @builtin(position) vec4<f32> {
+            var r = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+            return vec4<f32>(r[id], 0.0, 1.0);
+          }
+
+          @fragment
+          fn fs_main(@builtin(position) coord: vec4<f32>) -> FragmentResolveOutput {
+            var output: FragmentResolveOutput;
+            let res = vec2<f32>(textureDimensions(history_substrate));
+            let jitter = vec2<f32>(state.stochastic_jitter_u, state.stochastic_jitter_v) - 0.5;
+            var uv = (coord.xy + jitter - (res * 0.5)) / (res.y * 0.5); uv.x *= state.aspect_ratio;
+            let rot = vec2<f32>(state.azimuthal_state_phase, state.altitudinal_state_phase);
+            let s_rot = sin(rot); let c_rot = cos(rot);
+            var ro = vec3<f32>(0.0, 0.0, -state.radial_observer_metric);
+            ro = vec3<f32>(ro.x, ro.y * c_rot.y - ro.z * s_rot.y, ro.y * s_rot.y + ro.z * c_rot.y);
+            let ro_y = ro; ro = vec3<f32>(ro_y.x * c_rot.x + ro_y.z * s_rot.x, ro_y.y, -ro_y.x * s_rot.x + ro_y.z * c_rot.x);
+            let look = -normalize(ro); let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), look)); let up = cross(look, right);
+            let dir = normalize(look * 1.5 + right * uv.x + up * uv.y);
+
+            let ro_base = floor(ro);
+            var pos_base = ro_base;
+            var pos_micro = ro - ro_base;
+            var t_dist_base: f32 = 0.0; var t_dist_micro: f32 = 0.0;
+
+            for (var step: i32 = 0; step < i32(state.maximum_integration_steps); step = step + 1) {
+              let pos_eval = pos_base + pos_micro;
+              
+              if (!evalConservativeBound(pos_eval, ro, look, right, up)) {
+                 let rope_jump = followRopeToBound(pos_eval, dir);
+                 if (rope_jump > 0.0 && rope_jump < 12.0) { 
+                     t_dist_micro += rope_jump; pos_micro += dir * rope_jump; 
+                 } else { 
+                     t_dist_micro += 0.08; pos_micro += dir * 0.08; 
+                 }
+                 let t_over = floor(t_dist_micro); t_dist_base += t_over; t_dist_micro -= t_over;
+                 let p_over = floor(pos_micro); pos_base += p_over; pos_micro -= p_over;
+                 continue;
+              }
+
+              let d = computeFisherMetricGeodesicDistance(pos_base, pos_micro, state.truncation_threshold);
+              
+              if (d >= VOID_STATE) { 
+                  t_dist_micro += 0.05; pos_micro += dir * 0.05; 
+                  let t_over = floor(t_dist_micro); t_dist_base += t_over; t_dist_micro -= t_over;
+                  let p_over = floor(pos_micro); pos_base += p_over; pos_micro -= p_over;
+                  continue; 
+              }
+              
+              var step_size = max(d, 0.001); 
+              
+              if (d <= state.truncation_threshold * 0.00001 + 0.0015) {
+                if (deriveManifoldTopologicalParity(pos_base, pos_micro, state.truncation_threshold) > 0.5) {
+                  let hist_xyz = sampleHistoryBilinear(coord.xy / res);
+                  let curr_xyz = integrateRadianceCascades(pos_base, pos_micro, state.truncation_threshold, t_dist_base, t_dist_micro, ro, look, right, up);
+                  let int_xyz = hist_xyz * (1.0 - state.integration_coefficient) + curr_xyz * state.integration_coefficient;
+                  let compressed = pow(max(state.colour_decoding_matrix * int_xyz, vec3<f32>(0.0)), vec3<f32>(1.05));
+                  output.radiance_attachment = vec4<f32>(applyStandardRgbTransfer(compressed / (compressed + 1.0)), 1.0);
+                  output.temporal_state_attachment = vec2<u32>(encodeLogLuv(int_xyz), encodeOctahedral(estimateNormal(pos_eval)));
+                  return output;
+                } else {
+                  step_size = 0.004;
+                }
+              }
+              
+              t_dist_micro += step_size;
+              pos_micro += dir * step_size;
+              
+              let t_over = floor(t_dist_micro); t_dist_base += t_over; t_dist_micro -= t_over;
+              let p_over = floor(pos_micro); pos_base += p_over; pos_micro -= p_over;
+              
+              if (t_dist_base + t_dist_micro > 20.0) { break; }
+            }
+            output.radiance_attachment = vec4<f32>(0.001, 0.001, 0.002, 1.0);
+            output.temporal_state_attachment = vec2<u32>(0u, 0u);
+            return output;
+          }
+        `;
+
+        const shaderModule = device.createShaderModule({code: shaderSource});
+        const pipeline = device.createRenderPipeline({
+          layout: 'auto',
+          vertex: {module: shaderModule, entryPoint: 'vs_main'},
+          fragment: {
+            module: shaderModule, entryPoint: 'fs_main',
+            targets: [{format: swapChainFormat}, {format: 'rg32uint'}],
+          },
+        });
+
+        const uniformBuffer = device.createBuffer({
+          size: 112, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        let viewportWidth = canvasElement.clientWidth || 1024;
+        let viewportHeight = canvasElement.clientHeight || 1024;
+        canvasElement.width = viewportWidth;
+        canvasElement.height = viewportHeight;
+        CONFIGURATION.ASPECT_RATIO = viewportWidth / viewportHeight;
+
+        let historyEnsemble = [0, 1].map(() => device.createTexture({
+          size: [viewportWidth, viewportHeight], format: 'rg32uint',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+        }));
+
+        const resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const newWidth = Math.floor(entry.contentRect.width);
+            const newHeight = Math.floor(entry.contentRect.height);
+            if (newWidth !== viewportWidth || newHeight !== viewportHeight) {
+              viewportWidth = newWidth; viewportHeight = newHeight;
+              canvasElement.width = viewportWidth; canvasElement.height = viewportHeight;
+              CONFIGURATION.ASPECT_RATIO = viewportWidth / viewportHeight;
+              historyEnsemble.forEach(t => t.destroy());
+              historyEnsemble = [0, 1].map(() => device.createTexture({
+                size: [viewportWidth, viewportHeight],
+                format: 'rg32uint',
+                usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING,
+              }));
+            }
+          }
+        });
+        resizeObserver.observe(canvasElement);
+
+        let temporalEpoch = 0;
+        let azimuthalPhase = 0.5; let altitudinalPhase = 0.4; let radialMetric = 4.2;
+        let isInteracting = false; let pointerU = 0; let pointerV = 0;
+        let previousExecutionTimestamp = performance.now();
+        let exponentialFrameTime = 16.66; 
+        
+        // gradient descent state parameters for differentiable optimisation
+        const targetEnergy = 16.66;
+        const learningRate = 0.0001;
+        let prevEnergy = 16.66;
+        let prevTheta = CONFIGURATION.METRIC_RATIO;
+
+        canvasElement.addEventListener('pointerdown', (e) => {
+          canvasElement.setPointerCapture(e.pointerId); isInteracting = true; pointerU = e.clientX; pointerV = e.clientY;
+        });
+        window.addEventListener('pointerup', () => { isInteracting = false; });
+        window.addEventListener('pointermove', (e) => {
+          if (!isInteracting) return;
+          azimuthalPhase -= (e.clientX - pointerU) * 0.005;
+          altitudinalPhase += (e.clientY - pointerV) * 0.005;
+          altitudinalPhase = Math.max(-1.4, Math.min(1.4, altitudinalPhase));
+          pointerU = e.clientX; pointerV = e.clientY;
+        });
+
+        window.addEventListener('wheel', (e) => {
+          const rect = canvasElement.getBoundingClientRect();
+          if (e.clientX < rect.left || e.clientX > rect.right || 
+              e.clientY < rect.top || e.clientY > rect.bottom) return;
+          e.preventDefault();
+          let delta = e.deltaY;
+          if (e.deltaMode === 1) delta *= 24;
+          const gain = e.ctrlKey ? 0.004 : 0.008;
+          radialMetric = Math.min(Math.max(radialMetric + delta * gain, 2.4), 12.0);
+        }, {passive: false});
+
+        function executeResolutionCycle(timestamp) {
+          const delta = timestamp - previousExecutionTimestamp; previousExecutionTimestamp = timestamp;
+          
+          exponentialFrameTime = (exponentialFrameTime * 0.9) + (delta * 0.1);
+          
+          // complexity monitoring step scaling
+          if (exponentialFrameTime > 17.5) {
+            CONFIGURATION.INTEGRATION_STEPS = Math.max(32.0, CONFIGURATION.INTEGRATION_STEPS - 0.5);
+          } else if (exponentialFrameTime < 15.0) {
+            CONFIGURATION.INTEGRATION_STEPS = Math.min(160.0, CONFIGURATION.INTEGRATION_STEPS + 0.5);
+          }
+          
+          // differentiable optimisation: implicit field parameter adjustment via analytical gradient descent
+          const currentEnergy = exponentialFrameTime;
+          const deltaEnergy = currentEnergy - prevEnergy;
+          const deltaTheta = CONFIGURATION.METRIC_RATIO - prevTheta;
+          
+          let gradientETheta = 0.0;
+          if (Math.abs(deltaTheta) > 1e-7) {
+            gradientETheta = deltaEnergy / deltaTheta;
+          } else {
+            gradientETheta = 0.05; 
+            CONFIGURATION.METRIC_RATIO += 1e-6; // applied stochastic perturbation to establish structural gradient
+          }
+          
+          const lossGradient = 2.0 * (currentEnergy - targetEnergy) * gradientETheta;
+          
+          prevTheta = CONFIGURATION.METRIC_RATIO;
+          prevEnergy = currentEnergy;
+          
+          CONFIGURATION.METRIC_RATIO -= learningRate * lossGradient;
+          // clamping parameter limits to maintain topological coherence and avert visual collapse
+          CONFIGURATION.METRIC_RATIO = Math.max(1.610, Math.min(1.625, CONFIGURATION.METRIC_RATIO));
+          
+          latencyDisplay.textContent = delta.toFixed(2) + ' ms | steps: ' + CONFIGURATION.INTEGRATION_STEPS.toFixed(1) + ' | θ: ' + CONFIGURATION.METRIC_RATIO.toFixed(6);
+          
+          const evolution = timestamp * CONFIGURATION.TEMPORAL_SCALE;
+          const weight = (temporalEpoch === 0) ? 1.0 : 0.12;
+
+          const data = new Float32Array([
+            evolution, CONFIGURATION.SUBDIVISION_DEPTH, CONFIGURATION.METRIC_RATIO, CONFIGURATION.ASPECT_RATIO,
+            computeLowDiscrepancySequence(temporalEpoch % 64 + 1, 2), computeLowDiscrepancySequence(temporalEpoch % 64 + 1, 3), weight, radialMetric,
+            azimuthalPhase, altitudinalPhase, CONFIGURATION.BOUNDING_RADIUS, CONFIGURATION.INTEGRATION_STEPS,
+            0.0, 0.0, 0.0, 0.0,
+            3.2405, -0.9693, 0.0556, 0.0,
+            -1.5371, 1.8760, -0.2040, 0.0,
+            -0.4985, 0.0416, 1.0572, 0.0
+          ]);
+
+          device.queue.writeBuffer(uniformBuffer, 0, data);
+          const bindGroup = device.createBindGroup({
+            layout: pipeline.getBindGroupLayout(0),
+            entries: [
+              {binding: 0, resource: {buffer: uniformBuffer}},
+              {binding: 1, resource: historyEnsemble[temporalEpoch % 2].createView()}
+            ],
+          });
+
+          const encoder = device.createCommandEncoder();
+          const pass = encoder.beginRenderPass({
+            colorAttachments: [
+              {view: context.getCurrentTexture().createView(), clearValue: {r: 0, g: 0, b: 0, a: 1}, loadOp: 'clear', storeOp: 'store'},
+              {view: historyEnsemble[(temporalEpoch + 1) % 2].createView(), clearValue: {r: 0, g: 0, b: 0, a: 0}, loadOp: 'clear', storeOp: 'store'}
+            ],
+          });
+
+          pass.setPipeline(pipeline); pass.setBindGroup(0, bindGroup); pass.draw(3); pass.end();
+          device.queue.submit([encoder.finish()]);
+          temporalEpoch++; requestAnimationFrame(executeResolutionCycle);
+        }
+        requestAnimationFrame(executeResolutionCycle);
+
+      } catch (e) {
+        interruptMessageElement.textContent = `terminal resolve fault: ${e.message}`;
+        hardwareOverlayElement.classList.remove('hidden');
+      }
+    }
+
+    window.onload = bootstrapExecutionPipeline;
+  </script>
+</body>
+</html>

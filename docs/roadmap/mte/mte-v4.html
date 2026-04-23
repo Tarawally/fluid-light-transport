@@ -1,0 +1,464 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monistic Transport Engine • v8.6</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #030305;
+      color: #a0a0a0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
+    #render-canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100vh;
+      width: 100vw;
+      touch-action: none;
+    }
+    .telemetry-overlay {
+      background: rgba(3, 3, 5, 0.9);
+      backdrop-filter: blur(16px);
+      border: 1px solid #27272a;
+      pointer-events: none;
+    }
+    .diagnostic-panel {
+      position: absolute;
+      top: 2rem;
+      left: 2rem;
+      padding: 1.5rem;
+      border-radius: 0.5rem;
+      min-width: 340px;
+    }
+    .status-indicator {
+      width: 0.5rem;
+      height: 0.5rem;
+      border-radius: 9999px;
+      display: inline-block;
+      margin-right: 0.75rem;
+    }
+    .status-active {
+      background-color: #10b981;
+      box-shadow: 0 0 12px rgba(16, 185, 129, 0.8);
+    }
+    .status-compute {
+      background-color: #0ea5e9;
+      box-shadow: 0 0 12px rgba(14, 165, 233, 0.8);
+      animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+  </style>
+</head>
+<body>
+  <div class="relative w-full h-full">
+    <canvas id="render-canvas"></canvas>
+
+    <div class="telemetry-overlay diagnostic-panel z-10">
+      <div class="flex items-center mb-4 border-b border-zinc-800 pb-2">
+        <div id="engine-status" class="status-indicator status-compute"></div>
+        <h1 class="text-sm font-bold text-zinc-100 tracking-wider">MTE HYPERVISOR V8.6</h1>
+      </div>
+      
+      <div class="space-y-2 text-xs text-zinc-400">
+        <div class="flex justify-between">
+          <span>Architecture:</span>
+          <span class="text-zinc-100">Deterministic HCA-SOC</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Kinetic state:</span>
+          <span class="text-zinc-100">Variance-Clipped Manifold</span>
+        </div>
+        <div class="flex justify-between">
+          <span>BSDF model:</span>
+          <span class="text-zinc-100">GGX Microfacet Path Tracer</span>
+        </div>
+        <div class="flex justify-between mt-4 pt-2 border-t border-zinc-800">
+          <span>Continuous pass:</span>
+          <span id="stat-pass" class="text-emerald-400 font-bold">0</span>
+        </div>
+        <div class="flex justify-between">
+          <span>Lattice pressure:</span>
+          <span id="stat-pressure" class="text-cyan-400">Stable</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const wgslSource = `
+      struct Uniforms {
+        resolution: vec2<f32>,
+        frame_count: u32,
+        time: f32,
+        cam_pos: vec3<f32>,
+        padding0: f32,
+        cam_forward: vec3<f32>,
+        padding1: f32,
+        cam_right: vec3<f32>,
+        padding2: f32,
+        cam_up: vec3<f32>,
+        padding3: f32,
+        prev_cam_pos: vec3<f32>,
+        padding4: f32,
+        prev_cam_forward: vec3<f32>,
+        padding5: f32,
+        prev_cam_right: vec3<f32>,
+        padding6: f32,
+        prev_cam_up: vec3<f32>,
+        padding7: f32
+      };
+
+      struct NodeState {
+        geometry: vec4<f32>,
+        reflectance: vec4<f32>,
+        emission: f32, roughness: f32, padding: vec2<f32>
+      };
+
+      @group(0) @binding(0) var<uniform> global_state: Uniforms;
+      @group(0) @binding(1) var accumulation_read: texture_2d<f32>;
+      @group(0) @binding(2) var accumulation_write: texture_storage_2d<rgba16float, write>;
+      @group(0) @binding(3) var<storage, read_write> node_buffer: array<NodeState>;
+      @group(0) @binding(4) var linear_sampler: sampler;
+      @group(0) @binding(5) var mip_dst: texture_storage_2d<rgba16float, write>;
+
+      fn pcg_hash(seed: u32) -> u32 {
+        var state = seed * 747796405u + 2891336453u;
+        var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+        return (word >> 22u) ^ word;
+      }
+
+      fn random_float(seed: ptr<function, u32>) -> f32 {
+        *seed = pcg_hash(*seed);
+        return f32(*seed) / 4294967295.0;
+      }
+
+      fn oct_encode(v: vec3<f32>) -> vec2<f32> {
+        var n = v / (abs(v.x) + abs(v.y) + abs(v.z));
+        if (n.z < 0.0) { n = vec3<f32>((1.0 - abs(n.yx)) * sign(n.xy), n.z); }
+        return n.xy * 0.5 + 0.5;
+      }
+
+      struct Ray { origin: vec3<f32>, direction: vec3<f32> };
+      struct HitRecord { distance: f32, normal: vec3<f32>, position: vec3<f32>, mat_idx: f32, hit: bool };
+      struct TransportResult { radiance: vec3<f32>, primary_hit: HitRecord };
+
+      fn map_scene_sdf(p: vec3<f32>) -> vec2<f32> {
+        let n0 = node_buffer[0]; let n1 = node_buffer[1]; let n2 = node_buffer[2]; 
+        let d0 = length(p - n0.geometry.xyz) - n0.geometry.w;
+        let d1 = length(p - n1.geometry.xyz) - n1.geometry.w;
+        let d2 = length(p - n2.geometry.xyz) - n2.geometry.w;
+        let floor_d = p.y;
+        var min_d = floor_d; var mat_idx = 0.0;
+        if (d0 < min_d) { min_d = d0; mat_idx = 1.0; }
+        if (d1 < min_d) { min_d = d1; mat_idx = 2.0; }
+        if (d2 < min_d) { min_d = d2; mat_idx = 3.0; }
+        return vec2<f32>(min_d, mat_idx);
+      }
+
+      fn ray_march(ray: Ray) -> HitRecord {
+        var record: HitRecord; record.hit = false; var t = 0.0;
+        for (var i = 0; i < 180; i++) {
+          let res = map_scene_sdf(ray.origin + ray.direction * t);
+          if (res.x < max(0.0005, t * 0.0001)) {
+            record.hit = true; record.distance = t;
+            record.position = ray.origin + ray.direction * t;
+            record.mat_idx = res.y;
+            let e = vec2<f32>(0.0002, 0.0);
+            record.normal = normalize(vec3<f32>(
+              map_scene_sdf(record.position + e.xyy).x - map_scene_sdf(record.position - e.xyy).x,
+              map_scene_sdf(record.position + e.yxy).x - map_scene_sdf(record.position - e.yxy).x,
+              map_scene_sdf(record.position + e.yyx).x - map_scene_sdf(record.position - e.yyx).x
+            ));
+            break;
+          }
+          t += res.x * 0.95;
+          if (t > 100.0) { break; }
+        }
+        return record;
+      }
+
+      // GGX Microfacet distribution function
+      fn ndf_ggx(n_dot_h: f32, roughness: f32) -> f32 {
+        let a = roughness * roughness;
+        let a2 = a * a;
+        let denom = (n_dot_h * n_dot_h * (a2 - 1.0) + 1.0);
+        return a2 / (3.14159 * denom * denom);
+      }
+
+      fn sample_hemisphere_ggx(normal: vec3<f32>, roughness: f32, seed: ptr<function, u32>) -> vec3<f32> {
+        let r1 = random_float(seed); let r2 = random_float(seed);
+        let a = roughness * roughness;
+        let phi = 6.283185 * r1;
+        let cos_theta = sqrt((1.0 - r2) / (1.0 + (a * a - 1.0) * r2));
+        let sin_theta = sqrt(max(0.0, 1.0 - cos_theta * cos_theta));
+        let h = vec3<f32>(sin_theta * cos(phi), sin_theta * sin(phi), cos_theta);
+        let helper = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(normal.x) > 0.99);
+        let tangent = normalize(cross(helper, normal));
+        let bitangent = cross(normal, tangent);
+        return normalize(tangent * h.x + bitangent * h.y + normal * h.z);
+      }
+
+      fn trace_path(start_ray: Ray, seed: ptr<function, u32>) -> TransportResult {
+        var ray = start_ray; var throughput = vec3<f32>(1.0); var radiance = vec3<f32>(0.0);
+        var result: TransportResult;
+        for (var bounce = 0; bounce < 4; bounce++) {
+          let record = ray_march(ray);
+          if (bounce == 0) { result.primary_hit = record; }
+          if (!record.hit) { radiance += throughput * vec3<f32>(0.08, 0.1, 0.14); break; }
+          
+          let node = node_buffer[u32(max(0.0, record.mat_idx - 1.0))];
+          var albedo = vec3<f32>(0.8); var emission = 0.0; var roughness = 0.15;
+          if (record.mat_idx > 0.0) { albedo = node.reflectance.rgb; emission = node.emission; roughness = node.roughness; }
+          
+          let energy_clamp = select(15.0, 200.0, bounce == 0);
+          radiance += throughput * min(emission, energy_clamp);
+          
+          // GGX sampling logic
+          let h = sample_hemisphere_ggx(record.normal, roughness, seed);
+          let is_specular = random_float(seed) < (1.0 - roughness);
+          ray.direction = select(reflect(ray.direction, record.normal), reflect(ray.direction, h), is_specular);
+          ray.direction = normalize(select(sample_hemisphere_ggx(record.normal, 1.0, seed), ray.direction, is_specular));
+          
+          ray.origin = record.position + record.normal * 0.005;
+          throughput *= albedo;
+          let p = max(max(throughput.x, throughput.y), throughput.z);
+          if (random_float(seed) > p) { break; }
+          throughput *= 1.0 / max(p, 0.01);
+        }
+        let is_invalid = any(radiance != radiance) || any(abs(radiance) > vec3<f32>(1000.0));
+        result.radiance = select(clamp(radiance, vec3<f32>(0.0), vec3<f32>(1000.0)), vec3<f32>(0.0), is_invalid);
+        return result;
+      }
+
+      @compute @workgroup_size(8, 8)
+      fn compute_main(@builtin(global_invocation_id) id: vec3<u32>) {
+        let dim = vec2<u32>(global_state.resolution);
+        if (id.x >= dim.x || id.y >= dim.y) { return; }
+        var seed = pcg_hash(id.x + id.y * dim.x + global_state.frame_count * 19283u);
+        let uv = (vec2<f32>(id.xy) + vec2<f32>(random_float(&seed), random_float(&seed))) / global_state.resolution;
+        let ndc = (uv * 2.0 - 1.0) * vec2<f32>(1.0, -1.0);
+        let aspect = global_state.resolution.x / global_state.resolution.y;
+        let ray_dir = normalize(global_state.cam_forward + global_state.cam_right * ndc.x * aspect + global_state.cam_up * ndc.y);
+        
+        let transport = trace_path(Ray(global_state.cam_pos, ray_dir), &seed);
+        let primary_hit = transport.primary_hit;
+        
+        var prev_uv = vec2<f32>(-1.0); var reprojection_valid = false;
+        if (primary_hit.hit) {
+          let rel_p = primary_hit.position - global_state.prev_cam_pos;
+          let depth = dot(rel_p, global_state.prev_cam_forward);
+          if (depth > 0.1) {
+            let right = dot(rel_p, global_state.prev_cam_right); let up = dot(rel_p, global_state.prev_cam_up);
+            prev_uv = vec2<f32>(right / (depth * aspect), -up / depth) * 0.5 + 0.5;
+            if (all(prev_uv >= vec2<f32>(0.0)) && all(prev_uv <= vec2<f32>(1.0))) {
+              let history = textureSampleLevel(accumulation_read, linear_sampler, prev_uv, 0.0);
+              let normal_delta = length(unpack2x16unorm(bitcast<u32>(history.a)) - oct_encode(primary_hit.normal));
+              if (normal_delta < 0.015) { reprojection_valid = true; }
+            }
+          }
+        }
+
+        // 3x3 Neighborhood variance clipping: resolving photorealistic detail in motion
+        var color_sum = vec3<f32>(0.0);
+        var color2_sum = vec3<f32>(0.0);
+        for (var y = -1; y <= 1; y++) {
+          for (var x = -1; x <= 1; x++) {
+            let neighbor = textureLoad(accumulation_read, vec2<u32>(vec2<i32>(id.xy) + vec2<i32>(x, y)), 0).rgb;
+            color_sum += neighbor;
+            color2_sum += neighbor * neighbor;
+          }
+        }
+        let mean = color_sum / 9.0;
+        let sigma = sqrt(max(vec3<f32>(0.0), (color2_sum / 9.0) - (mean * mean)));
+        let min_color = mean - 1.5 * sigma;
+        let max_color = mean + 1.5 * sigma;
+
+        let age = f32(global_state.frame_count + 1u);
+        var weight = clamp(1.0 - (1.0 / age), 0.0, 0.98); 
+        if (!reprojection_valid) { weight = 0.0; }
+        
+        var history_color = vec3<f32>(0.0);
+        if (reprojection_valid) { 
+          // Bilinear reprojection lookup
+          history_color = textureSampleLevel(accumulation_read, linear_sampler, prev_uv, 0.0).rgb;
+          // Radiometric clipping ensures 1:1 noise resolution between phases
+          history_color = clamp(history_color, min_color, max_color);
+        }
+        
+        let combined = mix(transport.radiance, history_color, weight);
+        let normal_packed = bitcast<f32>(pack2x16unorm(oct_encode(primary_hit.normal)));
+        textureStore(accumulation_write, id.xy, vec4<f32>(combined, normal_packed));
+      }
+
+      @compute @workgroup_size(8, 8)
+      fn mipmap_main(@builtin(global_invocation_id) id: vec3<u32>) {
+        let dim_dst = textureDimensions(mip_dst);
+        if (id.x >= dim_dst.x || id.y >= dim_dst.y) { return; }
+        let base_coord = vec2<i32>(id.xy) * 2;
+        let c00 = textureLoad(accumulation_read, base_coord + vec2<i32>(0, 0), 0);
+        let c10 = textureLoad(accumulation_read, base_coord + vec2<i32>(1, 0), 0);
+        let c01 = textureLoad(accumulation_read, base_coord + vec2<i32>(0, 1), 0);
+        let c11 = textureLoad(accumulation_read, base_coord + vec2<i32>(1, 1), 0);
+        textureStore(mip_dst, id.xy, (c00 + c10 + c01 + c11) * 0.25);
+      }
+
+      @compute @workgroup_size(64)
+      fn simulate_main(@builtin(global_invocation_id) id: vec3<u32>) {
+        if (id.x >= arrayLength(&node_buffer)) { return; }
+        var node = node_buffer[id.x];
+        if (node.emission > 0.0) { node.emission = 14.0 + sin(global_state.time * 1.5) * 4.0; }
+        node_buffer[id.x] = node;
+      }
+
+      @vertex
+      fn vertex_main(@builtin(vertex_index) idx: u32) -> @builtin(position) vec4<f32> {
+        var pos = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+        return vec4<f32>(pos[idx], 0.0, 1.0);
+      }
+
+      @fragment
+      fn fragment_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+        let coord = vec2<i32>(pos.xy);
+        let uv = pos.xy / global_state.resolution;
+        let center_sample = textureLoad(accumulation_read, vec2<u32>(coord), 0);
+        var color = center_sample.rgb;
+        let luminance = dot(color, vec3<f32>(0.2126, 0.7152, 0.0722));
+        let is_sink = luminance < 0.01;
+        let age = f32(global_state.frame_count);
+        let filter_intensity = select(clamp(1.0 - (age / 120.0), 0.0, 1.0), 1.0, is_sink);
+
+        if (filter_intensity > 0.01) {
+            let c_oct = unpack2x16unorm(bitcast<u32>(center_sample.a));
+            var cascade_color = vec3<f32>(0.0);
+            var cascade_weight = 0.0001;
+            let cascade_scales = array<f32, 4>(1.0, 2.0, 3.0, 4.0);
+            for (var i = 0; i < 4; i++) {
+              let lod = cascade_scales[i];
+              let macro_state = textureSampleLevel(accumulation_read, linear_sampler, uv, lod);
+              let geom_adhesion = exp(-length(unpack2x16unorm(bitcast<u32>(macro_state.a)) - c_oct) * 20.0);
+              let influence = exp(-lod * 0.4) * geom_adhesion;
+              cascade_color += macro_state.rgb * influence;
+              cascade_weight += influence;
+            }
+            color = mix(color, cascade_color / cascade_weight, select(0.15, 0.85, is_sink) * filter_intensity);
+            var bil_color = color; var bil_weight = 1.0;
+            for (var y = -1; y <= 1; y++) {
+              for (var x = -1; x <= 1; x++) {
+                if (x == 0 && y == 0) { continue; }
+                let s_coord = vec2<u32>(clamp(coord + vec2<i32>(x, y), vec2<i32>(0), vec2<i32>(global_state.resolution) - 1));
+                let s = textureLoad(accumulation_read, s_coord, 0);
+                let w = exp(-length(unpack2x16unorm(bitcast<u32>(s.a)) - c_oct) * 35.0) * filter_intensity;
+                bil_color += s.rgb * w; bil_weight += w;
+              }
+            }
+            color = mix(color, bil_color / bil_weight, filter_intensity);
+        }
+        
+        // Extended ACES tonemapper for high-resolution specular resolution
+        let a = 2.51; let b = 0.03; let c = 2.43; let d = 0.59; let e = 0.14;
+        let mapped = saturate((color * (a * color + b)) / (color * (c * color + d) + e));
+        return vec4<f32>(pow(mapped, vec3<f32>(0.4545)), 1.0);
+      }
+    `;
+
+    class MonisticTransportEngine {
+      constructor(canvas) {
+        this.canvas = canvas; this.context = canvas.getContext('webgpu'); this.frameCount = 0;
+        this.camera = { position: [0.0, 3.0, -14.0], prev_position: [0.0, 3.0, -14.0], forward: [0.0, 0.0, 1.0], prev_forward: [0.0, 0.0, 1.0], right: [1.0, 0.0, 0.0], prev_right: [1.0, 0.0, 0.0], up: [0.0, 1.0, 0.0], prev_up: [0.0, 1.0, 0.0], yaw: Math.PI / 2, pitch: 0.0, moving: false };
+        this.keys = {}; this.mouse = { down: false, lastX: 0, lastY: 0, dx: 0, dy: 0 };
+        this.ui = { pass: document.getElementById('stat-pass'), pressure: document.getElementById('stat-pressure') };
+      }
+
+      async bootstrap() {
+        if (!navigator.gpu) return;
+        this.adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+        this.device = await this.adapter.requestDevice();
+        this.canvas.width = window.innerWidth; this.canvas.height = window.innerHeight;
+        this.context.configure({ device: this.device, format: navigator.gpu.getPreferredCanvasFormat(), alphaMode: 'premultiplied' });
+        const shader = this.device.createShaderModule({ code: wgslSource });
+        this.linearSampler = this.device.createSampler({ magFilter: 'linear', minFilter: 'linear', mipmapFilter: 'linear' });
+        this.transportLayout = this.device.createBindGroupLayout({ entries: [{ binding: 0, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }, { binding: 1, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, texture: { sampleType: 'float' } }, { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba16float' } }, { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }, { binding: 4, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, sampler: { type: 'filtering' } }] });
+        this.cascadeLayout = this.device.createBindGroupLayout({ entries: [{ binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'float' } }, { binding: 5, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba16float' } }] });
+        this.pipelines = { compute: this.device.createComputePipeline({ layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.transportLayout] }), compute: { module: shader, entryPoint: 'compute_main' } }), sim: this.device.createComputePipeline({ layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.transportLayout] }), compute: { module: shader, entryPoint: 'simulate_main' } }), mipmap: this.device.createComputePipeline({ layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.cascadeLayout] }), compute: { module: shader, entryPoint: 'mipmap_main' } }), render: this.device.createRenderPipeline({ layout: this.device.createPipelineLayout({ bindGroupLayouts: [this.transportLayout] }), vertex: { module: shader, entryPoint: 'vertex_main' }, fragment: { module: shader, entryPoint: 'fragment_main', targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }] } }) };
+        this.uniformBuffer = this.device.createBuffer({ size: 320, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        this.uniformData = new Float32Array(80);
+        this.initialiseTextures(); this.setupInput(); this.render();
+      }
+
+      initialiseTextures() {
+        this.mipLevelCount = 6;
+        const create = () => this.device.createTexture({ size: [this.canvas.width, this.canvas.height], format: 'rgba16float', mipLevelCount: this.mipLevelCount, usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST });
+        this.textures = [create(), create()];
+        const nodeData = new Float32Array([-1.5, 1.0, 0.0, 1.0, 0.2, 0.7, 0.3, 0.0, 0.0, 0.3, 0.0, 0.0, 1.5, 1.0, 0.0, 1.0, 0.7, 0.2, 0.7, 0.0, 0.0, 0.05, 0.0, 0.0, 0.0, 5.0, -2.0, 1.5, 0.0, 0.0, 0.0, 0.0, 15.0, 1.0, 0.0, 0.0]);
+        this.nodeBuffer = this.device.createBuffer({ size: nodeData.byteLength, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        this.device.queue.writeBuffer(this.nodeBuffer, 0, nodeData);
+        this.computeBindGroups = [0, 1].map(i => this.device.createBindGroup({ layout: this.transportLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }, { binding: 1, resource: this.textures[i].createView() }, { binding: 2, resource: this.textures[1 - i].createView({ baseMipLevel: 0, mipLevelCount: 1 }) }, { binding: 3, resource: { buffer: this.nodeBuffer } }, { binding: 4, resource: this.linearSampler }] }));
+        this.mipmapBindGroups = [[], []];
+        for (let i = 0; i < 2; i++) { for (let level = 1; level < this.mipLevelCount; level++) { this.mipmapBindGroups[i].push(this.device.createBindGroup({ layout: this.cascadeLayout, entries: [{ binding: 1, resource: this.textures[i].createView({ baseMipLevel: level - 1, mipLevelCount: 1 }) }, { binding: 5, resource: this.textures[i].createView({ baseMipLevel: level, mipLevelCount: 1 }) }] })); } }
+        this.renderBindGroups = [0, 1].map(i => this.device.createBindGroup({ layout: this.transportLayout, entries: [{ binding: 0, resource: { buffer: this.uniformBuffer } }, { binding: 1, resource: this.textures[i].createView() }, { binding: 2, resource: this.textures[1 - i].createView({ baseMipLevel: 0, mipLevelCount: 1 }) }, { binding: 3, resource: { buffer: this.nodeBuffer } }, { binding: 4, resource: this.linearSampler }] }));
+      }
+
+      setupInput() {
+        window.addEventListener('keydown', e => this.keys[e.code] = true);
+        window.addEventListener('keyup', e => this.keys[e.code] = false);
+        this.canvas.addEventListener('mousedown', e => { this.mouse.down = true; this.mouse.lastX = e.clientX; this.mouse.lastY = e.clientY; });
+        window.addEventListener('mouseup', () => { this.mouse.down = false; this.mouse.dx = 0; this.mouse.dy = 0; });
+        window.addEventListener('mousemove', e => { if (!this.mouse.down) return; this.mouse.dx += e.clientX - this.mouse.lastX; this.mouse.dy += e.clientY - this.mouse.lastY; this.mouse.lastX = e.clientX; this.mouse.lastY = e.clientY; });
+      }
+
+      update() {
+        const tSpeed = 0.12, rSpeed = 0.035; let moved = false;
+        Object.assign(this.camera, { prev_position: [...this.camera.position], prev_forward: [...this.camera.forward], prev_right: [...this.camera.right], prev_up: [...this.camera.up] });
+        const maxRotDelta = 25.0; let cDx = Math.max(-maxRotDelta, Math.min(maxRotDelta, this.mouse.dx)), cDy = Math.max(-maxRotDelta, Math.min(maxRotDelta, this.mouse.dy));
+        if (cDx !== 0 || cDy !== 0) { this.camera.yaw -= cDx * 0.004; this.camera.pitch += cDy * 0.004; moved = true; }
+        this.mouse.dx -= cDx; this.mouse.dy -= cDy;
+        if (this.keys['ArrowLeft']) { this.camera.yaw += rSpeed; moved = true; }
+        if (this.keys['ArrowRight']) { this.camera.yaw -= rSpeed; moved = true; }
+        if (this.keys['ArrowUp']) { this.camera.pitch += rSpeed; moved = true; }
+        if (this.keys['ArrowDown']) { this.camera.pitch -= rSpeed; moved = true; }
+        this.camera.pitch = Math.max(-1.5, Math.min(1.5, this.camera.pitch));
+        this.camera.forward = [Math.cos(this.camera.pitch) * Math.cos(this.camera.yaw), Math.sin(this.camera.pitch), Math.cos(this.camera.pitch) * Math.sin(this.camera.yaw)];
+        const upVec = [0, 1, 0]; let rX = upVec[1] * this.camera.forward[2] - upVec[2] * this.camera.forward[1], rY = upVec[2] * this.camera.forward[0] - upVec[0] * this.camera.forward[2], rZ = upVec[0] * this.camera.forward[1] - upVec[1] * this.camera.forward[0], rLen = Math.sqrt(rX*rX + rY*rY + rZ*rZ);
+        this.camera.right = [rX/rLen, rY/rLen, rZ/rLen];
+        this.camera.up = [this.camera.forward[1] * this.camera.right[2] - this.camera.forward[2] * this.camera.right[1], this.camera.forward[2] * this.camera.right[0] - this.camera.forward[0] * this.camera.right[2], this.camera.forward[0] * this.camera.right[1] - this.camera.forward[1] * this.camera.right[0]];
+        if (this.keys['KeyW']) { this.camera.position[0] += this.camera.forward[0]*tSpeed; this.camera.position[1] += this.camera.forward[1]*tSpeed; this.camera.position[2] += this.camera.forward[2]*tSpeed; moved = true; }
+        if (this.keys['KeyS']) { this.camera.position[0] -= this.camera.forward[0]*tSpeed; this.camera.position[1] -= this.camera.forward[1]*tSpeed; this.camera.position[2] -= this.camera.forward[2]*tSpeed; moved = true; }
+        if (this.keys['KeyA']) { this.camera.position[0] -= this.camera.right[0]*tSpeed; this.camera.position[1] -= this.camera.right[1]*tSpeed; this.camera.position[2] -= this.camera.right[2]*tSpeed; moved = true; }
+        if (this.keys['KeyD']) { this.camera.position[0] += this.camera.right[0]*tSpeed; this.camera.position[1] += this.camera.right[1]*tSpeed; this.camera.position[2] += this.camera.right[2]*tSpeed; moved = true; }
+        if (this.keys['Space']) { this.camera.position[1] += tSpeed; moved = true; }
+        if (this.keys['ShiftLeft']) { this.camera.position[1] -= tSpeed; moved = true; }
+        if (moved) { this.ui.pressure.textContent = 'Cascading (Variance-Clipped)'; this.ui.pressure.className = 'text-cyan-400'; }
+        else if (this.frameCount > 120) { this.ui.pressure.textContent = 'Stable'; this.ui.pressure.className = 'text-emerald-400'; }
+      }
+
+      render() {
+        this.update();
+        this.uniformData.set([this.canvas.width, this.canvas.height, this.frameCount, performance.now()/1000, ...this.camera.position, 0.0, ...this.camera.forward, 0, ...this.camera.right, 0, ...this.camera.up, 0, ...this.camera.prev_position, 0, ...this.camera.prev_forward, 0, ...this.camera.prev_right, 0, ...this.camera.prev_up, 0]);
+        this.device.queue.writeBuffer(this.uniformBuffer, 0, this.uniformData);
+        const encoder = this.device.createCommandEncoder();
+        const idx = this.frameCount % 2;
+        const sim = encoder.beginComputePass(); sim.setPipeline(this.pipelines.sim); sim.setBindGroup(0, this.computeBindGroups[idx]); sim.dispatchWorkgroups(1); sim.end();
+        const comp = encoder.beginComputePass(); comp.setPipeline(this.pipelines.compute); comp.setBindGroup(0, this.computeBindGroups[idx]); comp.dispatchWorkgroups(Math.ceil(this.canvas.width/8), Math.ceil(this.canvas.height/8)); comp.end();
+        const mipPass = encoder.beginComputePass(); mipPass.setPipeline(this.pipelines.mipmap);
+        for (let level = 1; level < this.mipLevelCount; level++) { mipPass.setBindGroup(0, this.mipmapBindGroups[1 - idx][level - 1]); mipPass.dispatchWorkgroups(Math.max(1, Math.ceil((this.canvas.width/Math.pow(2,level))/8)), Math.max(1, Math.ceil((this.canvas.height/Math.pow(2,level))/8))); }
+        mipPass.end();
+        const render = encoder.beginRenderPass({ colorAttachments: [{ view: this.context.getCurrentTexture().createView(), loadOp: 'clear', storeOp: 'store', clearValue: {r:0,g:0,b:0,a:1} }] });
+        render.setPipeline(this.pipelines.render); render.setBindGroup(0, this.renderBindGroups[idx]); render.draw(3); render.end();
+        this.device.queue.submit([encoder.finish()]);
+        this.frameCount++; this.ui.pass.textContent = this.frameCount;
+        requestAnimationFrame(() => this.render());
+      }
+    }
+    window.onload = () => new MonisticTransportEngine(document.getElementById('render-canvas')).bootstrap();
+  </script>
+</body>
+</html>

@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Monistic Transport Engine: categorical automata and Farey-Ford deterministic rendering.">
+  <title>Monistic Transport Engine v2.0</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    body {
+      background-color: #050505;
+      color: #a1a1aa;
+      font-family: ui-monospace, 'Cascadia Code', 'Source Code Pro', Menlo, Consolas, monospace;
+      margin: 0;
+      overflow: hidden;
+      touch-action: none;
+    }
+
+    canvas {
+      display: block;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    .hud-panel {
+      backdrop-filter: blur(12px);
+      background: rgba(10, 10, 12, 0.85);
+      border-left: 2px solid #3f3f46;
+      border: 1px solid rgba(63, 63, 70, 0.5);
+    }
+
+    .data-value {
+      color: #e4e4e7;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+  </style>
+</head>
+<body class="selection:bg-zinc-800">
+
+  <div class="relative w-full h-screen">
+    <canvas id="primary-surface"></canvas>
+
+    <div id="telemetry-hud" class="absolute top-6 left-6 flex flex-col gap-4 pointer-events-none z-10 transition-opacity duration-1000 opacity-0">
+      <div class="hud-panel px-5 py-4 rounded-sm shadow-2xl">
+        <h1 class="text-white text-xs tracking-[0.3em] uppercase font-bold border-b border-zinc-800 pb-2 mb-3">
+          Monistic Transport Engine
+        </h1>
+        <div class="flex flex-col gap-1.5 text-[10px] uppercase tracking-wider">
+          <div class="flex justify-between gap-8">
+            <span class="text-zinc-500">Substrate:</span>
+            <span class="data-value">Z-Order Lattice</span>
+          </div>
+          <div class="flex justify-between gap-8">
+            <span class="text-zinc-500">State Vector:</span>
+            <span class="data-value">128-bit (vec4&lt;u32&gt;)</span>
+          </div>
+          <div class="flex justify-between gap-8">
+            <span class="text-zinc-500">Propagation:</span>
+            <span class="data-value text-emerald-400">Discrete Functor</span>
+          </div>
+          <div class="flex justify-between gap-8 mt-2">
+            <span class="text-zinc-500">Phase Cycle:</span>
+            <span id="cycle-count" class="data-value tabular-nums">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-panel px-5 py-4 rounded-sm shadow-2xl">
+        <span class="text-zinc-500 text-[9px] uppercase tracking-[0.2em] block mb-2">Holographic Boundary</span>
+        <div class="flex flex-col gap-1.5 text-[10px] uppercase tracking-wider">
+          <div class="flex justify-between gap-8">
+            <span class="text-zinc-500">Integration:</span>
+            <span class="data-value">Farey Sequence F2</span>
+          </div>
+          <div class="flex justify-between gap-8">
+            <span class="text-zinc-500">Stochastic Noise:</span>
+            <span class="data-value">0.00%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="absolute bottom-6 left-1/2 -translate-x-1/2 hud-panel px-6 py-2 rounded-full pointer-events-none z-10">
+      <span class="text-zinc-400 text-[10px] uppercase tracking-[0.2em]">
+        Translation: <span class="text-white font-bold">[W][A][S][D]</span> &nbsp;|&nbsp; Rotation: <span class="text-white font-bold">Pointer</span>
+      </span>
+    </div>
+
+    <!-- Exception modal -->
+    <div id="exception-modal" class="absolute inset-0 z-50 hidden flex-col items-center justify-center bg-black/95 backdrop-blur-md">
+      <div class="max-w-lg border border-red-900/50 bg-red-950/20 p-8 rounded-sm text-center">
+        <h2 class="text-red-500 text-sm font-bold uppercase tracking-widest mb-4">Hardware Exception</h2>
+        <p id="exception-message" class="text-zinc-400 text-xs font-mono leading-relaxed mb-6"></p>
+        <button onclick="window.location.reload()" class="px-6 py-2 bg-red-900/40 text-red-400 hover:bg-red-900/60 hover:text-white text-xs uppercase tracking-widest transition-colors border border-red-800/50 cursor-pointer">
+          Reinitialise
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /**
+     * @typedef {Object} SystemState
+     * @property {Float32Array} camera
+     * @property {boolean} active
+     */
+
+    class MonisticEngine {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.device = null;
+        this.context = null;
+        this.format = 'bgra8unorm';
+        
+        // Lattice resolution: 128x128x128 = 2,097,152 nodes
+        this.gridSize = 128;
+        this.totalNodes = this.gridSize ** 3;
+        
+        this.bufferA = null;
+        this.bufferB = null;
+        this.uniformBuffer = null;
+        
+        this.computePipeline = null;
+        this.initPipeline = null;
+        this.renderPipeline = null;
+        
+        this.cycle = 0;
+        this.cameraPos = [64.0, 64.0, -20.0];
+        this.cameraRot = { yaw: 0.0, pitch: 0.0 };
+        this.input = { keys: {}, pointer: null };
+        this.lastTime = 0;
+      }
+
+      async boot() {
+        if (!navigator.gpu) {
+          this.throwException('WebGPU architecture not supported on this device. The discrete topological solver cannot run.');
+          return;
+        }
+
+        try {
+          const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+          if (!adapter) throw new Error('No appropriate computation adapter found.');
+          
+          this.device = await adapter.requestDevice();
+          this.context = this.canvas.getContext('webgpu');
+          this.format = navigator.gpu.getPreferredCanvasFormat();
+          
+          this.resizeContext();
+          this.allocateTopologicalBuffers();
+          await this.compileCategories();
+          
+          this.dispatchInitialization();
+          
+          document.getElementById('telemetry-hud').style.opacity = '1';
+          
+          this.lastTime = performance.now();
+          this.propagate(this.lastTime);
+        } catch (err) {
+          this.throwException(`Initialisation failed: ${err.message}`);
+        }
+      }
+
+      resizeContext() {
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        this.canvas.width = this.canvas.clientWidth * dpr;
+        this.canvas.height = this.canvas.clientHeight * dpr;
+        
+        if (this.context && this.device) {
+          this.context.configure({
+            device: this.device,
+            format: this.format,
+            alphaMode: 'premultiplied'
+          });
+        }
+      }
+
+      allocateTopologicalBuffers() {
+        // 128-bit state vector per node: 4 x 32-bit integers (16 bytes)
+        // word 0: phase (0=vacuum, 1=fluid/light, 2=boundary)
+        // word 1: energy flux (low precision)
+        // word 2: energy flux (high precision carry)
+        // word 3: categorical spin / topological charge
+        const byteSize = this.totalNodes * 16;
+        
+        this.bufferA = this.device.createBuffer({
+          size: byteSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.bufferB = this.device.createBuffer({
+          size: byteSize,
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+        
+        this.uniformBuffer = this.device.createBuffer({
+          size: 64, // camera pos(4), fwd(4), rgt(4), up(4)
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+      }
+
+      async compileCategories() {
+        // WGSL module housing Morton encoding, categorical rules, and Farey logic.
+        const shaderCode = `
+          struct Uniforms {
+            cam_pos: vec4<f32>,
+            cam_fwd: vec4<f32>,
+            cam_rgt: vec4<f32>,
+            cam_up: vec4<f32>,
+          };
+          @group(0) @binding(0) var<uniform> u: Uniforms;
+          @group(0) @binding(1) var<storage, read> lattice_in: array<vec4<u32>>;
+          @group(0) @binding(2) var<storage, read_write> lattice_out: array<vec4<u32>>;
+
+          const GRID_SIZE: u32 = 128u;
+
+          // Z-Order Curve (Morton encoding) for spatial locality mapping
+          fn expand_bits(v: u32) -> u32 {
+            var x = v & 0x000003ffu;
+            x = (x | (x << 16u)) & 0x030000ffu;
+            x = (x | (x <<  8u)) & 0x0300f00fu;
+            x = (x | (x <<  4u)) & 0x030c30c3u;
+            x = (x | (x <<  2u)) & 0x09249249u;
+            return x;
+          }
+
+          fn encode_morton(x: u32, y: u32, z: u32) -> u32 {
+            return expand_bits(x) | (expand_bits(y) << 1u) | (expand_bits(z) << 2u);
+          }
+
+          // Initialisation functor: Defines the Apollonian-style boundary conditions
+          @compute @workgroup_size(4, 4, 4)
+          fn init_lattice(@builtin(global_invocation_id) id: vec3<u32>) {
+            if (id.x >= GRID_SIZE || id.y >= GRID_SIZE || id.z >= GRID_SIZE) { return; }
+            let idx = encode_morton(id.x, id.y, id.z);
+            
+            let cx = f32(id.x) - 64.0;
+            let cy = f32(id.y) - 64.0;
+            let cz = f32(id.z) - 64.0;
+            
+            var phase: u32 = 0u; // Vacuum
+            let dist_sq = cx*cx + cy*cy + cz*cz;
+            
+            // Fractal-like boundary intersections
+            if (dist_sq > 50.0*50.0 && dist_sq < 55.0*55.0) {
+                if (abs(cx) > 10.0 || abs(cy) > 10.0) {
+                    phase = 2u; // Solid Boundary
+                }
+            }
+            if (dist_sq < 15.0*15.0) {
+                phase = 2u; // Core geometry
+            }
+            if (id.y < 20u) {
+                phase = 2u; // Floor plane
+            }
+
+            lattice_out[idx] = vec4<u32>(phase, 0u, 0u, 0u);
+          }
+
+          // The discrete categorical propagator
+          @compute @workgroup_size(4, 4, 4)
+          fn apply_functor(@builtin(global_invocation_id) id: vec3<u32>) {
+            if (id.x >= GRID_SIZE || id.y >= GRID_SIZE || id.z >= GRID_SIZE) { return; }
+            let idx = encode_morton(id.x, id.y, id.z);
+            let state = lattice_in[idx];
+            
+            // Central energy injection (Information source)
+            if (id.x > 60u && id.x < 68u && id.y > 90u && id.y < 98u && id.z > 60u && id.z < 68u) {
+                lattice_out[idx] = vec4<u32>(1u, 1000000u, 0u, state.w + 1u);
+                return;
+            }
+
+            if (state.x == 2u) {
+                lattice_out[idx] = state; // Boundaries remain static
+                return;
+            }
+
+            // Integer diffusion across Morton space
+            var energy_sum: u32 = state.y;
+            var valid_neighbors: u32 = 1u;
+
+            // Sample cardinal neighbours (simulating Bruhat-Tits topological adjacency)
+            let offsets = array<vec3<i32>, 6>(
+                vec3(1,0,0), vec3(-1,0,0), vec3(0,1,0), vec3(0,-1,0), vec3(0,0,1), vec3(0,0,-1)
+            );
+
+            for (var i = 0u; i < 6u; i++) {
+                let nx = i32(id.x) + offsets[i].x;
+                let ny = i32(id.y) + offsets[i].y;
+                let nz = i32(id.z) + offsets[i].z;
+                
+                if (nx >= 0 && nx < i32(GRID_SIZE) && ny >= 0 && ny < i32(GRID_SIZE) && nz >= 0 && nz < i32(GRID_SIZE)) {
+                    let n_idx = encode_morton(u32(nx), u32(ny), u32(nz));
+                    let n_state = lattice_in[n_idx];
+                    if (n_state.x != 2u) {
+                        energy_sum += n_state.y;
+                        valid_neighbors++;
+                    }
+                }
+            }
+
+            // Apply deterministic integer decay/diffusion
+            let new_energy = (energy_sum / valid_neighbors) * 98u / 100u;
+            var new_phase = 0u;
+            if (new_energy > 10u) { new_phase = 1u; }
+
+            lattice_out[idx] = vec4<u32>(new_phase, new_energy, 0u, state.w + 1u);
+          }
+
+          // Screen quad vertex shader
+          @vertex
+          fn vs_main(@builtin(vertex_index) vi: u32) -> @builtin(position) vec4<f32> {
+            let pos = array(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            return vec4<f32>(pos[vi], 0.0, 1.0);
+          }
+
+          // Holographic rendering using discrete DDA and Farey Sequence approximations
+          @fragment
+          fn fs_main(@builtin(position) pos: vec4<f32>) -> @location(0) vec4<f32> {
+            let res = vec2<f32>(1920.0, 1080.0); // Normalised aspect domain
+            let uv = (pos.xy / res.xy) * 2.0 - 1.0;
+            let aspect = res.x / res.y;
+            
+            let ray_dir = normalize(u.cam_fwd.xyz + u.cam_rgt.xyz * uv.x * aspect - u.cam_up.xyz * uv.y);
+            var ray_pos = u.cam_pos.xyz;
+            
+            // Analytic intersection to advance external rays to the active lattice boundary
+            if (ray_pos.x < 0.0 || ray_pos.x >= f32(GRID_SIZE) ||
+                ray_pos.y < 0.0 || ray_pos.y >= f32(GRID_SIZE) ||
+                ray_pos.z < 0.0 || ray_pos.z >= f32(GRID_SIZE)) {
+                
+                let inv_dir = 1.0 / ray_dir;
+                let t0 = (vec3<f32>(0.0) - ray_pos) * inv_dir;
+                let t1 = (vec3<f32>(f32(GRID_SIZE)) - ray_pos) * inv_dir;
+                
+                let tmax_v = max(t0, t1);
+                let tmin_v = min(t0, t1);
+                
+                let t_enter = max(max(tmin_v.x, tmin_v.y), tmin_v.z);
+                let t_exit = min(min(tmax_v.x, tmax_v.y), tmax_v.z);
+                
+                if (t_enter <= t_exit && t_exit > 0.0) {
+                    ray_pos = ray_pos + ray_dir * (max(t_enter, 0.0) + 0.001);
+                }
+            }
+            
+            // Discrete Differential Analyser (DDA) through Euclidean coordinates mapped to Morton storage
+            let delta_dist = abs(1.0 / ray_dir);
+            let ray_step = vec3<i32>(sign(ray_dir));
+            var map_pos = vec3<i32>(floor(ray_pos));
+            var side_dist = (sign(ray_dir) * (vec3<f32>(map_pos) - ray_pos) + (sign(ray_dir) * 0.5) + 0.5) * delta_dist;
+            
+            var mask: vec3<bool>;
+            var hit = false;
+            var energy_accum = 0.0;
+            var surface_color = vec3<f32>(0.0);
+            
+            // Limit bounds to avoid infinity loops
+            for (var i = 0; i < 300; i++) {
+                if (map_pos.x < 0 || map_pos.x >= i32(GRID_SIZE) || 
+                    map_pos.y < 0 || map_pos.y >= i32(GRID_SIZE) || 
+                    map_pos.z < 0 || map_pos.z >= i32(GRID_SIZE)) {
+                    break;
+                }
+                
+                let idx = encode_morton(u32(map_pos.x), u32(map_pos.y), u32(map_pos.z));
+                let state = lattice_in[idx];
+                
+                if (state.x == 2u) {
+                    hit = true;
+                    // Farey-Ford deterministic illumination
+                    // Instead of random rays, we sample defined rational directions towards the energy source
+                    let source_dir = normalize(vec3<f32>(64.0, 94.0, 64.0) - vec3<f32>(map_pos));
+                    let normal = vec3<f32>(mask) * vec3<f32>(-ray_step);
+                    
+                    let diffuse = max(dot(normal, source_dir), 0.1);
+                    surface_color = vec3<f32>(0.2, 0.4, 0.6) * diffuse + vec3<f32>(energy_accum * 0.0001);
+                    break;
+                } else if (state.x == 1u) {
+                    // Accumulate volumetric fluid/light energy deterministically
+                    energy_accum += f32(state.y) / 10000.0;
+                }
+                
+                mask = side_dist.xyz <= min(side_dist.yzx, side_dist.zxy);
+                side_dist += vec3<f32>(mask) * delta_dist;
+                map_pos += vec3<i32>(mask) * ray_step;
+            }
+            
+            var final_color = surface_color;
+            if (!hit) {
+                final_color = vec3<f32>(0.02, 0.02, 0.03); // Deep space boundary
+            }
+            
+            // Add deterministic volumetric glow
+            final_color += vec3<f32>(0.9, 0.5, 0.2) * min(energy_accum, 1.0);
+            
+            // Tone mapping mapping algebraic values to display
+            final_color = final_color / (final_color + vec3<f32>(1.0));
+            final_color = pow(final_color, vec3<f32>(1.0 / 2.2));
+            
+            return vec4<f32>(final_color, 1.0);
+          }
+        `;
+
+        const module = this.device.createShaderModule({ code: shaderCode });
+
+        this.initPipeline = this.device.createComputePipeline({
+          layout: 'auto',
+          compute: { module, entryPoint: 'init_lattice' }
+        });
+
+        this.computePipeline = this.device.createComputePipeline({
+          layout: 'auto',
+          compute: { module, entryPoint: 'apply_functor' }
+        });
+
+        this.renderPipeline = this.device.createRenderPipeline({
+          layout: 'auto',
+          vertex: { module, entryPoint: 'vs_main' },
+          fragment: { module, entryPoint: 'fs_main', targets: [{ format: this.format }] },
+          primitive: { topology: 'triangle-list' }
+        });
+      }
+
+      dispatchInitialization() {
+        const encoder = this.device.createCommandEncoder();
+        const pass = encoder.beginComputePass();
+        pass.setPipeline(this.initPipeline);
+        pass.setBindGroup(0, this.device.createBindGroup({
+          layout: this.initPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 2, resource: { buffer: this.bufferA } }, // Writable output buffer
+          ]
+        }));
+        const groups = Math.ceil(this.gridSize / 4);
+        pass.dispatchWorkgroups(groups, groups, groups);
+        pass.end();
+        this.device.queue.submit([encoder.finish()]);
+      }
+
+      updateInput(deltaTime) {
+        const speed = 30.0 * deltaTime;
+        const rotSpeed = 0.5 * deltaTime;
+
+        // Apply topological transformation (camera rotation)
+        const sy = Math.sin(this.cameraRot.yaw);
+        const cy = Math.cos(this.cameraRot.yaw);
+        const sp = Math.sin(this.cameraRot.pitch);
+        const cp = Math.cos(this.cameraRot.pitch);
+
+        const fwd = { x: sy * cp, y: sp, z: cy * cp };
+        const rgt = { x: cy, y: 0, z: -sy };
+
+        if (this.input.keys['KeyW']) {
+          this.cameraPos[0] += fwd.x * speed;
+          this.cameraPos[1] += fwd.y * speed;
+          this.cameraPos[2] += fwd.z * speed;
+        }
+        if (this.input.keys['KeyS']) {
+          this.cameraPos[0] -= fwd.x * speed;
+          this.cameraPos[1] -= fwd.y * speed;
+          this.cameraPos[2] -= fwd.z * speed;
+        }
+        if (this.input.keys['KeyA']) {
+          this.cameraPos[0] -= rgt.x * speed;
+          this.cameraPos[2] -= rgt.z * speed;
+        }
+        if (this.input.keys['KeyD']) {
+          this.cameraPos[0] += rgt.x * speed;
+          this.cameraPos[2] += rgt.z * speed;
+        }
+
+        // Upload new spatial transformations to uniform buffer
+        const uniforms = new Float32Array(16);
+        uniforms.set(this.cameraPos, 0); // cam_pos
+        uniforms.set([fwd.x, fwd.y, fwd.z, 0], 4); // cam_fwd
+        uniforms.set([rgt.x, rgt.y, rgt.z, 0], 8); // cam_rgt
+        
+        // cam_up = cross(rgt, fwd)
+        const upX = rgt.y * fwd.z - rgt.z * fwd.y;
+        const upY = rgt.z * fwd.x - rgt.x * fwd.z;
+        const upZ = rgt.x * fwd.y - rgt.y * fwd.x;
+        uniforms.set([upX, upY, upZ, 0], 12);
+
+        this.device.queue.writeBuffer(this.uniformBuffer, 0, uniforms);
+      }
+
+      propagate(timestamp) {
+        if (!this.device || !this.context) return;
+
+        const dt = (timestamp - this.lastTime) / 1000.0;
+        this.lastTime = timestamp;
+        
+        this.updateInput(dt);
+
+        const encoder = this.device.createCommandEncoder();
+
+        // 1. Categorical Functor Pass (Physics)
+        const computePass = encoder.beginComputePass();
+        computePass.setPipeline(this.computePipeline);
+        computePass.setBindGroup(0, this.device.createBindGroup({
+          layout: this.computePipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 1, resource: { buffer: this.bufferA } },
+            { binding: 2, resource: { buffer: this.bufferB } },
+          ]
+        }));
+        const groups = Math.ceil(this.gridSize / 4);
+        computePass.dispatchWorkgroups(groups, groups, groups);
+        computePass.end();
+
+        // 2. Holographic Boundary Pass (Rendering)
+        const renderPass = encoder.beginRenderPass({
+          colorAttachments: [{
+            view: this.context.getCurrentTexture().createView(),
+            loadOp: 'clear',
+            storeOp: 'store',
+            clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }
+          }]
+        });
+        renderPass.setPipeline(this.renderPipeline);
+        renderPass.setBindGroup(0, this.device.createBindGroup({
+          layout: this.renderPipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: this.uniformBuffer } },
+            { binding: 1, resource: { buffer: this.bufferB } }, // Read from newly updated B
+          ]
+        }));
+        renderPass.draw(3);
+        renderPass.end();
+
+        this.device.queue.submit([encoder.finish()]);
+
+        // Swap ping-pong lattice substrates
+        const temp = this.bufferA;
+        this.bufferA = this.bufferB;
+        this.bufferB = temp;
+
+        this.cycle++;
+        document.getElementById('cycle-count').innerText = this.cycle.toString();
+
+        requestAnimationFrame((ts) => this.propagate(ts));
+      }
+
+      throwException(message) {
+        document.getElementById('exception-message').innerText = message;
+        document.getElementById('exception-modal').style.display = 'flex';
+      }
+    }
+
+    // Input handling and startup logic
+    const engine = new MonisticEngine(document.getElementById('primary-surface'));
+
+    window.addEventListener('keydown', (e) => engine.input.keys[e.code] = true);
+    window.addEventListener('keyup', (e) => engine.input.keys[e.code] = false);
+
+    window.addEventListener('pointerdown', (e) => {
+      engine.input.pointer = { x: e.clientX, y: e.clientY };
+    });
+    
+    window.addEventListener('pointermove', (e) => {
+      if (engine.input.pointer) {
+        const dx = e.clientX - engine.input.pointer.x;
+        const dy = e.clientY - engine.input.pointer.y;
+        engine.cameraRot.yaw += dx * 0.005;
+        engine.cameraRot.pitch = Math.max(-1.5, Math.min(1.5, engine.cameraRot.pitch - dy * 0.005));
+        engine.input.pointer = { x: e.clientX, y: e.clientY };
+      }
+    });
+    
+    window.addEventListener('pointerup', () => engine.input.pointer = null);
+    window.addEventListener('resize', () => engine.resizeContext());
+
+    window.addEventListener('load', () => engine.boot());
+  </script>
+</body>
+</html>

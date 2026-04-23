@@ -1,0 +1,742 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architecture v17.6.0 • Deep Extinction & Contrast</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #000;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+      margin: 0;
+    }
+    #rendering-canvas { cursor: crosshair; display: block; height: 100vh; width: 100vw; touch-action: none; image-rendering: pixelated; }
+    .execution-container { height: 100vh; width: 100vw; background-color: #000; position: relative; }
+    .overlay { background: rgba(9, 9, 11, 0.9); backdrop-filter: blur(12px); }
+    .controls-hint {
+      position: absolute; bottom: 2rem; left: 50%; transform: translateX(-50%);
+      background: rgba(0,0,0,0.8); padding: 0.6rem 1.4rem; border-radius: 9999px;
+      font-size: 0.65rem; color: #71717a; pointer-events: none; white-space: nowrap;
+      border: 1px solid rgba(255,255,255,0.05); letter-spacing: 0.05em; backdrop-filter: blur(10px);
+    }
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+
+  <div class="execution-container">
+    <canvas id="rendering-canvas"></canvas>
+    
+    <!-- Telemetry HUD -->
+    <div class="absolute top-8 left-8 pointer-events-none select-none p-4 bg-black/60 backdrop-blur-md border border-white/10 rounded-lg">
+      <h1 class="text-white text-[10px] font-mono tracking-[0.3em] uppercase opacity-60 mb-3">Trans-Metric Hypervisor v17.6.0 • Extinction</h1>
+      <div class="flex items-center space-x-3 mb-3 border-b border-white/10 pb-3">
+        <div class="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]" id="status-indicator"></div>
+        <span id="stat-spp" class="text-emerald-400 font-mono text-sm tracking-tighter uppercase">Phase Locked</span>
+      </div>
+      
+      <div class="space-y-1 font-mono text-[9px] text-zinc-400 uppercase tracking-widest">
+        <div class="flex justify-between items-center w-64">
+          <span class="text-zinc-500">SAMPLING [C]:</span> 
+          <span id="stat-qmc" class="text-amber-400 font-bold">QMC DETERMINISTIC</span>
+        </div>
+        <div class="flex justify-between items-center w-64 pt-1">
+          <span class="text-zinc-500">PHASE SPACE [T]:</span> 
+          <span id="stat-intrinsic" class="text-emerald-400 font-bold">DYNAMIC EXTINCTION</span>
+        </div>
+        <div class="flex justify-between items-center w-64 pt-1">
+          <span class="text-zinc-500">ATMOSPHERE [H]:</span> 
+          <span id="stat-sh" class="text-emerald-400 font-bold">SH ADVECTION</span>
+        </div>
+        <div class="flex justify-between items-center w-64 pb-1 pt-1">
+          <span class="text-zinc-500">SUBSTRATE [Y]:</span> 
+          <span id="stat-diag" class="text-zinc-500 font-bold">INFO HAMILTONIAN</span>
+        </div>
+
+        <div class="flex justify-between items-center w-64 pt-2 border-t border-white/5">
+          <span>Kinetic Energy:</span> <span id="stat-energy" class="text-cyan-300">0.00 J</span>
+        </div>
+        <div class="flex justify-between items-center w-64">
+          <span class="text-purple-400">Trans-Metric Paths:</span> <span id="stat-deferred" class="text-purple-300 font-bold">0</span>
+        </div>
+        <div class="w-64 h-1.5 bg-zinc-900 rounded-full mt-3 overflow-hidden border border-white/5">
+          <div id="pressure-bar" class="h-full bg-purple-500 w-0 transition-all duration-100"></div>
+        </div>
+      </div>
+
+      <div id="cam-telemetry" class="mt-4 pt-3 border-t border-white/10 font-mono text-[9px] text-zinc-500 uppercase tracking-widest leading-relaxed">Locating...</div>
+    </div>
+
+    <div class="controls-hint font-mono uppercase text-zinc-300">
+      <span class="text-white font-bold">CLICK</span>: KINETIC SHOCK • <span class="text-white font-bold">C</span>: QMC/RANDOM • <span class="text-white font-bold">T/Y/H</span>: METRICS • <span class="text-white font-bold">R</span>: RESET
+    </div>
+
+    <div id="diagnostic-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-8 overlay hidden">
+      <div class="max-w-md text-center bg-black/80 p-8 rounded-xl border border-rose-500/30">
+        <div class="text-rose-600 mb-6 font-mono text-xl tracking-widest">[ SYSTEM_FAULT ]</div>
+        <p id="diagnostic-message" class="text-zinc-400 text-xs leading-relaxed font-mono mb-8 uppercase px-4"></p>
+        <button onclick="location.reload()" class="px-6 py-2 border border-zinc-700 text-zinc-300 hover:text-white font-mono text-[10px]">REBOOT_HYPERVISOR</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    class KineticTransMetricEngine {
+      constructor(canvas) {
+        this.canvas = canvas;
+        this.ctx = canvas.getContext('webgpu');
+        this.device = null;
+        this.format = navigator.gpu?.getPreferredCanvasFormat();
+        
+        this.accumulationTextures = [];
+        this.frameIterationCount = 0;
+        this.lastTime = 0;
+        this.sysEnergy = 0.0;
+        
+        // Adaptive resolution scaling
+        this.scaleFactor = 1.0; 
+        this.avgFrameTime = 16.6;
+        
+        this.state = { showIntrinsic: 1.0, showDiagnostics: 1.0, useSH: 1.0, useQMC: 1.0 };
+        this.camera = { pos: { x: 0, y: 4.5, z: 20 }, rot: { yaw: 0, pitch: -0.15 }, moved: false, moving: 0.0 };
+        this.input = { keys: {}, mouse: { down: false, lastX: 0, lastY: 0 } };
+        
+        this.physicsObjects = [];
+        this.#resetPhysics();
+
+        this.ui = {
+          overlay: document.getElementById('diagnostic-overlay'),
+          message: document.getElementById('diagnostic-message'),
+          spp: document.getElementById('stat-spp'),
+          camera: document.getElementById('cam-telemetry'),
+          deferred: document.getElementById('stat-deferred'),
+          energy: document.getElementById('stat-energy'),
+          intrinsic: document.getElementById('stat-intrinsic'),
+          diag: document.getElementById('stat-diag'),
+          sh: document.getElementById('stat-sh'),
+          qmc: document.getElementById('stat-qmc'),
+          indicator: document.getElementById('status-indicator'),
+          pressure: document.getElementById('pressure-bar')
+        };
+        this.#initEvents();
+      }
+
+      #resetPhysics() {
+        this.physicsObjects = [];
+        for (let i = 0; i < 9; i++) {
+          this.physicsObjects.push({
+            pos: { x: (i - 4) * 2.4, y: 1.0, z: (i % 2 === 0 ? 1.0 : -1.5) * 1.2 },
+            vel: { x: 0, y: 0, z: 0 },
+            radius: 1.0,
+            awake: true
+          });
+        }
+        this.frameIterationCount = 0;
+      }
+
+      #initEvents() {
+        window.addEventListener('keydown', e => { 
+          this.input.keys[e.code] = true; 
+          if (e.code === 'KeyR') this.#resetPhysics();
+          if (e.code === 'KeyT') { this.state.showIntrinsic = 1.0 - this.state.showIntrinsic; this.frameIterationCount = 0; }
+          if (e.code === 'KeyY') { this.state.showDiagnostics = 1.0 - this.state.showDiagnostics; this.frameIterationCount = 0; }
+          if (e.code === 'KeyH') { this.state.useSH = 1.0 - this.state.useSH; this.frameIterationCount = 0; }
+          if (e.code === 'KeyC') { this.state.useQMC = 1.0 - this.state.useQMC; this.frameIterationCount = 0; }
+          this.#updateUI();
+        });
+        window.addEventListener('keyup', e => { this.input.keys[e.code] = false; });
+        this.canvas.addEventListener('mousedown', e => { 
+          this.input.mouse.down = true; 
+          this.input.mouse.lastX = e.clientX; 
+          this.input.mouse.lastY = e.clientY; 
+          this.#handleInteraction(e.clientX, e.clientY);
+        });
+        window.addEventListener('mouseup', () => { this.input.mouse.down = false; });
+        window.addEventListener('mousemove', e => {
+          if (!this.input.mouse.down) return;
+          this.camera.rot.yaw -= (e.clientX - this.input.mouse.lastX) * 0.003;
+          this.camera.rot.pitch = Math.max(-1.5, Math.min(1.5, this.camera.rot.pitch - (e.clientY - this.input.mouse.lastY) * 0.003));
+          this.input.mouse.lastX = e.clientX; this.input.mouse.lastY = e.clientY;
+          this.camera.moved = true;
+        });
+        window.addEventListener('resize', () => { if (this.device) this.#resize(); });
+      }
+
+      #handleInteraction(screenX, screenY) {
+        const rect = this.canvas.getBoundingClientRect();
+        const x = ((screenX - rect.left) / rect.width) * 2 - 1;
+        const y = -(((screenY - rect.top) / rect.height) * 2 - 1);
+        const aspect = this.canvas.width / this.canvas.height;
+
+        const f = { x: -Math.sin(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch), y: Math.sin(this.camera.rot.pitch), z: -Math.cos(this.camera.rot.yaw) * Math.cos(this.camera.rot.pitch) };
+        const r = { x: Math.cos(this.camera.rot.yaw), y: 0, z: -Math.sin(this.camera.rot.yaw) };
+        const u = { x: r.y * f.z - r.z * f.y, y: r.z * f.x - r.x * f.z, z: r.x * f.y - r.y * f.x };
+        
+        const rayDir = { x: f.x * 1.5 + r.x * x * aspect + u.x * y, y: f.y * 1.5 + r.y * x * aspect + u.y * y, z: f.z * 1.5 + r.z * x * aspect + u.z * y };
+        const mag = Math.sqrt(rayDir.x**2 + rayDir.y**2 + rayDir.z**2);
+        rayDir.x /= mag; rayDir.y /= mag; rayDir.z /= mag;
+
+        this.physicsObjects.forEach(obj => {
+          const oc = { x: this.camera.pos.x - obj.pos.x, y: this.camera.pos.y - obj.pos.y, z: this.camera.pos.z - obj.pos.z };
+          const b = oc.x * rayDir.x + oc.y * rayDir.y + oc.z * rayDir.z;
+          const c = (oc.x**2 + oc.y**2 + oc.z**2) - obj.radius**2;
+          if (b*b - c > 0) {
+            obj.awake = true;
+            obj.vel.y += 15.0;
+            obj.vel.x += rayDir.x * 18.0;
+            obj.vel.z += rayDir.z * 18.0;
+            this.frameIterationCount = 0;
+          }
+        });
+      }
+
+      #updateUI() {
+        this.ui.intrinsic.textContent = this.state.showIntrinsic > 0.5 ? "DYNAMIC EXTINCTION" : "SHELL ONLY";
+        this.ui.intrinsic.className = this.state.showIntrinsic > 0.5 ? "text-emerald-400 font-bold" : "text-zinc-500 font-bold";
+        this.ui.diag.textContent = this.state.showDiagnostics > 0.5 ? "INFO HAMILTONIAN" : "OFF";
+        this.ui.diag.className = this.state.showDiagnostics > 0.5 ? "text-rose-400 font-bold" : "text-zinc-500 font-bold";
+        this.ui.sh.textContent = this.state.useSH > 0.5 ? "SH ADVECTION" : "OFF";
+        this.ui.sh.className = this.state.useSH > 0.5 ? "text-emerald-400 font-bold" : "text-zinc-500 font-bold";
+        this.ui.qmc.textContent = this.state.useQMC > 0.5 ? "QMC DETERMINISTIC" : "MONTE CARLO RANDOM";
+        this.ui.qmc.className = this.state.useQMC > 0.5 ? "text-amber-400 font-bold" : "text-zinc-500 font-bold";
+      }
+
+      #resize() {
+        const dpr = window.devicePixelRatio || 1;
+        this.canvas.width = Math.floor(window.innerWidth * dpr * this.scaleFactor);
+        this.canvas.height = Math.floor(window.innerHeight * dpr * this.scaleFactor);
+        this.ctx.configure({ device: this.device, format: this.format, alphaMode: 'premultiplied' });
+        this.#initTextures();
+        this.#initTransitionBuffer();
+        this.frameIterationCount = 0;
+      }
+
+      async bootstrap() {
+        if (!navigator.gpu) return this.#halt("WebGPU Initialization Error: Navigator.gpu not found.");
+        try {
+          const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+          this.device = await adapter.requestDevice();
+          this.#resize();
+          await this.#initBuffers();
+          await this.#initPipelines();
+          this.#updateUI();
+          requestAnimationFrame((t) => this.#loop(t));
+        } catch (err) { this.#halt(err.message); }
+      }
+
+      #initTextures() {
+        const desc = { size: [this.canvas.width, this.canvas.height], format: 'rgba32float', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING };
+        if (this.accumulationTextures && this.accumulationTextures.length) {
+          this.accumulationTextures.forEach(t => { if(t) t.destroy(); });
+        }
+        this.accumulationTextures = [this.device.createTexture(desc), this.device.createTexture(desc)];
+      }
+
+      #initTransitionBuffer() {
+        if (this.transitionQueueBuffer) this.transitionQueueBuffer.destroy();
+        const maxPixels = this.canvas.width * this.canvas.height;
+        const structSize = 64; 
+        let size = maxPixels * structSize;
+        const limit = this.device.limits.maxStorageBufferBindingSize || 2147483648;
+        size = Math.min(size, Math.floor(limit / structSize) * structSize);
+        this.transitionQueueBuffer = this.device.createBuffer({ size, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+      }
+
+      async #initBuffers() {
+        this.uniformBuffer = this.device.createBuffer({ size: 256, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        this.exposureBuffer = this.device.createBuffer({ size: 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        this.device.queue.writeBuffer(this.exposureBuffer, 0, new Float32Array([0.25, 0, 0, 0]));
+        this.counterBuffer = this.device.createBuffer({ size: 32, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC });
+        this.readbackBuffer = this.device.createBuffer({ size: 32, usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST });
+        this.hcaBuffer = this.device.createBuffer({ size: 1024 * 1024 * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        this.device.queue.writeBuffer(this.hcaBuffer, 0, new Float32Array(1024 * 1024).map(() => Math.random()));
+      }
+
+      async #initPipelines() {
+        const wgsl = `
+          struct Uniforms { 
+            res: vec2f, frame: f32, time: f32, 
+            camPos: vec4f, camFwd: vec4f, camRight: vec4f, camUp: vec4f, 
+            showIntrinsic: f32, showDiagnostics: f32, useSH: f32, moving: f32,
+            useQMC: f32, sysEnergy: f32, pad1: f32, pad2: f32,
+            spherePos: array<vec4f, 9>
+          };
+          
+          struct DeferredRay { 
+            origin: vec4f, dir: vec4f, pixel_id: u32, sphere_id: u32, pad1: u32, pad2: u32, throughput: vec4f
+          };
+          
+          @group(0) @binding(0) var<uniform> params: Uniforms;
+          @group(0) @binding(1) var prevFrame: texture_2d<f32>;
+          @group(0) @binding(2) var currFrame: texture_storage_2d<rgba32float, write>;
+          @group(0) @binding(3) var<storage, read_write> exposure: array<f32>;
+          @group(0) @binding(4) var<storage, read_write> transition_queue: array<DeferredRay>;
+          @group(0) @binding(5) var<storage, read_write> transition_counter: atomic<u32>;
+          @group(0) @binding(6) var<storage, read_write> hca_state: array<f32>;
+
+          // Standard PCG Random
+          fn pcg(i: u32) -> u32 { var s = i * 747796405u + 2891336453u; var w = ((s >> ((s >> 28u) + 4u)) ^ s) * 277803737u; return (w >> 22u) ^ w; }
+          fn rand(s: ptr<function, u32>) -> f32 { *s = pcg(*s); return f32(*s) / 4294967296.0; }
+          
+          // Arithmetic Quasi-Monte Carlo (R_2 Sequence) - Low Discrepancy
+          fn qmc_2d(n: u32) -> vec2f {
+            let alpha = vec2f(0.7548776662466927, 0.5698402909980532);
+            return fract(vec2f(f32(n)) * alpha);
+          }
+
+          fn rotX(a: f32) -> mat2x2f { let s = sin(a); let c = cos(a); return mat2x2f(c, -s, s, c); }
+          fn rotY(a: f32) -> mat2x2f { let s = sin(a); let c = cos(a); return mat2x2f(c, s, -s, c); }
+
+          // Computational Universe Void (High Contrast, Low Blue Tint)
+          fn evalSky(rd: vec3f) -> vec3f {
+            let zenith = vec3f(0.002, 0.002, 0.005);
+            let horizon = vec3f(0.02, 0.02, 0.03);
+            let factor = pow(max(0.0, 1.0 - rd.y), 5.0);
+            var col = mix(zenith, horizon, factor);
+            let sunDir = normalize(vec3f(-1.0, 0.6, 1.0));
+            col += vec3f(1.0, 0.98, 0.95) * pow(max(0.0, dot(rd, sunDir)), 256.0);
+            return col;
+          }
+
+          fn evalSH(n: vec3f) -> vec3f {
+            let c0 = vec3f(0.1, 0.1, 0.12); 
+            let c1 = vec3f(0.05, 0.05, 0.05); 
+            let c2 = vec3f(0.08, 0.08, 0.08);
+            return max(c0 + c1 * n.y + c2 * n.z, vec3f(0.005));
+          }
+
+          struct Hit { dist: f32, normal: vec3f, color: vec3f, id: f32 };
+          fn iSphere(ro: vec3f, rd: vec3f, ce: vec3f, ra: f32, id: f32) -> Hit {
+            var h = Hit(1e10, vec3f(0.0), vec3f(0.0), 0.0);
+            let oc = ro - ce; let b = dot(oc, rd); let c = dot(oc, oc) - ra*ra; let d = b*b - c;
+            if (d > 0.0) { var t = -b - sqrt(d); if (t < 0.01) { t = -b + sqrt(d); }
+            if (t > 0.01) { h.dist = t; h.normal = (ro + rd*t - ce)/ra; h.id = id; } }
+            return h;
+          }
+
+          @compute @workgroup_size(8, 8)
+          fn pass1(@builtin(global_invocation_id) id: vec3u) {
+            if (id.x >= u32(params.res.x) || id.y >= u32(params.res.y)) { return; }
+            let px = id.x + id.y * u32(params.res.x);
+            var seed = px + u32(params.frame) * 719393u;
+
+            var jitter = vec2f(0.0);
+            if (params.moving < 0.5) { 
+                if (params.useQMC > 0.5) { jitter = qmc_2d(seed) - 0.5; } 
+                else { jitter = vec2f(rand(&seed), rand(&seed)) - 0.5; }
+            }
+            
+            let ndc = ((vec2f(id.xy) + jitter) / params.res * 2.0 - 1.0) * vec2f(params.res.x/params.res.y, -1.0);
+            var ro = params.camPos.xyz; var rd = normalize(params.camFwd.xyz * 1.5 + params.camRight.xyz * ndc.x + params.camUp.xyz * ndc.y);
+            
+            var col = vec3f(0.0); var throughput = vec3f(1.0);
+            let lightDir = normalize(vec3f(-1.0, 0.6, 1.0));
+
+            let mats = array<vec3f, 9>(
+              vec3(0.9, 0.9, 0.9), vec3(0.08, 0.02, 0.9), vec3(0.9, 0.02, 0.02),
+              vec3(0.85, 0.8, 0.1), vec3(0.2, 0.8, 0.82), vec3(0.9, 0.0, 0.9),
+              vec3(0.1, 0.8, 0.3), vec3(0.9, 0.5, 0.1), vec3(0.4, 0.5, 0.7)
+            );
+
+            for(var bounce=0u; bounce<4u; bounce++) {
+              var best = Hit(1e10, vec3f(0.0), vec3f(0.0), -1.0);
+              
+              // Information Field Substrate (Grid)
+              let fl = iSphere(ro, rd, vec3f(0, -1000.0, 0), 1000.0, 0.0); 
+              if(fl.dist < best.dist) { 
+                best = fl; 
+                let hitP = ro + rd * fl.dist;
+                let gridPos = floor(hitP.xz * 2.0);
+                let check = (u32(abs(gridPos.x)) + u32(abs(gridPos.y))) % 2u;
+                
+                let uv = fract(hitP.xz * 2.0);
+                let is_line = uv.x < 0.05 || uv.y < 0.05;
+                
+                // Deepest black (0.0) and brightest white (1.0)
+                var final_col = select(vec3f(0.0), vec3f(1.0), check == 0u);
+                
+                // Information Hamiltonian Pulse: Responds to Kinetic Energy of the system
+                if (params.showDiagnostics > 0.5 && is_line) {
+                    let dynamic_energy = clamp(params.sysEnergy * 0.005, 0.0, 2.0);
+                    let pulse = (sin(params.time * 4.0 - length(hitP.xz)*0.5) * 0.5 + 0.5) * (0.2 + dynamic_energy);
+                    final_col += vec3f(dynamic_energy, 0.2, 1.0 - dynamic_energy) * pulse;
+                }
+                best.color = final_col;
+              }
+              
+              for(var i=0u; i<9u; i++) {
+                let s = iSphere(ro, rd, params.spherePos[i].xyz, 1.0, f32(i + 1u));
+                if (s.dist < best.dist) { best = s; best.color = mats[i]; }
+              }
+
+              if(best.dist > 1e9) { col += throughput * evalSky(rd); break; }
+              
+              // Trans-Metric Shell Handoff
+              if(best.id > 0.5) {
+                  let f0 = 0.04;
+                  let fresnel = f0 + (1.0 - f0) * pow(1.0 - max(0.0, dot(-rd, best.normal)), 5.0);
+                  
+                  var do_refl = false;
+                  if (params.moving > 0.5) { do_refl = true; }
+                  else {
+                      if (params.useQMC > 0.5) { do_refl = qmc_2d(seed + bounce * 17u).x < fresnel; }
+                      else { do_refl = rand(&seed) < fresnel; }
+                  }
+
+                  if (do_refl) {
+                      let refl = reflect(rd, best.normal);
+                      ro = ro + rd * best.dist + best.normal * 0.01; rd = refl;
+                      if(params.moving > 0.5) { col += throughput * evalSky(refl) * 0.3; break; }
+                      throughput *= 0.8; continue; 
+                  } else {
+                      let qidx = atomicAdd(&transition_counter, 1u);
+                      if(qidx < arrayLength(&transition_queue)) {
+                        transition_queue[qidx].origin = vec4f(ro, best.id); transition_queue[qidx].dir = vec4f(rd, 0.0); 
+                        transition_queue[qidx].pixel_id = px; transition_queue[qidx].sphere_id = u32(best.id) - 1u;
+                        transition_queue[qidx].throughput = vec4f(throughput, 1.0); 
+                      }
+                      return; // Handled by Pass 2
+                  }
+              }
+
+              // Euclidean Shading
+              let hitPos = ro + rd * best.dist;
+              let n = best.normal;
+              var shadow = 1.0;
+              for(var i=0u; i<9u; i++) {
+                  let s_res = iSphere(hitPos + n * 0.01, lightDir, params.spherePos[i].xyz, 1.0, 1.0);
+                  if(s_res.dist < 100.0) { shadow = 0.0; break; }
+              }
+
+              let diffuse = max(0.0, dot(n, lightDir)) * shadow;
+              var sh_v = vec3f(1.0); if(params.useSH > 0.5) { sh_v = evalSH(n); }
+              col += throughput * best.color * (diffuse * 5.0 + sh_v * 0.5);
+              
+              // Bounce Sampling: QMC vs MC
+              ro = hitPos + n * 0.001;
+              var r1: f32; var r2: f32;
+              if (params.useQMC > 0.5) {
+                  let q = qmc_2d(seed + bounce * 31u);
+                  r1 = 6.2831853 * q.x; r2 = q.y;
+              } else {
+                  r1 = 6.2831853 * rand(&seed); r2 = rand(&seed);
+              }
+              
+              let r2s = sqrt(r2);
+              let w = n; let u_vec = normalize(cross(select(vec3f(1,0,0), vec3f(0,1,0), abs(w.x)>0.1), w)); let v_vec = cross(w, u_vec);
+              rd = normalize(u_vec*cos(r1)*r2s + v_vec*sin(r1)*r2s + w*sqrt(1.0-r2));
+              throughput *= best.color;
+            }
+            let prev = textureLoad(prevFrame, id.xy, 0).rgb;
+            textureStore(currFrame, id.xy, vec4f(mix(prev, col, 1.0/(params.frame+1.0)), 1.0));
+          }
+
+          fn map_vol(p: vec3f, id: f32) -> f32 {
+            var z = p; 
+            z.xz = rotY(-id * 0.8) * z.xz; z.xy = rotX(id * 0.5) * z.xy;
+            var s = 1.0; var h_sum = 0.0;
+            let offset = vec3f(1.0, 0.9, 1.2); 
+            for(var i=0; i<6; i++) { 
+              z = abs(z); 
+              if(z.x < z.y){z=z.yxz;} if(z.x < z.z){z=z.zxy;} if(z.y < z.z){z=z.xzy;}
+              z = z * 2.15 - offset; s *= 2.15; 
+              h_sum += (sin(z.x)*cos(z.y)*sin(z.z)) / s;
+            }
+            return (length(z) - 0.5) / s + h_sum * 0.15;
+          }
+
+          @compute @workgroup_size(64, 1, 1)
+          fn pass2(@builtin(global_invocation_id) id: vec3u, @builtin(num_workgroups) nw: vec3u) {
+            let thread_idx = id.y * (nw.x * 64u) + id.x;
+            if(thread_idx >= atomicLoad(&transition_counter)) { return; }
+            let r_payload = transition_queue[thread_idx];
+            let coords = vec2i(i32(r_payload.pixel_id % u32(params.res.x)), i32(r_payload.pixel_id / u32(params.res.x)));
+            
+            let s_idx = r_payload.sphere_id;
+            let ce = params.spherePos[s_idx].xyz;
+            let ra = 1.0; 
+            
+            let mats = array<vec3f, 9>(
+              vec3(0.9, 0.9, 0.9), vec3(0.08, 0.02, 0.9), vec3(0.9, 0.02, 0.02),
+              vec3(0.85, 0.8, 0.1), vec3(0.2, 0.8, 0.82), vec3(0.9, 0.0, 0.9),
+              vec3(0.1, 0.8, 0.3), vec3(0.9, 0.5, 0.1), vec3(0.4, 0.5, 0.7)
+            );
+            let base_tint = mats[s_idx];
+            
+            var col = vec3f(0.0); let throughput = r_payload.throughput.rgb * base_tint; 
+            var rd = r_payload.dir.xyz; 
+            let s_id = f32(s_idx + 1u);
+            
+            let oc = r_payload.origin.xyz - ce; let b = dot(oc, rd); let c = dot(oc, oc) - ra*ra; let d = b*b - c;
+            if (d > 0.0) {
+                let t_entry = max(0.0, -b - sqrt(d));
+                var p_world = r_payload.origin.xyz + rd * t_entry;
+                var density_acc = 0.0; var spectral_glow = vec3f(0.0);
+                
+                // Trans-Metric Information Field Advection
+                for(var i=0; i<128; i++) {
+                    let p_local = p_world - ce;
+                    let p_norm = p_local / ra;
+                    let r_len = length(p_norm);
+                    if (r_len > 1.001) { break; }
+                    
+                    let dist = map_vol(p_norm * 2.5, s_id) * (ra / 2.5);
+                    let local_density = smoothstep(0.12, 0.0, abs(dist));
+                    let boundary_fade = smoothstep(1.0, 0.8, r_len);
+                    let final_density = local_density * boundary_fade;
+                    
+                    if(final_density > 0.0) {
+                        let phase = fract(length(p_local) * 2.5 - s_id * 0.1);
+                        let local_sh = 0.5 + 0.5 * cos(vec3f(phase*6.28, phase*6.28 + 2.0, phase*6.28 + 4.0));
+                        
+                        // Information Hamiltonian dictates Geodesic Curvature (GGX Metric Warp)
+                        let kinetic_factor = clamp(params.sysEnergy * 0.002, 0.0, 0.5);
+                        let metric_warp = cross(rd, local_sh) * (0.06 + kinetic_factor) * final_density;
+                        rd = normalize(rd + metric_warp);
+                        
+                        // DEEP EXTINCTION: Fast absorption in dense fractals naturally extinguishes to black
+                        let alpha = final_density * 0.65; 
+                        spectral_glow += local_sh * throughput * alpha * (1.0 - density_acc) * 5.0;
+                        density_acc += alpha * (1.0 - density_acc);
+                    }
+                    
+                    let step_size = max(abs(dist) * 0.35, 0.015);
+                    p_world += rd * step_size;
+                    if(density_acc > 0.99) { break; }
+                }
+                
+                // Unify physical SSS with environment (No forced diagnostic overrides for spheres)
+                if (params.showIntrinsic < 0.5) {
+                    let hitPos = r_payload.origin.xyz + r_payload.dir.xyz * t_entry;
+                    col = throughput * evalSky(reflect(r_payload.dir.xyz, normalize(hitPos - ce))) * 0.3;
+                } else {
+                    let sky = evalSky(rd) * 0.05; // Minimize ambient bleed for deep contrast
+                    col = spectral_glow + sky * throughput * (1.0 - density_acc);
+                }
+            }
+            let prev = textureLoad(prevFrame, coords, 0).rgb;
+            textureStore(currFrame, coords, vec4f(mix(prev, col, 1.0/(params.frame+1.0)), 1.0));
+          }
+
+          @vertex fn vs(@builtin(vertex_index) i: u32) -> @builtin(position) vec4f {
+            var p = array<vec2f, 3>(vec2f(-1,-1), vec2f(3,-1), vec2f(-1,3)); return vec4f(p[i], 0, 1);
+          }
+          @group(0) @binding(1) var tIn: texture_2d<f32>;
+          @group(0) @binding(3) var<storage, read> exp_in: array<f32>;
+          @fragment fn fs(@builtin(position) p: vec4f) -> @location(0) vec4f {
+            var c = textureLoad(tIn, vec2i(p.xy), 0).rgb;
+            c = c * (0.35 / max(exp_in[0], 0.001));
+            let ac = 2.51; let bc = 0.03; let cc = 2.43; let dc = 0.59; let ec = 0.14;
+            c = clamp((c*(ac*c+bc))/(c*(cc*c+dc)+ec), vec3f(0.0), vec3f(1.0));
+            return vec4f(pow(c, vec3f(1.0/2.2)), 1.0);
+          }
+        `;
+
+        const mod = this.device.createShaderModule({ code: wgsl });
+        this.bindGroupLayout = this.device.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba32float' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE | GPUShaderStage.FRAGMENT, buffer: { type: 'storage' } },
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+            { binding: 5, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+            { binding: 6, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+          ]
+        });
+
+        const layout = this.device.createPipelineLayout({ bindGroupLayouts: [this.bindGroupLayout] });
+        this.euclideanPipeline = this.device.createComputePipeline({ layout, compute: { module: mod, entryPoint: 'pass1' } });
+        this.pAdicPipeline = this.device.createComputePipeline({ layout, compute: { module: mod, entryPoint: 'pass2' } });
+        this.presentationPipeline = this.device.createRenderPipeline({ layout: 'auto', vertex: { module: mod, entryPoint: 'vs' }, fragment: { module: mod, entryPoint: 'fs', targets: [{ format: this.format }] }, primitive: { topology: 'triangle-list' } });
+      }
+
+      #halt(m) { this.ui.message.textContent = m; this.ui.overlay.classList.remove('hidden'); }
+
+      #runPhysics() {
+        const dt = 1/60;
+        const gravity = -18.0;
+        let anyMoved = false;
+        this.sysEnergy = 0.0;
+
+        this.physicsObjects.forEach((obj) => {
+          if (!obj.awake) return;
+
+          obj.vel.y += gravity * dt;
+          obj.pos.x += obj.vel.x * dt;
+          obj.pos.y += obj.vel.y * dt;
+          obj.pos.z += obj.vel.z * dt;
+
+          if (obj.pos.y < obj.radius) {
+            obj.pos.y = obj.radius;
+            if (Math.abs(obj.vel.y) < 1.0) obj.vel.y = 0; else obj.vel.y *= -0.5;
+            obj.vel.x *= 0.95; obj.vel.z *= 0.95;
+          }
+
+          const limit = 12.0;
+          if (Math.abs(obj.pos.x) > limit) { obj.pos.x = Math.sign(obj.pos.x) * limit; obj.vel.x *= -0.6; }
+          if (Math.abs(obj.pos.z) > limit) { obj.pos.z = Math.sign(obj.pos.z) * limit; obj.vel.z *= -0.6; }
+
+          obj.vel.x *= 0.985; obj.vel.z *= 0.985;
+
+          const speedSq = obj.vel.x**2 + obj.vel.y**2 + obj.vel.z**2;
+          this.sysEnergy += 0.5 * speedSq; // Kinetic energy approximation
+
+          if (Math.abs(obj.vel.x) < 0.01 && Math.abs(obj.vel.y) === 0 && Math.abs(obj.vel.z) < 0.01) {
+            obj.vel.x = 0; obj.vel.z = 0; obj.awake = false;
+          } else {
+            anyMoved = true;
+          }
+        });
+
+        for (let i = 0; i < 9; i++) {
+          for (let j = i + 1; j < 9; j++) {
+            const obj = this.physicsObjects[i];
+            const other = this.physicsObjects[j];
+            const dx = other.pos.x - obj.pos.x;
+            const dy = other.pos.y - obj.pos.y;
+            const dz = other.pos.z - obj.pos.z;
+            const distSq = dx*dx + dy*dy + dz*dz;
+            const minDist = obj.radius + other.radius;
+            
+            if (distSq < minDist*minDist) {
+              const dist = Math.sqrt(distSq);
+              const nx = dx/dist; const ny = dy/dist; const nz = dz/dist;
+              const p = (obj.vel.x * nx + obj.vel.y * ny + obj.vel.z * nz - other.vel.x * nx - other.vel.y * ny - other.vel.z * nz);
+              obj.vel.x -= p * nx; obj.vel.y -= p * ny; obj.vel.z -= p * nz;
+              other.vel.x += p * nx; other.vel.y += p * ny; other.vel.z += p * nz;
+              
+              const overlap = (minDist - dist) * 0.5;
+              obj.pos.x -= nx * overlap; obj.pos.y -= ny * overlap; obj.pos.z -= nz * overlap;
+              other.pos.x += nx * overlap; other.pos.y += ny * overlap; other.pos.z += nz * overlap;
+              
+              obj.awake = true; other.awake = true; anyMoved = true;
+            }
+          }
+        }
+
+        if (anyMoved) this.frameIterationCount = 0;
+        this.ui.energy.textContent = `${this.sysEnergy.toFixed(2)} J`;
+      }
+
+      #updateAdaptiveScale(frameTime) {
+        this.avgFrameTime = this.avgFrameTime * 0.95 + frameTime * 0.05;
+        if (this.avgFrameTime > 24 && this.scaleFactor > 0.4) {
+          this.scaleFactor -= 0.02;
+          this.#resize();
+        } else if (this.avgFrameTime < 14 && this.scaleFactor < 1.0 && this.frameIterationCount < 1) {
+          this.scaleFactor += 0.01;
+          this.#resize();
+        }
+      }
+
+      async #loop(ts) {
+        const frameTime = ts - this.lastTime;
+        this.#updateAdaptiveScale(frameTime);
+        this.#runPhysics();
+
+        const speed = 0.20;
+        const rotKeySpeed = 0.045;
+        let frameMoved = false;
+
+        if (this.input.keys['ArrowLeft']) { this.camera.rot.yaw += rotKeySpeed; frameMoved = true; }
+        if (this.input.keys['ArrowRight']) { this.camera.rot.yaw -= rotKeySpeed; frameMoved = true; }
+        if (this.input.keys['ArrowUp']) { this.camera.rot.pitch = Math.min(1.5, this.camera.rot.pitch + rotKeySpeed); frameMoved = true; }
+        if (this.input.keys['ArrowDown']) { this.camera.rot.pitch = Math.max(-1.5, this.camera.rot.pitch - rotKeySpeed); frameMoved = true; }
+
+        const fVec = { x: -Math.sin(this.camera.rot.yaw)*Math.cos(this.camera.rot.pitch), y: Math.sin(this.camera.rot.pitch), z: -Math.cos(this.camera.rot.yaw)*Math.cos(this.camera.rot.pitch) };
+        const rVec = { x: Math.cos(this.camera.rot.yaw), y: 0, z: -Math.sin(this.camera.rot.yaw) };
+
+        if(this.input.keys['KeyW']) { this.camera.pos.x += fVec.x * speed; this.camera.pos.y += fVec.y * speed; this.camera.pos.z += fVec.z * speed; frameMoved = true; }
+        if(this.input.keys['KeyS']) { this.camera.pos.x -= fVec.x * speed; this.camera.pos.y -= fVec.y * speed; this.camera.pos.z -= fVec.z * speed; frameMoved = true; }
+        if(this.input.keys['KeyA']) { this.camera.pos.x -= rVec.x * speed; this.camera.pos.z -= rVec.z * speed; frameMoved = true; }
+        if(this.input.keys['KeyD']) { this.camera.pos.x += rVec.x * speed; this.camera.pos.z += rVec.z * speed; frameMoved = true; }
+
+        if (frameMoved || this.camera.moved) { 
+          this.frameIterationCount = 0; this.camera.moved = false; this.camera.moving = 1.0;
+        } else {
+          this.camera.moving = 0.0;
+        }
+        
+        if (this.frameIterationCount === 0) this.lastTime = ts / 1000;
+
+        const enc = this.device.createCommandEncoder();
+        const bIdx = this.frameIterationCount % 2, fIdx = (this.frameIterationCount + 1) % 2;
+        this.device.queue.writeBuffer(this.counterBuffer, 0, new Uint32Array([0]));
+
+        const pData = new Float32Array(64);
+        pData.set([this.canvas.width, this.canvas.height, this.frameIterationCount, this.lastTime], 0);
+        pData.set([this.camera.pos.x, this.camera.pos.y, this.camera.pos.z, 0], 4);
+        pData.set([fVec.x, fVec.y, fVec.z, 0], 8);
+        pData.set([rVec.x, rVec.y, rVec.z, 0], 12);
+        const uVec = { x: rVec.y*fVec.z - rVec.z*fVec.y, y: rVec.z*fVec.x - rVec.x*fVec.z, z: rVec.x*fVec.y - rVec.y*fVec.x };
+        pData.set([uVec.x, uVec.y, uVec.z, 0], 16);
+        pData.set([this.state.showIntrinsic, this.state.showDiagnostics, this.state.useSH, this.camera.moving], 20);
+        pData.set([this.state.useQMC, this.sysEnergy, 0.0, 0.0], 24);
+        
+        for(let i=0; i<9; i++) {
+          pData.set([this.physicsObjects[i].pos.x, this.physicsObjects[i].pos.y, this.physicsObjects[i].pos.z, 1.0], 28 + i*4);
+        }
+        this.device.queue.writeBuffer(this.uniformBuffer, 0, pData);
+
+        const bg = this.device.createBindGroup({
+          layout: this.bindGroupLayout,
+          entries: [{binding:0,resource:{buffer:this.uniformBuffer}}, {binding:1,resource:this.accumulationTextures[bIdx].createView()}, {binding:2,resource:this.accumulationTextures[fIdx].createView()}, {binding:3,resource:{buffer:this.exposureBuffer}}, {binding:4,resource:{buffer:this.transitionQueueBuffer}}, {binding:5,resource:{buffer:this.counterBuffer}}, {binding:6,resource:{buffer:this.hcaBuffer}}]
+        });
+
+        const p1 = enc.beginComputePass(); p1.setPipeline(this.euclideanPipeline); p1.setBindGroup(0, bg); p1.dispatchWorkgroups(Math.ceil(this.canvas.width/8), Math.ceil(this.canvas.height/8)); p1.end();
+        
+        const totalWGs = Math.ceil((this.canvas.width * this.canvas.height) / 64);
+        const dx = Math.min(totalWGs, 65535);
+        const dy = Math.ceil(totalWGs / dx);
+        const p2 = enc.beginComputePass(); p2.setPipeline(this.pAdicPipeline); p2.setBindGroup(0, bg); p2.dispatchWorkgroups(dx, dy, 1); p2.end();
+        
+        const ready = this.readbackBuffer.mapState === 'unmapped';
+        if (ready) enc.copyBufferToBuffer(this.counterBuffer, 0, this.readbackBuffer, 0, 4);
+
+        const rp = enc.beginRenderPass({ colorAttachments: [{ view: this.ctx.getCurrentTexture().createView(), clearValue: {r:0,g:0,b:0,a:1}, loadOp:'clear', storeOp:'store'}] });
+        rp.setPipeline(this.presentationPipeline);
+        rp.setBindGroup(0, this.device.createBindGroup({ layout: this.presentationPipeline.getBindGroupLayout(0), entries: [{binding:1,resource:this.accumulationTextures[fIdx].createView()}, {binding:3,resource:{buffer:this.exposureBuffer}}] }));
+        rp.draw(3); rp.end();
+
+        this.device.queue.submit([enc.finish()]);
+        if(ready) this.#telemetry();
+        
+        this.frameIterationCount++;
+        
+        if(this.frameIterationCount > 150 && !this.camera.moving) {
+            this.ui.indicator.className = 'w-1.5 h-1.5 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.8)]';
+        } else {
+            this.ui.indicator.className = 'w-1.5 h-1.5 rounded-full bg-cyan-500 shadow-[0_0_12px_rgba(6,182,212,0.8)] animate-pulse';
+        }
+        
+        this.ui.spp.textContent = `PASS: ${this.frameIterationCount}`;
+        requestAnimationFrame(t => this.#loop(t));
+      }
+
+      async #telemetry() {
+        if (this.readbackBuffer.mapState !== 'unmapped') return;
+        try {
+          await this.readbackBuffer.mapAsync(GPUMapMode.READ);
+          const count = new Uint32Array(this.readbackBuffer.getMappedRange())[0];
+          this.readbackBuffer.unmap();
+          this.ui.deferred.textContent = count.toLocaleString();
+          if(count > 0) {
+             const pct = Math.min(100, (count / (this.canvas.width * this.canvas.height)) * 100);
+             this.ui.pressure.style.width = `${pct}%`;
+          } else {
+             this.ui.pressure.style.width = '0%';
+          }
+          this.ui.camera.innerHTML = `RES: ${Math.round(this.scaleFactor*100)}% • FPS: ${Math.round(1000/this.avgFrameTime)} • LOC: [${this.camera.pos.x.toFixed(1)}, ${this.camera.pos.y.toFixed(1)}, ${this.camera.pos.z.toFixed(1)}]`;
+        } catch {}
+      }
+    }
+    window.onload = () => new KineticTransMetricEngine(document.getElementById('rendering-canvas')).bootstrap();
+  </script>
+</body>
+</html>

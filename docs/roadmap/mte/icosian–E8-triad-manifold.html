@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mte v3.2: terminal manifold resolve</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #050505;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow-x: hidden;
+      overflow-y: auto;
+    }
+
+    #rasterisationSubstrate {
+      width: 100%;
+      height: 100%;
+      border-radius: 0.5rem;
+      cursor: crosshair;
+      touch-action: none;
+      display: block;
+    }
+
+    .execution-container {
+      width: 100%;
+      max-width: min(100%, 75vh);
+      aspect-ratio: 1 / 1;
+      margin: 0 auto;
+      position: relative;
+      background-color: #09090b;
+      padding: 0.5rem;
+      border-radius: 1.25rem;
+      border: 1px solid #27272a;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      overflow: hidden;
+    }
+
+    .telemetry-anchor {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      margin-bottom: 1rem;
+    }
+
+    .diagnostic-grid {
+      display: grid;
+      gap: 1rem;
+      width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .diagnostic-grid {
+        grid-template-columns: repeat(3, 1fr);
+        gap: 1.5rem;
+      }
+    }
+
+    .status-badge {
+      background-color: rgba(24, 24, 27, 0.8);
+      backdrop-filter: blur(12px);
+      padding: 0.5rem 1rem;
+      border-radius: 9999px;
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      font-size: 0.65rem;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    .theoretical-node { background: rgba(24, 24, 27, 0.6); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.05); }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center min-h-screen p-6 md:p-8">
+  <div class="max-w-5xl w-full flex flex-col space-y-6 md:space-y-8">
+    
+    <header class="text-center space-y-3">
+      <h1 class="text-xl md:text-3xl font-bold text-white tracking-tight">icosian–E8 triad manifold</h1>
+      <p class="text-[9px] md:text-[10px] uppercase tracking-[0.4em] font-mono text-zinc-500">
+        status: terminal resolve active | architecture: <span class="text-emerald-400">v7.1.8 icosian hypervisor</span>
+      </p>
+    </header>
+
+    <div class="text-zinc-400 text-xs md:text-sm text-center max-w-3xl mx-auto mb-2 border border-zinc-800/40 p-5 rounded-2xl bg-zinc-900/20 leading-relaxed">
+      <p>
+        the <strong>informational–physical unification model</strong> resolves physics as an emergent property of a synchronised wave field. the continuous 2D cellular automaton (the boundary) is projected onto a 3D truncated icosahedron (the bulk) within the golden field $\mathbb{Q}(\sqrt{5})$. arnold tongues govern phase resonance, enforcing deterministic limits via hierarchical cantor-set parity checks.
+      </p>
+    </div>
+
+    <div class="telemetry-anchor">
+      <div class="status-badge text-zinc-400 pointer-events-none">
+        metric: farey-locked resonance | truncation: depth 116 active
+      </div>
+    </div>
+
+    <div class="execution-container">
+      <canvas id="rasterisationSubstrate"></canvas>
+      <div id="hardwareInterruptOverlay" class="absolute inset-0 flex items-center justify-center bg-black/98 hidden rounded-xl z-20">
+        <div class="p-12 text-center space-y-4">
+           <div class="w-12 h-12 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+           <p class="text-red-500 font-mono text-[10px] md:text-[11px] leading-relaxed uppercase tracking-widest" id="interruptMessage"></p>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagnostic-grid text-[9px] md:text-[10px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+      <div class="p-4 theoretical-node rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">Partition identity:</span>
+        T = O + U = 1 | dO = -dU
+      </div>
+      <div class="p-4 theoretical-node rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">synchronisation:</span>
+        arnold tongue mode-locking
+      </div>
+      <div class="p-4 theoretical-node rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-2">topological limits:</span>
+        cantor set exclusion gates
+      </div>
+    </div>
+
+    <footer class="text-center pt-4">
+      <p class="text-[8px] font-mono text-zinc-600 uppercase tracking-widest">
+        system timestamp: 15 April 2026 | latency: <span id="telemetryLatency">0.00</span> ms
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    /**
+     * @fileoverview terminal resolve of the Icosian–E8 hypervisor.
+     * v7.1.8: integrates triplanar mapping and fixed global ReferenceError.
+     */
+
+    const CONFIGURATION = {
+      SUBDIVISION_DEPTH: 116.0,
+      METRIC_RATIO: 1.61803398875,
+      TEMPORAL_SCALE: 0.001,
+      MAX_STEPS: 96,
+      RESONANCE_COUPLING: 0.12, 
+      SNAP_STRENGTH: 0.85,
+      PAULI_SCALE: 14.0
+    };
+
+    function getHalton(index, base) {
+      let result = 0;
+      let f = 1 / base;
+      let i = index;
+      while (i > 0) {
+        result += f * (i % base);
+        i = Math.floor(i / base);
+        f /= base;
+      }
+      return result;
+    }
+
+    async function initialiseManifold() {
+      const interruptMsgEl = document.getElementById('interruptMessage');
+      const overlayEl = document.getElementById('hardwareInterruptOverlay');
+      const latencyDisplay = document.getElementById('telemetryLatency');
+      const statusEl = document.getElementById('status');
+
+      if (!navigator.gpu) {
+        statusEl.textContent = "unsupported";
+        interruptMsgEl.textContent = 'hardware abstraction failure: webgpu driver absent.';
+        overlayEl.classList.add('flex');
+        overlayEl.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) throw new Error('hardware adapter acquisition failure.');
+        
+        const device = await adapter.requestDevice({
+          requiredFeatures: ['bgra8unorm-storage']
+        });
+        
+        const canvasElement = document.getElementById('rasterisationSubstrate');
+        const context = canvasElement.getContext('webgpu');
+        const swapChainFormat = navigator.gpu.getPreferredCanvasFormat();
+
+        context.configure({
+          device, format: swapChainFormat, 
+          alphaMode: 'premultiplied',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        });
+
+        const computeShaderSource = `
+          struct ManifoldConfig {
+            temporal_index: f32,
+            iterative_generation: f32,
+            golden_ratio: f32,
+            aspect_ratio: f32,
+
+            jitter_u: f32,
+            jitter_v: f32,
+            accumulation_weight: f32,
+            radial_observer_metric: f32,
+
+            azimuthal_phase: f32,
+            altitudinal_phase: f32,
+            snap_strength: f32,
+            pauli_scale: f32,
+
+            resonance_coupling: f32,
+            init_flag: f32,
+            padding0: f32,
+            padding1: f32,
+
+            colour_decoding_matrix: mat3x3<f32>,
+          };
+
+          @group(0) @binding(0) var<uniform> state: ManifoldConfig;
+          @group(0) @binding(1) var tex_in: texture_2d<f32>;
+          @group(0) @binding(2) var tex_out: texture_storage_2d<rgba32float, write>;
+
+          const PHI: f32 = ${CONFIGURATION.METRIC_RATIO};
+
+          fn moebius_add(u: vec2<f32>, v: vec2<f32>) -> vec2<f32> {
+            let dot_uv = dot(u, v);
+            let u_sq = dot(u, u);
+            let v_sq = dot(v, v);
+            let den = 1.0 + 2.0 * dot_uv + u_sq * v_sq;
+            return ((1.0 + 2.0 * dot_uv + v_sq) * u + (1.0 - u_sq) * v) / den;
+          }
+
+          fn icosianSnap(q: vec2<f32>, strength: f32) -> vec2<f32> {
+            let amp = length(q);
+            if (amp < 0.01) { return q; }
+            let angle = atan2(q.y, q.x);
+            let step_size = 6.283185 / 10.0;
+            let snapped = floor(angle / step_size + 0.5) * step_size;
+            let q_snapped = vec2(cos(snapped), sin(snapped)) * amp;
+            return mix(q, q_snapped, strength);
+          }
+
+          fn resolveVacuumStateAtDepth(p_discrete: vec3<u32>, depth: f32) -> f32 {
+            let scaled = vec3<u32>(vec3<f32>(p_discrete) / pow(PHI, depth % 16.0));
+            let hash = (scaled.x * 1664525u + scaled.y * 1013904223u + scaled.z * 314159265u);
+            return f32((hash >> 24u) & 1u);
+          }
+
+          @compute @workgroup_size(16, 16)
+          fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+            let res = vec2<u32>(1024, 1024);
+            if (id.x >= res.x || id.y >= res.y) { return; }
+
+            let pos = vec2<i32>(id.xy);
+
+            if (state.init_flag > 0.5) {
+              let uv = (vec2<f32>(id.xy) - 512.0) / 512.0;
+              let amp = exp(-length(uv) * 3.5);
+              textureStore(tex_out, pos, vec4<f32>(icosianSnap(vec2(amp, 0.05), 1.0), 0.0, 0.0));
+              return;
+            }
+
+            let center = textureLoad(tex_in, pos, 0);
+            var q = center.rg;
+            var p = center.ba;
+
+            let l = vec2<i32>(max(pos.x - 1, 0), pos.y);
+            let r = vec2<i32>(min(pos.x + 1, i32(res.x) - 1), pos.y);
+            let d = vec2<i32>(pos.x, max(pos.y - 1, 0));
+            let u_v = vec2<i32>(pos.x, min(pos.y + 1, i32(res.y) - 1));
+
+            let ql = textureLoad(tex_in, l, 0).rg;
+            let qr = textureLoad(tex_in, r, 0).rg;
+            let qd = textureLoad(tex_in, d, 0).rg;
+            let qu = textureLoad(tex_in, u_v, 0).rg;
+
+            let vacuum = resolveVacuumStateAtDepth(vec3<u32>(u32(id.x), u32(id.y), 0u), state.iterative_generation);
+
+            let force = (ql + qr + qd + qu - 4.0 * q) * 0.45 - (vacuum * 0.06) * q;
+            let p_next = p + force * 0.016;
+            var q_next = moebius_add(q, p_next * 0.016);
+            q_next = icosianSnap(q_next, state.snap_strength);
+
+            textureStore(tex_out, pos, vec4<f32>(q_next, p_next));
+          }
+        `;
+
+        const renderShaderSource = `
+          struct ManifoldConfig {
+            temporal_index: f32,
+            iterative_generation: f32,
+            golden_ratio: f32,
+            aspect_ratio: f32,
+
+            jitter_u: f32,
+            jitter_v: f32,
+            accumulation_weight: f32,
+            radial_observer_metric: f32,
+
+            azimuthal_phase: f32,
+            altitudinal_phase: f32,
+            snap_strength: f32,
+            pauli_scale: f32,
+
+            resonance_coupling: f32,
+            init_flag: f32,
+            padding0: f32,
+            padding1: f32,
+
+            colour_decoding_matrix: mat3x3<f32>,
+          };
+
+          @group(0) @binding(0) var<uniform> state: ManifoldConfig;
+          @group(0) @binding(1) var history_texture: texture_2d<f32>;
+
+          const PHI: f32 = ${CONFIGURATION.METRIC_RATIO};
+
+          fn wrap_coord(c: vec2<i32>, res: vec2<i32>) -> vec2<i32> {
+            return ((c % res) + res) % res;
+          }
+
+          fn sampleBilinear(uv: vec2<f32>) -> vec4<f32> {
+            let res = vec2<f32>(1024.0, 1024.0);
+            let f_coords = fract(uv) * res - 0.5;
+            let i_coords = vec2<i32>(floor(f_coords));
+            let f = fract(f_coords);
+            let i_res = vec2<i32>(1024, 1024);
+
+            let t00 = textureLoad(history_texture, wrap_coord(i_coords + vec2<i32>(0, 0), i_res), 0);
+            let t10 = textureLoad(history_texture, wrap_coord(i_coords + vec2<i32>(1, 0), i_res), 0);
+            let t01 = textureLoad(history_texture, wrap_coord(i_coords + vec2<i32>(0, 1), i_res), 0);
+            let t11 = textureLoad(history_texture, wrap_coord(i_coords + vec2<i32>(1, 1), i_res), 0);
+
+            return mix(mix(t00, t10, f.x), mix(t01, t11, f.x), f.y);
+          }
+
+          fn sampleFiltered(uv: vec2<f32>, dist: f32) -> vec4<f32> {
+            let offset = max(1.0, dist * 1.5) / 1024.0;
+            let s1 = sampleBilinear(uv + vec2<f32>(-offset, -offset));
+            let s2 = sampleBilinear(uv + vec2<f32>( offset, -offset));
+            let s3 = sampleBilinear(uv + vec2<f32>(-offset,  offset));
+            let s4 = sampleBilinear(uv + vec2<f32>( offset,  offset));
+            return (s1 + s2 + s3 + s4) * 0.25;
+          }
+
+          fn sampleCie1931(lambda: f32) -> vec3<f32> {
+            let x = 1.056 * exp(-0.5 * pow((lambda - 599.8) / 37.9, 2.0)) + 0.362 * exp(-0.5 * pow((lambda - 442.0) / 16.0, 2.0));
+            let y = 0.821 * exp(-0.5 * pow((lambda - 568.8) / 46.9, 2.0)) + 0.286 * exp(-0.5 * pow((lambda - 530.9) / 16.3, 2.0));
+            let z = 1.217 * exp(-0.5 * pow((lambda - 437.0) / 11.8, 2.0)) + 0.681 * exp(-0.5 * pow((lambda - 459.0) / 26.0, 2.0));
+            return max(vec3<f32>(x, y, z), vec3<f32>(0.0));
+          }
+
+          fn arnoldTongueResonance(phase: f32) -> f32 {
+            let theta = phase * PHI;
+            let resonance = abs(sin(theta));
+            return select(0.12, 1.0, resonance < state.resonance_coupling);
+          }
+
+          fn executeDihedralFold(p: vec3<f32>) -> vec3<f32> {
+            var v = abs(p);
+            let n1 = normalize(vec3<f32>(PHI, 1.0, 0.0));
+            let n2 = normalize(vec3<f32>(0.0, PHI, 1.0));
+            let n3 = normalize(vec3<f32>(1.0, 0.0, PHI));
+            for (var i = 0; i < 5; i++) {
+                v = abs(v);
+                v -= 2.0 * min(0.0, dot(v, n1)) * n1;
+                v -= 2.0 * min(0.0, dot(v, n2)) * n2;
+                v -= 2.0 * min(0.0, dot(v, n3)) * n3;
+            }
+            return v;
+          }
+
+          fn computeManifoldSDF(p: vec3<f32>) -> f32 {
+            let folded = executeDihedralFold(p);
+            let radius = 1.35;
+            let d1 = dot(folded, normalize(vec3<f32>(1.0, 1.0, 1.0))) - radius;
+            let d2 = dot(folded, normalize(vec3<f32>(0.0, 1.0, PHI))) - radius * 0.93;
+            return max(d1, d2);
+          }
+
+          fn getNormal(p: vec3<f32>) -> vec3<f32> {
+            let e = vec2<f32>(0.005, 0.0);
+            return normalize(vec3<f32>(
+                computeManifoldSDF(p + e.xyy) - computeManifoldSDF(p - e.xyy),
+                computeManifoldSDF(p + e.yxy) - computeManifoldSDF(p - e.yxy),
+                computeManifoldSDF(p + e.yyx) - computeManifoldSDF(p - e.yyx)
+            ));
+          }
+
+          @vertex
+          fn vs_main(@builtin(vertex_index) id: u32) -> @builtin(position) vec4<f32> {
+            var pos = array<vec2<f32>, 3>(vec2<f32>(-1.0, -1.0), vec2<f32>(3.0, -1.0), vec2<f32>(-1.0, 3.0));
+            return vec4<f32>(pos[id], 0.0, 1.0);
+          }
+
+          @fragment
+          fn fs_main(@builtin(position) frag_coord: vec4<f32>) -> @location(0) vec4<f32> {
+            let jitter = vec2<f32>(state.jitter_u, state.jitter_v) - 0.5;
+            let res = vec2<f32>(1024.0, 1024.0);
+            var uv = (frag_coord.xy + jitter - (res * 0.5)) / (res.y * 0.5);
+            uv.x *= state.aspect_ratio;
+            
+            var ro = vec3<f32>(0.0, 0.0, -state.radial_observer_metric);
+            let rot = vec2<f32>(state.azimuthal_phase, state.altitudinal_phase);
+            let s = sin(rot); let c = cos(rot);
+            ro = vec3<f32>(ro.x, ro.y * c.y - ro.z * s.y, ro.y * s.y + ro.z * c.y);
+            let ro_y = ro;
+            ro = vec3<f32>(ro_y.x * c.x + ro_y.z * s.x, ro_y.y, -ro_y.x * s.x + ro_y.z * c.x);
+
+            let look = -normalize(ro);
+            let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), look));
+            let up = cross(look, right);
+            let rd = normalize(look * 2.0 + right * uv.x + up * uv.y);
+
+            var t_dist = 0.0;
+            var hit = false;
+            var p = vec3<f32>(0.0);
+            for(var i = 0; i < 96; i++) {
+                p = ro + rd * t_dist;
+                let d = computeManifoldSDF(p);
+                if (d < 0.001) { hit = true; break; }
+                t_dist += d;
+                if (t_dist > 10.0) { break; }
+            }
+
+            var col = vec3<f32>(0.005, 0.008, 0.015);
+            if (hit) {
+                let n = getNormal(p);
+                let w = abs(n) / (abs(n.x) + abs(n.y) + abs(n.z));
+                let field = sampleFiltered(p.yz * 0.5 + 0.5, t_dist) * w.x + 
+                            sampleFiltered(p.xz * 0.5 + 0.5, t_dist) * w.y + 
+                            sampleFiltered(p.xy * 0.5 + 0.5, t_dist) * w.z;
+
+                let amp = length(field.rg);
+                let phase = atan2(field.g, field.r) + state.temporal_index;
+                let resonance = arnoldTongueResonance(phase);
+                let lambda = 400.0 + 200.0 * fract((phase / 3.14159) * 0.5 + 0.5);
+                
+                let diffuse = max(0.0, dot(n, normalize(vec3<f32>(1.0, 2.0, -1.0))));
+                col = sampleCie1931(lambda) * amp * resonance * (diffuse * 0.8 + 0.2);
+                col += pow(1.0 - max(0.0, dot(n, -rd)), 3.0) * vec3<f32>(0.4, 0.7, 1.0) * amp;
+            }
+
+            let history_uv = frag_coord.xy / 1024.0;
+            let history_color = sampleBilinear(history_uv).rgb;
+            let final_color = mix(history_color, col, state.accumulation_weight);
+
+            return vec4<f32>(pow(final_color / (final_color + 1.0), vec3<f32>(1.0/2.2)), 1.0);
+          }
+        `;
+
+        const computeModule = device.createShaderModule({ code: computeShaderSource });
+        const renderModule = device.createShaderModule({ code: renderShaderSource });
+
+        const computePipeline = device.createComputePipeline({
+          layout: 'auto',
+          compute: { module: computeModule, entryPoint: 'cs_main' }
+        });
+
+        const renderPipeline = device.createRenderPipeline({
+          layout: 'auto',
+          vertex: { module: renderModule, entryPoint: 'vs_main' },
+          fragment: { module: renderModule, entryPoint: 'fs_main', targets: [{ format: swapChainFormat }] }
+        });
+
+        const uniformBuffer = device.createBuffer({
+          size: 112,
+          usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        const historyTextures = [0, 1].map(() => device.createTexture({
+          size: [1024, 1024], format: 'rgba32float',
+          usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        }));
+
+        let frameIndex = 0;
+        let firstFrame = true;
+        let azimuthalPhase = 0.5;
+        let altitudinalPhase = 0.4;
+        let radialMetric = 3.5;
+        let isInteracting = false;
+        let pointerU = 0;
+        let pointerV = 0;
+        let lastTimestamp = 0;
+
+        canvasElement.addEventListener('pointerdown', (e) => {
+          canvasElement.setPointerCapture(e.pointerId);
+          isInteracting = true; pointerU = e.clientX; pointerV = e.clientY;
+        });
+        window.addEventListener('pointerup', () => { isInteracting = false; });
+        window.addEventListener('pointermove', (e) => {
+          if (!isInteracting) return;
+          azimuthalPhase -= (e.clientX - pointerU) * 0.005;
+          altitudinalPhase += (e.clientY - pointerV) * 0.005;
+          altitudinalPhase = Math.max(-1.4, Math.min(1.4, altitudinalPhase));
+          pointerU = e.clientX; pointerV = e.clientY;
+        });
+        window.addEventListener('wheel', (e) => {
+          const rect = canvasElement.getBoundingClientRect();
+          if (e.clientX < rect.left || e.clientX > rect.right || e.clientY < rect.top || e.clientY > rect.bottom) return;
+          e.preventDefault();
+          radialMetric = Math.min(Math.max(radialMetric + e.deltaY * 0.008, 1.5), 10.0);
+        }, {passive: false});
+
+        function renderLoop(timestamp) {
+          const delta = timestamp - lastTimestamp;
+          lastTimestamp = timestamp;
+          latencyDisplay.textContent = delta.toFixed(2);
+
+          const t = timestamp * CONFIGURATION.TEMPORAL_SCALE;
+          const targetGen = (Math.sin(t * 0.1) * 0.5 + 0.5) * 116.0;
+          const weight = (firstFrame || isInteracting) ? 0.45 : 0.06;
+
+          const data = new Float32Array([
+            t, targetGen, CONFIGURATION.METRIC_RATIO, 1.0,
+            getHalton(frameIndex % 64 + 1, 2), getHalton(frameIndex % 64 + 1, 3), weight, radialMetric,
+            azimuthalPhase, altitudinalPhase, CONFIGURATION.SNAP_STRENGTH, CONFIGURATION.PAULI_SCALE,
+            CONFIGURATION.RESONANCE_COUPLING, firstFrame ? 1.0 : 0.0, 0.0, 0.0,
+            3.2405, -1.5371, -0.4985, 0.0,
+            -0.9693, 1.8760, 0.0416, 0.0,
+            0.0556, -0.2040, 1.0572, 0.0
+          ]);
+          device.queue.writeBuffer(uniformBuffer, 0, data);
+
+          const historyInIdx = frameIndex % 2;
+          const historyOutIdx = (frameIndex + 1) % 2;
+
+          const commandEncoder = device.createCommandEncoder();
+          
+          const computePass = commandEncoder.beginComputePass();
+          computePass.setPipeline(computePipeline);
+          computePass.setBindGroup(0, device.createBindGroup({
+            layout: computePipeline.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: uniformBuffer } },
+              { binding: 1, resource: historyTextures[historyInIdx].createView() },
+              { binding: 2, resource: historyTextures[historyOutIdx].createView() }
+            ]
+          }));
+          computePass.dispatchWorkgroups(64, 64);
+          computePass.end();
+
+          const renderPass = commandEncoder.beginRenderPass({
+            colorAttachments: [{
+              view: context.getCurrentTexture().createView(),
+              clearValue: { r: 0, g: 0, b: 0, a: 1 },
+              loadOp: 'clear', storeOp: 'store'
+            }]
+          });
+          renderPass.setPipeline(renderPipeline);
+          renderPass.setBindGroup(0, device.createBindGroup({
+            layout: renderPipeline.getBindGroupLayout(0),
+            entries: [
+              { binding: 0, resource: { buffer: uniformBuffer } },
+              { binding: 1, resource: historyTextures[historyOutIdx].createView() }
+            ]
+          }));
+          renderPass.draw(3);
+          renderPass.end();
+
+          device.queue.submit([commandEncoder.finish()]);
+          frameIndex++;
+          firstFrame = false;
+          requestAnimationFrame(renderLoop);
+        }
+
+        window.requestAnimationFrame(renderLoop);
+
+      } catch (err) {
+        statusEl.textContent = "fault";
+        errorMsgEl.textContent = err.message;
+        overlayEl.classList.add('flex');
+        overlayEl.classList.remove('hidden');
+      }
+    }
+
+    window.initialiseManifold = initialiseManifold;
+    window.onload = initialiseManifold;
+  </script>
+</body>
+</html>
