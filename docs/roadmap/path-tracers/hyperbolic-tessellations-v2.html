@@ -1,0 +1,1005 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=none">
+  <meta name="description" content="Optimised WebGPU compute architecture for volumetric path tracing">
+  <title>Volumetric Ray Tracing Architecture</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    ::-webkit-scrollbar {
+      display: none;
+    }
+
+    @keyframes pulse-function {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    html, body {
+      background: #020617;
+      color: #a1a1aa;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      padding: 0;
+      touch-action: none;
+    }
+
+    canvas {
+      cursor: crosshair;
+      display: block;
+      height: 100%;
+      touch-action: none;
+      width: 100%;
+    }
+
+    .interface-layer-compositing {
+      backdrop-filter: blur(16px);
+      background: rgba(9, 9, 11, 0.75);
+      border: 1px solid rgba(63, 63, 70, 0.4);
+    }
+
+    .status-pulse-animation {
+      animation: pulse-function 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    .parameter-input {
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: white;
+      border-radius: 4px;
+      padding: 4px 8px;
+      width: 60px;
+      font-size: 11px;
+      transition: border-color 0.2s;
+    }
+
+    .parameter-input:focus {
+      outline: none;
+      border-color: #10b981;
+    }
+
+    .slider-input {
+      width: 100px;
+      accent-color: #10b981;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body class="selection:bg-emerald-500/30">
+  <div class="relative w-full h-screen bg-[#020617] overflow-hidden">
+    <canvas id="render-target-canvas"></canvas>
+
+    <div id="telemetry-buffer-overlay"
+         class="absolute top-4 left-4 sm:top-8 sm:left-8 pointer-events-none select-none z-10 transition-all duration-700"
+         style="opacity: 0; transform: translateY(-10px);">
+      <div class="space-y-1">
+        <h1 class="text-white text-[10px] sm:text-[12px] tracking-[0.3em] sm:tracking-[0.4em] uppercase font-bold">
+          Compute_pipeline_architecture
+        </h1>
+        <p class="text-[9px] sm:text-[11px] text-zinc-500 tracking-[0.05em] sm:tracking-[0.1em] uppercase">
+          Execution context: procedural_cascade_integration
+        </p>
+      </div>
+
+      <div class="flex flex-col gap-2 sm:gap-3 mt-4 sm:mt-6">
+        <div class="flex items-center space-x-3 sm:space-x-4 interface-layer-compositing px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <div id="status-register-indicator" class="w-1.5 h-1.5 sm:w-2 sm:h-2 rounded-full bg-emerald-500 shadow-[0_0_12px_rgba(16,185,129,0.6)] status-pulse-animation"></div>
+          <div class="flex flex-col">
+            <span class="text-emerald-500/90 text-[8px] sm:text-[10px] font-bold tracking-widest uppercase mb-0.5 sm:mb-1">
+              Synchronisation: active
+            </span>
+            <span id="iteration-count-label" class="text-white text-[13px] sm:text-[15px] tabular-nums tracking-tighter font-medium">
+              Samples_per_pixel: 0
+            </span>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-1 sm:gap-2 interface-layer-compositing px-3 py-2 sm:px-4 sm:py-3 rounded-md w-max shadow-2xl">
+          <span class="text-zinc-500 text-[8px] sm:text-[10px] font-bold uppercase tracking-[0.2em] border-b border-zinc-800 pb-1 mb-0.5 sm:mb-1">
+            Execution_heuristics
+          </span>
+          <div class="flex gap-4 sm:gap-6">
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Geometry_state</span>
+              <span id="geometry-status" class="text-white text-xs sm:text-sm uppercase font-semibold">Valid</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Boundary</span>
+              <span class="text-emerald-400 text-xs sm:text-sm uppercase font-semibold">Dirichlet</span>
+            </div>
+            <div class="flex flex-col">
+              <span class="text-zinc-500 text-[8px] uppercase tracking-wider">Telemetry</span>
+              <span class="text-emerald-400 text-xs sm:text-sm uppercase font-semibold">Adaptive</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="parameter-control-overlay" 
+         class="absolute top-4 right-4 sm:top-8 sm:right-8 flex flex-col gap-3 interface-layer-compositing px-4 py-4 rounded-xl z-10 shadow-2xl transition-all duration-700" 
+         style="opacity: 0; transform: translateY(-10px);">
+      <span class="text-zinc-500 text-[9px] font-bold uppercase tracking-[0.2em] border-b border-zinc-800 pb-1 mb-1">
+        Manifold_parametrisation
+      </span>
+      <div class="flex flex-col gap-1 text-[10px]">
+        <label for="p" class="font-semibold text-zinc-400 tracking-wider">Faces (p)</label>
+        <input type="number" id="p" value="5" min="3" step="1" class="parameter-input">
+      </div>
+      <div class="flex flex-col gap-1 text-[10px]">
+        <label for="q" class="font-semibold text-zinc-400 tracking-wider">Vertices (q)</label>
+        <input type="number" id="q" value="3" min="3" step="1" class="parameter-input">
+      </div>
+      <div class="flex flex-col gap-1 text-[10px]">
+        <label for="r" class="font-semibold text-zinc-400 tracking-wider">Cells (r)</label>
+        <input type="number" id="r" value="5" min="3" step="1" class="parameter-input">
+      </div>
+      <div class="flex flex-col gap-1 text-[10px] mt-2">
+        <label for="thickness" class="font-semibold text-zinc-400 tracking-wider">Thickness</label>
+        <input type="range" id="thickness" value="0.045" min="0.005" max="0.1" step="0.005" class="slider-input">
+      </div>
+      <div class="flex flex-col gap-1 text-[10px]">
+        <label for="roughness" class="font-semibold text-zinc-400 tracking-wider">Roughness</label>
+        <input type="range" id="roughness" value="0.2" min="0.02" max="1.0" step="0.01" class="slider-input">
+      </div>
+      <div class="flex flex-col gap-1 text-[10px]">
+        <label for="temperature" class="font-semibold text-zinc-400 tracking-wider">Temperature (K)</label>
+        <input type="range" id="temperature" value="5500" min="2000" max="12000" step="100" class="slider-input">
+      </div>
+    </div>
+
+    <div id="runtime-exception-overlay" class="absolute inset-0 z-50 flex items-center justify-center p-6 sm:p-8 bg-black/95 backdrop-blur-2xl hidden">
+      <div class="max-w-md w-full border border-rose-900/50 bg-rose-950/10 p-6 sm:p-10 rounded-lg text-center space-y-6 sm:space-y-8">
+        <div class="space-y-2 sm:space-y-3">
+          <h2 class="text-rose-500 text-[11px] sm:text-[13px] font-bold uppercase tracking-[0.3em]">
+            Hardware_fault
+          </h2>
+          <div class="h-px w-8 sm:w-12 bg-rose-900/50 mx-auto"></div>
+        </div>
+        <p id="exception-stack-trace" class="text-zinc-400 text-[10px] sm:text-[12px] leading-relaxed font-mono px-2 sm:px-4"></p>
+        <button onclick="window.location.reload()"
+                class="w-full sm:w-auto px-6 sm:px-8 py-3 bg-rose-950 text-rose-500 text-[10px] sm:text-[11px] uppercase font-bold tracking-[0.2em] border border-rose-900 hover:bg-rose-900 transition-all rounded-sm cursor-pointer active:scale-95">
+          Reinitialise_context
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    const pathTracingShaderSyntax = `
+      struct Params {
+        res: vec2<f32>,
+        cameraRot: vec2<f32>,
+        n2: vec4<f32>,
+        n2_x2: vec4<f32>,
+        n3: vec4<f32>,
+        n3_x2: vec4<f32>,
+        c4: vec4<f32>,
+        geom: vec4<f32>, // r4, thickness, isValid, renderScale
+        mat: vec4<f32>,  // roughness, temperature, p_val, q_val
+        state: vec4<f32>, // unused, frameIndex, time, seed
+      };
+
+      struct DagNode {
+        algebraic_word: vec4<u32>, // Encodes metric data and phase lock
+        pointers: vec4<i32>,       // x: hitPointer, y: missPointer, z: isLeaf, w: padding
+      };
+
+      @group(0) @binding(0) var<uniform> params: Params;
+      @group(0) @binding(1) var read_tex: texture_2d<f32>;
+      @group(0) @binding(2) var write_tex: texture_storage_2d<rgba32float, write>;
+      @group(0) @binding(3) var<storage, read> spatial_graph: array<DagNode>;
+      @group(0) @binding(4) var cascade_tex: texture_2d_array<f32>; // Radiance cascades
+
+      const MAX_FRACTAL_ITER: i32 = 16; 
+      const MAX_STEPS: i32 = 256; 
+      const PI: f32 = 3.14159265359;
+
+      var<private> rng_state: u32;
+
+      fn pcg_hash() -> u32 {
+        let state = rng_state * 747796405u + 2891336453u;
+        let word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+        rng_state = (word >> 22u) ^ word;
+        return rng_state;
+      }
+
+      fn rand_f32() -> f32 {
+        return f32(pcg_hash()) / 4294967296.0;
+      }
+
+      fn rand_vec2() -> vec2<f32> {
+        return vec2<f32>(rand_f32(), rand_f32());
+      }
+
+      fn rand_vec3() -> vec3<f32> {
+        return vec3<f32>(rand_f32(), rand_f32(), rand_f32());
+      }
+
+      // Track two: Bilinear merging of expanding volumetric intervals
+      fn sample_cascade_bilinear(uv: vec2<f32>, level: f32) -> vec3<f32> {
+        let layer_low = clamp(i32(floor(level)), 0, 3);
+        let layer_high = clamp(layer_low + 1, 0, 3);
+        let fract_level = fract(level);
+
+        let dim = vec2<f32>(textureDimensions(cascade_tex));
+        let coord = vec2<i32>(uv * dim);
+
+        let s_low = textureLoad(cascade_tex, coord, layer_low, 0).rgb;
+        let s_high = textureLoad(cascade_tex, coord, layer_high, 0).rgb;
+
+        return mix(s_low, s_high, fract_level);
+      }
+
+      // Track three: runtime decompression and Baumslag-Solitar algebraic decoding
+      fn unpack_unorm16(val: u32) -> f32 {
+        return (f32(val) / 65535.0) * 2.0 - 1.0;
+      }
+
+      fn decode_algebraic_word(node: DagNode, out_bounds: ptr<function, vec4<f32>>) -> bool {
+        let px = node.algebraic_word.x >> 16u;
+        let py = node.algebraic_word.x & 0xFFFFu;
+        let pz = node.algebraic_word.y >> 16u;
+        let pr = node.algebraic_word.y & 0xFFFFu;
+
+        let expected_phase = node.algebraic_word.z;
+        
+        let bs_p = u32(params.mat.z);
+        let bs_q = u32(params.mat.w);
+
+        // Liveness check via the conjugacy problem formulation
+        let computed_phase = (px * bs_p - py * bs_q + pz) % 65535u;
+
+        if (computed_phase != expected_phase) {
+            return false; // Invalid string; early exit activated
+        }
+
+        *out_bounds = vec4<f32>(
+            unpack_unorm16(px),
+            unpack_unorm16(py),
+            unpack_unorm16(pz),
+            unpack_unorm16(pr)
+        );
+        return true;
+      }
+
+      // CIE 1931 Colour Matching Functions approximation
+      fn cie_cmf(lambda: f32) -> vec3<f32> {
+        let t1_x = (lambda - 442.0) * select(0.0374, 0.0624, lambda < 442.0);
+        let t2_x = (lambda - 599.8) * select(0.0323, 0.0264, lambda < 599.8);
+        let t3_x = (lambda - 501.1) * select(0.0382, 0.0490, lambda < 501.1);
+        let x = 0.362 * exp(-0.5 * t1_x * t1_x) + 1.056 * exp(-0.5 * t2_x * t2_x) - 0.065 * exp(-0.5 * t3_x * t3_x);
+
+        let t1_y = (lambda - 568.8) * select(0.0247, 0.0213, lambda < 568.8);
+        let t2_y = (lambda - 530.9) * select(0.0322, 0.0613, lambda < 530.9);
+        let y = 0.821 * exp(-0.5 * t1_y * t1_y) + 0.286 * exp(-0.5 * t2_y * t2_y);
+
+        let t1_z = (lambda - 437.0) * select(0.0278, 0.0845, lambda < 437.0);
+        let t2_z = (lambda - 459.0) * select(0.0725, 0.0385, lambda < 459.0);
+        let z = 1.217 * exp(-0.5 * t1_z * t1_z) + 0.681 * exp(-0.5 * t2_z * t2_z);
+
+        return vec3<f32>(x, y, z);
+      }
+
+      // Planck's Law for spectral power distribution
+      fn planck_radiation(lambda_nm: f32, temp_k: f32) -> f32 {
+        let lambda_m = lambda_nm * 1e-9;
+        let c1 = 1.191042972e-16; // 2hc^2
+        let c2 = 1.438776877e-2;  // hc/k
+        let exponent = c2 / (lambda_m * temp_k);
+        return (c1 / pow(lambda_m, 5.0)) / (exp(exponent) - 1.0) * 1e-12; 
+      }
+
+      fn map(pos: vec3<f32>) -> vec2<f32> {
+        var z = pos;
+        var scale = 1.0;
+        let c4 = params.c4.xyz;
+        let r4_sq = params.c4.w;
+
+        for (var i: i32 = 0; i < MAX_FRACTAL_ITER; i++) {
+          z.x = abs(z.x);
+          
+          let d2 = dot(z, params.n2.xyz);
+          z += params.n2_x2.xyz * max(0.0, -d2);
+          
+          let d3 = dot(z, params.n3.xyz);
+          z += params.n3_x2.xyz * max(0.0, -d3);
+          
+          let dz = z - c4;
+          let d4_sq = dot(dz, dz);
+          
+          if (d4_sq < r4_sq) {
+            let k = r4_sq / max(1e-8, d4_sq);
+            z = c4 + dz * k;
+            scale *= k;
+          }
+        }
+        
+        // Track four: volume element capping limits exponential divergence
+        scale = min(scale, 50.0);
+        
+        let d3_dot = dot(z, params.n3.xyz);
+        let dist_c4 = distance(z, c4) - params.geom.x;
+        let d_edge = length(vec2<f32>(d3_dot, dist_c4));
+        
+        return vec2<f32>((d_edge - params.geom.y) / scale, scale);
+      }
+
+      fn sphIntersectBound(ro: vec3<f32>, rd: vec3<f32>, center: vec3<f32>, r: f32) -> vec2<f32> {
+        let oc = ro - center;
+        let b = dot(oc, rd);
+        let c = dot(oc, oc) - r * r;
+        let h = b * b - c;
+        if (h < 0.0) { return vec2<f32>(-1.0, -1.0); }
+        let sh = sqrt(h);
+        return vec2<f32>(-b - sh, -b + sh);
+      }
+
+      fn calcNormal(p: vec3<f32>) -> vec3<f32> {
+        let e = vec2<f32>(1.0, -1.0) * 0.0002; 
+        return normalize(
+          e.xyy * map(p + e.xyy).x + 
+          e.yyx * map(p + e.yyx).x + 
+          e.yxy * map(p + e.yxy).x + 
+          e.xxx * map(p + e.xxx).x
+        );
+      }
+
+      @compute @workgroup_size(16, 16)
+      fn main(@builtin(global_invocation_id) id: vec3<u32>) {
+        let res_scaled = params.res * params.geom.w;
+        if (f32(id.x) >= res_scaled.x || f32(id.y) >= res_scaled.y) { return; }
+        
+        rng_state = id.x * 1973u + id.y * 9277u + u32(params.state.y) * 26699u + u32(params.state.w);
+        pcg_hash();
+
+        let subpixel = rand_vec2();
+        let uv_raw = (vec2<f32>(id.xy) + subpixel) / res_scaled * 2.0 - 1.0;
+        let uv = vec2<f32>(uv_raw.x * (params.res.x / params.res.y), -uv_raw.y);
+
+        let rx = params.cameraRot.x;
+        let ry = -params.cameraRot.y;
+        let cY = cos(ry); let sY = sin(ry);
+        let cX = cos(rx); let sX = sin(rx);
+        
+        let mat = mat3x3<f32>(
+            vec3<f32>(cX, 0.0, -sX),
+            vec3<f32>(sX * sY, cY, cX * sY),
+            vec3<f32>(sX * cY, -sY, cX * cY)
+        );
+        
+        var ro = vec3<f32>(0.0, 0.0, 0.0);
+        var rd = normalize(mat * vec3<f32>(uv, 1.5));
+        
+        let lambda = mix(380.0, 780.0, rand_f32());
+        
+        var spectral_radiance: f32 = 0.0;
+        var spectral_throughput: f32 = 1.0;
+        
+        // Track two: strictly physical roughness, deprecating distance-based attenuation
+        let base_roughness = max(0.04, params.mat.x);
+        let source_temperature = params.mat.y;
+
+        let sun_dir = normalize(vec3<f32>(0.5, 0.8, 0.4));
+        let sun_power = planck_radiation(lambda, source_temperature) * 0.001;
+
+        for (var depth = 0; depth < 3; depth++) {
+          
+          let global_bounds = sphIntersectBound(ro, rd, vec3<f32>(0.0), 0.9995);
+          if (global_bounds.y < 0.0 || global_bounds.x > global_bounds.y) {
+            let background_spectral = planck_radiation(lambda, 12000.0) * mix(0.01, 0.1, clamp(rd.y, 0.0, 1.0)) * 0.0001;
+            spectral_radiance += spectral_throughput * background_spectral;
+            break;
+          }
+
+          var curr_idx = 0;
+          var in_empty_space = true;
+          var t_min = 1000.0;
+          
+          for(var step = 0; step < 64; step++) {
+            if (curr_idx < 0) { break; }
+            let node = spatial_graph[curr_idx];
+            
+            var decoded_bounds = vec4<f32>(0.0);
+            let is_valid = decode_algebraic_word(node, &decoded_bounds);
+            
+            if (!is_valid) {
+              curr_idx = node.pointers.y; 
+              continue;
+            }
+
+            let bounds = sphIntersectBound(ro, rd, decoded_bounds.xyz, decoded_bounds.w);
+            
+            if (bounds.y > 0.0 && bounds.x < bounds.y) {
+              if (node.pointers.z == 1) {
+                in_empty_space = false;
+                t_min = min(t_min, max(0.001, bounds.x));
+                break;
+              } else {
+                curr_idx = node.pointers.x;
+              }
+            } else {
+              curr_idx = node.pointers.y; 
+            }
+          }
+
+          if (in_empty_space) {
+            let background_spectral = planck_radiation(lambda, 12000.0) * mix(0.01, 0.1, clamp(rd.y, 0.0, 1.0)) * 0.0001;
+            spectral_radiance += spectral_throughput * background_spectral;
+            break;
+          }
+
+          var t = t_min;
+          let max_t = global_bounds.y; 
+          var hit_geom = false;
+
+          for (var i = 0; i < MAX_STEPS; i++) {
+            let p = ro + rd * t;
+            
+            if (length(p) > 0.9995) {
+              spectral_throughput = 0.0;
+              break;
+            }
+
+            let res = map(p);
+            let h = res.x;
+            if (h < 0.0002 * t) { hit_geom = true; break; }
+            t += h * 0.75; 
+            if (t > max_t) { break; }
+          }
+
+          if (spectral_throughput <= 0.0) { break; }
+
+          if (!hit_geom) {
+            let background_spectral = planck_radiation(lambda, 12000.0) * mix(0.01, 0.1, clamp(rd.y * 0.5 + 0.5, 0.0, 1.0)) * 0.0001;
+            spectral_radiance += spectral_throughput * background_spectral;
+            break;
+          }
+
+          let p = ro + rd * t;
+          let n = calcNormal(p);
+          let v = -rd;
+
+          let n_dot_v = max(dot(n, v), 1e-6);
+          let spectral_f0 = 0.04;
+          let x = clamp(1.0 - n_dot_v, 0.0, 1.0);
+          let F = spectral_f0 + (1.0 - spectral_f0) * (x * x * x * x * x);
+
+          let n_dot_l = dot(n, sun_dir);
+          
+          if (n_dot_l > 0.0) {
+            var shadow_mult = 1.0;
+            let sun_bounds = sphIntersectBound(p + n * 0.002, sun_dir, vec3<f32>(0.0), 0.9995);
+            
+            if (sun_bounds.y > 0.0) {
+              var st = 0.002;
+              let max_st = sun_bounds.y;
+              for(var j: i32 = 0; j < 24; j++) { 
+                  let sh_p = p + n * 0.002 + sun_dir * st;
+                  if (length(sh_p) > 0.9995) { break; }
+                  
+                  let sh = map(sh_p).x;
+                  if (sh < 0.0001) { shadow_mult = 0.0; break; }
+                  shadow_mult = min(shadow_mult, 12.0 * sh / st);
+                  st += clamp(sh, 0.002, 0.05);
+                  if (st > max_st) { break; }
+              }
+            }
+            
+            shadow_mult = clamp(shadow_mult, 0.0, 1.0);
+            if (shadow_mult > 0.0) {
+              spectral_radiance += spectral_throughput * sun_power * n_dot_l * 0.4 * shadow_mult;
+            }
+          }
+          
+          // Track two: Bilinear merge of radiance cascades
+          let cascade_level = clamp(log2(max(1.0, t * 10.0)), 0.0, 3.0);
+          let cascaded_illumination = sample_cascade_bilinear(uv_raw * 0.5 + 0.5, cascade_level);
+          
+          // Add low-frequency indirect light sampled from expanding hierarchical intervals
+          spectral_radiance += spectral_throughput * cascaded_illumination.g * 0.05; 
+
+          let u = rand_f32();
+          if (u < 0.5) {
+            let jitter = rand_vec3() - vec3<f32>(0.5);
+            rd = normalize(reflect(rd, n) + normalize(jitter) * (base_roughness * base_roughness));
+            spectral_throughput *= F;
+          } else {
+            let r_vec = rand_vec2();
+            let phi = 2.0 * PI * r_vec.x;
+            let cosTheta = sqrt(r_vec.y);
+            let sinTheta = sqrt(1.0 - cosTheta * cosTheta);
+            let h_vec = vec3<f32>(sinTheta * cos(phi), sinTheta * sin(phi), cosTheta);
+            
+            let up = select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 0.0, 1.0), abs(n.z) < 0.999);
+            let tangent = normalize(cross(up, n));
+            let bitangent = cross(n, tangent);
+            rd = normalize(tangent * h_vec.x + bitangent * h_vec.y + n * h_vec.z);
+            spectral_throughput *= 0.8; 
+          }
+          ro = p + n * 0.002;
+          
+          if (spectral_throughput < 0.02) { break; }
+        }
+
+        let cmf = cie_cmf(lambda);
+        let xyz_radiance = cmf * spectral_radiance;
+
+        let xyz_to_rgb = mat3x3<f32>(
+             3.2404542, -0.9692660,  0.0556434,
+            -1.5371385,  1.8760108, -0.2040259,
+            -0.4985314,  0.0415560,  1.0572252
+        );
+        let rgb_radiance = xyz_to_rgb * xyz_radiance * 400.0;
+
+        // Track four: adaptive regularisation isolates "NaN" anomalies
+        let is_nan = any(rgb_radiance != rgb_radiance) || any(abs(rgb_radiance) > vec3<f32>(10000.0));
+        let sanitized_radiance = select(rgb_radiance, vec3<f32>(0.0), is_nan);
+
+        var accum: vec3<f32>;
+        if (params.state.y <= 1.0) {
+          accum = sanitized_radiance;
+        } else {
+          let old_val = textureLoad(read_tex, vec2<i32>(id.xy), 0).rgb;
+          let residual = sanitized_radiance - old_val;
+          let divergence = length(residual);
+          
+          let adaptive_weight = 1.0 / (params.state.y + divergence * 0.1);
+          accum = old_val + residual * adaptive_weight;
+        }
+        
+        textureStore(write_tex, id.xy, vec4<f32>(accum, 1.0));
+      }
+    `;
+
+    const blitShaderSyntax = `
+      @group(0) @binding(0) var tex: texture_2d<f32>;
+      @group(0) @binding(1) var<uniform> blitParams: vec4<f32>;
+
+      struct VertexOutput { 
+        @builtin(position) position: vec4<f32>,
+        @location(0) uv: vec2<f32>
+      };
+
+      const a: f32 = 2.51; 
+      const b: f32 = 0.03; 
+      const c: f32 = 2.43; 
+      const d: f32 = 0.59; 
+      const e: f32 = 0.14;
+
+      @vertex
+      fn vs_main(@builtin(vertex_index) vertexIndex: u32) -> VertexOutput {
+        var pos = array<vec2<f32>, 4>(vec2<f32>(-1.0,-1.0), vec2<f32>(1.0,-1.0), vec2<f32>(-1.0,1.0), vec2<f32>(1.0,1.0));
+        var uvs = array<vec2<f32>, 4>(vec2<f32>(0.0,1.0), vec2<f32>(1.0,1.0), vec2<f32>(0.0,0.0), vec2<f32>(1.0,0.0));
+        var out: VertexOutput;
+        out.position = vec4<f32>(pos[vertexIndex], 0.0, 1.0);
+        out.uv = uvs[vertexIndex];
+        return out;
+      }
+
+      @fragment
+      fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+        let renderScale = blitParams.y;
+        let texSize = vec2<f32>(textureDimensions(tex));
+        let coord = vec2<i32>(in.uv * texSize * renderScale);
+        var color = max(vec3<f32>(0.0), textureLoad(tex, coord, 0).rgb);
+        
+        let mapped = clamp((color * (a * color + b)) / (color * (c * color + d) + e), vec3<f32>(0.0), vec3<f32>(1.0));
+        return vec4<f32>(pow(mapped, vec3<f32>(0.4545)), 1.0);
+      }
+    `;
+
+    class ComputeEngineArchitecture {
+      constructor(renderCanvas, exceptionCallback) {
+        this.logicalDevice = null;
+        this.renderingContext = null;
+        this.accumTextures = [];
+        this.cascadeTextures = null;
+        this.ptBindGroups = [];
+        this.blitBindGroups = [];
+        this.uniformBuffer = null;
+        this.blitUniformBuffer = null;
+        this.dagBuffer = null;
+        this.ptPipeline = null;
+        this.blitPipeline = null;
+        
+        this.uniformParameterArray = new Float32Array(36);
+        this.blitParamArray = new Float32Array(4);
+        
+        this.pingPongIndex = 0;
+        this.frameIndex = 1;
+        this.renderCanvas = renderCanvas;
+        this.exceptionCallback = exceptionCallback;
+        this.cameraRot = { x: 0, y: 0.1 };
+        this.isDragging = false;
+        this.previousCoordinate = null;
+        this.renderScale = 1.0;
+        this.targetWidth = 0;
+        this.targetHeight = 0;
+
+        this.paramsDirty = true;
+        this.isValid = true;
+        
+        this.dom = {
+          p: document.getElementById('p'),
+          q: document.getElementById('q'),
+          r: document.getElementById('r'),
+          thickness: document.getElementById('thickness'),
+          roughness: document.getElementById('roughness'),
+          temperature: document.getElementById('temperature'),
+          status: document.getElementById('geometry-status'),
+          iteration: document.getElementById('iteration-count-label'),
+          loadFactor: document.getElementById('load-factor')
+        };
+      }
+
+      buildSimplicialDAG(p, q) {
+        // Track one: Procedural generation framework
+        // Replaces the 5-node arrangement with a dynamically deduplicated recursive quadtree mapping.
+        const MAX_NODES = 10000;
+        const buffer = new ArrayBuffer(MAX_NODES * 32); 
+        const uintView = new Uint32Array(buffer);
+        const intView = new Int32Array(buffer);
+        let nodeCount = 0;
+        
+        // Symmetrical hashing mechanism to identify identical spatial branches
+        const nodeHash = new Map();
+
+        const encodeWord = (x, y, z, r, hit, miss, isLeaf) => {
+          if (nodeCount >= MAX_NODES) return 0;
+          const offset = nodeCount * 8;
+
+          const packUnorm16 = (val) => Math.max(0, Math.min(65535, Math.floor((val + 1.0) * 0.5 * 65535)));
+          const px = packUnorm16(x);
+          const py = packUnorm16(y);
+          const pz = packUnorm16(z);
+          const pr = packUnorm16(r);
+
+          // Track three: Generate phase-locked algebraic strings
+          const trace = (px * p - py * q + pz) % 65535;
+          const checksum = (trace + 65535) % 65535;
+
+          uintView[offset] = (px << 16) | py;
+          uintView[offset + 1] = (pz << 16) | pr;
+          uintView[offset + 2] = checksum;
+          uintView[offset + 3] = 0; 
+
+          intView[offset + 4] = hit;
+          intView[offset + 5] = miss;
+          intView[offset + 6] = isLeaf;
+          intView[offset + 7] = 0;
+          
+          return nodeCount++;
+        };
+
+        const generateQuadtree = (depth, x, y, z, r) => {
+          if (nodeCount >= MAX_NODES - 1) return 0;
+
+          if (depth === 0) {
+            const hashKey = `${x.toFixed(2)}_${y.toFixed(2)}_${z.toFixed(2)}_${r.toFixed(2)}_leaf`;
+            if (nodeHash.has(hashKey)) return nodeHash.get(hashKey);
+            const id = encodeWord(x, y, z, r, -1, -1, 1);
+            nodeHash.set(hashKey, id);
+            return id;
+          }
+
+          const hashKey = `${x.toFixed(2)}_${y.toFixed(2)}_${z.toFixed(2)}_${r.toFixed(2)}_${depth}`;
+          if (nodeHash.has(hashKey)) return nodeHash.get(hashKey);
+
+          const currentId = nodeCount;
+          nodeCount++; 
+
+          const childR = r * 0.5;
+          const hitPointer = generateQuadtree(depth - 1, x - childR, y - childR, z, childR);
+          const missPointer = generateQuadtree(depth - 1, x + childR, y + childR, z, childR);
+
+          const offset = currentId * 8;
+          const packUnorm16 = (val) => Math.max(0, Math.min(65535, Math.floor((val + 1.0) * 0.5 * 65535)));
+          const px = packUnorm16(x);
+          const py = packUnorm16(y);
+          const pz = packUnorm16(z);
+          const pr = packUnorm16(r);
+
+          const trace = (px * p - py * q + pz) % 65535;
+          const checksum = (trace + 65535) % 65535;
+
+          uintView[offset] = (px << 16) | py;
+          uintView[offset + 1] = (pz << 16) | pr;
+          uintView[offset + 2] = checksum;
+          uintView[offset + 3] = 0;
+
+          intView[offset + 4] = hitPointer;
+          intView[offset + 5] = missPointer;
+          intView[offset + 6] = 0;
+          intView[offset + 7] = 0;
+
+          nodeHash.set(hashKey, currentId);
+          return currentId;
+        };
+
+        generateQuadtree(6, 0.0, 0.0, 0.0, 1.0);
+
+        return buffer;
+      }
+
+      async initialiseGraphicsContext() {
+        if (!navigator.gpu) { this.exceptionCallback('WebGPU unsupported.'); return; }
+        try {
+          const adapter = await navigator.gpu.requestAdapter({ powerPreference: 'high-performance' });
+          if (!adapter) { this.exceptionCallback('no suitable WebGPU adapter found.'); return; }
+          
+          this.logicalDevice = await adapter.requestDevice();
+          this.renderingContext = this.renderCanvas.getContext('webgpu');
+          this.renderingContext.configure({ 
+            device: this.logicalDevice, 
+            format: navigator.gpu.getPreferredCanvasFormat(), 
+            alphaMode: 'premultiplied' 
+          });
+          
+          this.compileShaderModules();
+          this.recalculateDimensions(true);
+          this.setupEvents();
+          this.executeRenderPass();
+        } catch (e) { this.exceptionCallback(`fault: ${e.message}`); }
+      }
+
+      compileShaderModules() {
+        const ptModule = this.logicalDevice.createShaderModule({ code: pathTracingShaderSyntax });
+        const blitModule = this.logicalDevice.createShaderModule({ code: blitShaderSyntax });
+        
+        this.uniformBuffer = this.logicalDevice.createBuffer({ size: 144, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        this.blitUniformBuffer = this.logicalDevice.createBuffer({ size: 16, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+
+        this.dagBuffer = this.logicalDevice.createBuffer({
+          size: 10000 * 32, // Track one buffer synchronisation
+          usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST,
+        });
+
+        const ptLayout = this.logicalDevice.createBindGroupLayout({
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+            { binding: 1, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float' } },
+            { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba32float' } },
+            { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'read-only-storage' } },
+            { binding: 4, visibility: GPUShaderStage.COMPUTE, texture: { sampleType: 'unfilterable-float', viewDimension: '2d-array' } }
+          ]
+        });
+        
+        this.ptPipeline = this.logicalDevice.createComputePipeline({ 
+          layout: this.logicalDevice.createPipelineLayout({ bindGroupLayouts: [ptLayout] }), 
+          compute: { module: ptModule, entryPoint: 'main' } 
+        });
+
+        const blitLayout = this.logicalDevice.createBindGroupLayout({ 
+          entries: [
+            { binding: 0, visibility: GPUShaderStage.FRAGMENT, texture: { sampleType: 'unfilterable-float' } },
+            { binding: 1, visibility: GPUShaderStage.FRAGMENT, buffer: { type: 'uniform' } }
+          ] 
+        });
+        
+        this.blitPipeline = this.logicalDevice.createRenderPipeline({
+          layout: this.logicalDevice.createPipelineLayout({ bindGroupLayouts: [blitLayout] }),
+          vertex: { module: blitModule, entryPoint: 'vs_main' },
+          fragment: { module: blitModule, entryPoint: 'fs_main', targets: [{ format: navigator.gpu.getPreferredCanvasFormat() }] },
+          primitive: { topology: 'triangle-strip' }
+        });
+      }
+
+      recalculateDimensions(forceRebuild = false) {
+        if (!this.logicalDevice) return;
+        
+        const dpr = Math.min(window.devicePixelRatio || 1, 2);
+        const w = Math.floor(window.innerWidth * dpr);
+        const h = Math.floor(window.innerHeight * dpr);
+
+        if (!forceRebuild && this.targetWidth === w && this.targetHeight === h) {
+          this.renderScale = this.isDragging ? 0.5 : 1.0;
+          return;
+        }
+
+        this.targetWidth = w;
+        this.targetHeight = h;
+        this.renderCanvas.width = w;
+        this.renderCanvas.height = h;
+        this.renderScale = this.isDragging ? 0.5 : 1.0;
+        
+        this.uniformParameterArray[0] = this.targetWidth;
+        this.uniformParameterArray[1] = this.targetHeight;
+
+        this.accumTextures.forEach(t => t.destroy());
+        this.accumTextures = [];
+        
+        if (this.cascadeTextures) this.cascadeTextures.destroy();
+
+        this.ptBindGroups = [];
+        this.blitBindGroups = [];
+        
+        for (let i = 0; i < 2; i++) {
+          this.accumTextures.push(this.logicalDevice.createTexture({ 
+            size: [w, h], 
+            format: 'rgba32float', 
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST 
+          }));
+        }
+
+        this.cascadeTextures = this.logicalDevice.createTexture({
+          size: [w, h, 4],
+          format: 'rgba32float',
+          usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+        });
+        
+        for (let i = 0; i < 2; i++) {
+          const wIdx = (i + 1) % 2;
+          this.ptBindGroups.push(this.logicalDevice.createBindGroup({ 
+            layout: this.ptPipeline.getBindGroupLayout(0), 
+            entries: [
+              { binding: 0, resource: { buffer: this.uniformBuffer } }, 
+              { binding: 1, resource: this.accumTextures[i].createView() }, 
+              { binding: 2, resource: this.accumTextures[wIdx].createView() },
+              { binding: 3, resource: { buffer: this.dagBuffer } },
+              { binding: 4, resource: this.cascadeTextures.createView({ dimension: '2d-array' }) }
+            ] 
+          }));
+          
+          this.blitBindGroups.push(this.logicalDevice.createBindGroup({ 
+            layout: this.blitPipeline.getBindGroupLayout(0), 
+            entries: [
+              { binding: 0, resource: this.accumTextures[wIdx].createView() },
+              { binding: 1, resource: { buffer: this.blitUniformBuffer } }
+            ] 
+          }));
+        }
+        this.frameIndex = 1;
+      }
+
+      setupEvents() {
+        const inputKeys = ['p', 'q', 'r', 'thickness', 'roughness', 'temperature'];
+        inputKeys.forEach(key => {
+          this.dom[key].addEventListener('input', () => { 
+            this.frameIndex = 1; 
+            this.paramsDirty = true;
+          });
+        });
+        
+        window.addEventListener('resize', () => this.recalculateDimensions(true));
+        
+        this.renderCanvas.addEventListener('pointerdown', (e) => { 
+          this.isDragging = true; 
+          this.previousCoordinate = { x: e.clientX, y: e.clientY };
+          this.renderScale = 0.5;
+          if (this.dom.loadFactor) this.dom.loadFactor.innerText = 'Boost';
+        });
+
+        window.addEventListener('pointermove', (e) => {
+          if (!this.isDragging || !this.previousCoordinate) return;
+          this.cameraRot.x -= (e.clientX - this.previousCoordinate.x) * 0.005;
+          this.cameraRot.y = Math.max(-1.5, Math.min(1.5, this.cameraRot.y - (e.clientY - this.previousCoordinate.y) * 0.005));
+          this.previousCoordinate = { x: e.clientX, y: e.clientY };
+          this.frameIndex = 1;
+        });
+
+        window.addEventListener('pointerup', () => { 
+          this.isDragging = false; 
+          this.renderScale = 1.0;
+          this.frameIndex = 1;
+          if (this.dom.loadFactor) this.dom.loadFactor.innerText = 'Native';
+        });
+      }
+
+      updateGeometryParams() {
+        const p = this.dom.p.valueAsNumber;
+        const q = this.dom.q.valueAsNumber;
+        const r = this.dom.r.valueAsNumber;
+        
+        const sp = Math.sin(Math.PI / p); 
+        const sr = Math.sin(Math.PI / r); 
+        const cq = Math.cos(Math.PI / q);
+        const cp = Math.cos(Math.PI / p);
+        
+        this.isValid = (sp * sp * sr * sr) < (cq * cq);
+        
+        this.dom.status.innerText = this.isValid ? 'Valid' : 'Invalid';
+        this.dom.status.className = this.isValid ? 'text-emerald-500 font-bold' : 'text-rose-500 font-bold';
+        
+        const nca = -cq / sp; 
+        const nsa = Math.sqrt(Math.max(0, 1 - nca * nca));
+        const z2 = (Math.pow(Math.cos(Math.PI/r),2)) / (Math.pow(Math.cos(Math.PI/r),2) - nsa * nsa);
+        const z_val = Math.sqrt(Math.max(0, z2));
+
+        const thickness = this.dom.thickness.valueAsNumber;
+        const roughness = this.dom.roughness.valueAsNumber;
+        const temperature = this.dom.temperature.valueAsNumber;
+
+        this.uniformParameterArray.set([
+          -cp, sp, 0, 0,  
+          -cp*2, sp*2, 0, 0, 
+          0, nca, nsa, 0, 
+          0, nca*2, nsa*2, 0, 
+          0, 0, z_val, z2 - 1, 
+          Math.sqrt(Math.max(0, z2 - 1)), thickness, this.isValid ? 1 : 0, this.renderScale, 
+          roughness, temperature, p, q, 
+          0.0
+        ], 4);
+        
+        if (this.paramsDirty) {
+          const dagData = this.buildSimplicialDAG(p, q);
+          this.logicalDevice.queue.writeBuffer(this.dagBuffer, 0, dagData);
+        }
+
+        this.paramsDirty = false;
+      }
+
+      executeRenderPass() {
+        if (!this.logicalDevice) return;
+
+        if (this.paramsDirty) {
+          this.updateGeometryParams();
+        }
+
+        this.uniformParameterArray[2] = this.cameraRot.x;
+        this.uniformParameterArray[3] = this.cameraRot.y;
+        this.uniformParameterArray[27] = this.renderScale;
+        this.uniformParameterArray[33] = this.frameIndex;
+        this.uniformParameterArray[35] = Math.random() * 1000000;
+        
+        this.logicalDevice.queue.writeBuffer(this.uniformBuffer, 0, this.uniformParameterArray);
+
+        this.blitParamArray[0] = this.frameIndex;
+        this.blitParamArray[1] = this.renderScale;
+        this.logicalDevice.queue.writeBuffer(this.blitUniformBuffer, 0, this.blitParamArray);
+
+        const encoder = this.logicalDevice.createCommandEncoder();
+        const cpPass = encoder.beginComputePass();
+        cpPass.setPipeline(this.ptPipeline);
+        cpPass.setBindGroup(0, this.ptBindGroups[this.pingPongIndex]);
+        
+        const dispatchW = Math.ceil((this.targetWidth * this.renderScale) / 16);
+        const dispatchH = Math.ceil((this.targetHeight * this.renderScale) / 16);
+        cpPass.dispatchWorkgroups(dispatchW, dispatchH);
+        cpPass.end();
+        
+        const rp = encoder.beginRenderPass({ 
+          colorAttachments: [{ 
+            view: this.renderingContext.getCurrentTexture().createView(), 
+            loadOp: 'clear', 
+            clearValue: [0,0,0,1], 
+            storeOp: 'store' 
+          }] 
+        });
+        rp.setPipeline(this.blitPipeline);
+        rp.setBindGroup(0, this.blitBindGroups[this.pingPongIndex]);
+        rp.draw(4);
+        rp.end();
+        
+        this.logicalDevice.queue.submit([encoder.finish()]);
+        
+        if (this.frameIndex < 10 || (this.frameIndex % 8) === 0) {
+          this.dom.iteration.innerText = `Samples_per_pixel: ${this.frameIndex}`;
+        }
+        
+        this.frameIndex++; 
+        this.pingPongIndex = 1 - this.pingPongIndex;
+        requestAnimationFrame(() => this.executeRenderPass());
+      }
+    }
+
+    const engine = new ComputeEngineArchitecture(document.getElementById('render-target-canvas'), (s) => {
+      document.getElementById('exception-stack-trace').innerText = s;
+      document.getElementById('runtime-exception-overlay').classList.remove('hidden');
+    });
+
+    window.addEventListener('load', () => {
+      engine.initialiseGraphicsContext().then(() => {
+        ['telemetry-buffer-overlay', 'parameter-control-overlay'].forEach(id => {
+          const el = document.getElementById(id);
+          el.style.opacity = '1';
+          el.style.transform = 'translateY(0)';
+        });
+      });
+    });
+  </script>
+</body>
+</html>
