@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebGPU Golden Field Path Tracer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background-color: #020617;
+            color: #f8fafc;
+            font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            margin: 0;
+            overflow: hidden;
+            height: 100vh;
+            width: 100vw;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+            touch-action: none;
+        }
+        .ui-overlay {
+            position: absolute;
+            top: 1.5rem;
+            left: 1.5rem;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(51, 65, 85, 0.5);
+            padding: 1rem;
+            border-radius: 0.5rem;
+            pointer-events: none;
+            user-select: none;
+        }
+        .error-message {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #0f172a;
+            color: #ef4444;
+            padding: 2rem;
+            text-align: center;
+            z-index: 50;
+        }
+    </style>
+</head>
+<body>
+    <div id="error-screen" class="error-message hidden">
+        <p id="error-text">WebGPU is not supported or encountered a critical error.</p>
+    </div>
+
+    <div class="ui-overlay">
+        <h1 class="text-sm font-bold text-emerald-400 mb-2 uppercase tracking-widest">Golden Field Path Tracer</h1>
+        <div class="text-xs space-y-1 opacity-80">
+            <p>Resolution: <span id="res-val">---</span></p>
+            <p>Samples: <span id="spp-val">0</span></p>
+            <p>Frame time: <span id="time-val">0</span> ms</p>
+        </div>
+        <div class="mt-4 text-[10px] uppercase opacity-50">
+            [WASD] move – [Mouse] look
+        </div>
+    </div>
+
+    <canvas id="gpu-canvas"></canvas>
+
+    <script type="module">
+        const WGSL_SOURCE = `
+            struct Uniforms {
+                view_inverse : mat4x4f,
+                resolution : vec2f,
+                frame_count : u32,
+                time : f32,
+            }
+
+            @group(0) @binding(0) var<uniform> config : Uniforms;
+            @group(0) @binding(1) var prev_accumulation : texture_2d<f32>;
+            @group(0) @binding(2) var next_accumulation : texture_storage_2d<rgba32float, write>;
+
+            const PI : f32 = 3.14159265359;
+
+            struct Ray {
+                origin : vec3f,
+                direction : vec3f,
+            }
+
+            struct HitRecord {
+                dist : f32,
+                normal : vec3f,
+                color : vec3f,
+                emissive : vec3f,
+                roughness : f32,
+            }
+
+            var<private> rng_state : u32;
+            fn init_rng(pixel : vec2u, frame : u32) {
+                rng_state = (pixel.x * 1973u + pixel.y * 9277u + frame * 26699u) | 1u;
+            }
+
+            fn rand_u32() -> u32 {
+                let old_state = rng_state;
+                rng_state = old_state * 747796405u + 2891336453u;
+                let word = ((old_state >> ((old_state >> 28u) + 4u)) ^ old_state) * 277803737u;
+                return (word >> 22u) ^ word;
+            }
+
+            fn rand_f32() -> f32 {
+                return f32(rand_u32()) / 4294967295.0;
+            }
+
+            fn random_on_hemisphere(normal : vec3f) -> vec3f {
+                let u1 = rand_f32();
+                let u2 = rand_f32();
+                let r = sqrt(u1);
+                let theta = 2.0 * PI * u2;
+                let x = r * cos(theta);
+                let y = r * sin(theta);
+                let z = sqrt(max(0.0, 1.0 - u1));
+                
+                let w = normal;
+                let a = select(vec3f(1.0, 0.0, 0.0), vec3f(0.0, 1.0, 0.0), abs(w.x) > 0.9);
+                let u = normalize(cross(a, w));
+                let v = cross(w, u);
+                return x * u + y * v + z * w;
+            }
+
+            fn sd_box(p : vec3f, b : vec3f) -> f32 {
+                let q = abs(p) - b;
+                return length(max(q, vec3f(0.0))) + min(max(q.x, max(q.y, q.z)), 0.0);
+            }
+
+            fn get_scene_info(p : vec3f) -> HitRecord {
+                var res : HitRecord;
+                res.dist = 1e10;
+                res.emissive = vec3f(0.0);
+                res.roughness = 0.5;
+
+                // interior volume boundaries
+                let room_dist = -sd_box(p - vec3f(0.0, 2.0, 0.0), vec3f(4.0, 2.5, 4.0));
+                if (room_dist < res.dist) {
+                    res.dist = room_dist;
+                    res.color = vec3f(0.7, 0.7, 0.7);
+                    
+                    // overhead diffuse emission
+                    if (p.y > 4.4 && abs(p.x) < 1.8 && abs(p.z) < 1.8) {
+                        res.emissive = vec3f(20.0, 18.0, 16.0);
+                    }
+                    // chromatic wall absorption
+                    if (p.x > 3.9) { res.color = vec3f(0.1, 0.6, 0.2); }
+                    if (p.x < -3.9) { res.color = vec3f(0.7, 0.1, 0.1); }
+                }
+
+                // physical obstruction: central pillar
+                let pillar_size = vec3f(0.6, 1.2, 0.6);
+                let pillar_dist = sd_box(p - vec3f(0.0, 1.2, 0.0), pillar_size);
+                if (pillar_dist < res.dist) {
+                    res.dist = pillar_dist;
+                    res.color = vec3f(0.95, 0.8, 0.2);
+                    res.roughness = 0.1;
+                }
+
+                // orbital luminous geometries
+                let orbit_radius = 2.5;
+                for(var i = 0; i < 3; i++) {
+                    let t_offset = f32(i) * (2.0 * PI / 3.0);
+                    let angle = t_offset + config.time * 0.4;
+                    let pos = vec3f(cos(angle) * orbit_radius, 2.2 + 0.8 * sin(config.time * 0.8 + t_offset), sin(angle) * orbit_radius);
+                    let orb = length(p - pos) - 0.35;
+                    if (orb < res.dist) {
+                        res.dist = orb;
+                        res.color = vec3f(0.1, 0.4, 0.95);
+                        res.emissive = vec3f(2.0, 8.0, 25.0);
+                    }
+                }
+                return res;
+            }
+
+            fn get_normal(p : vec3f) -> vec3f {
+                let e = vec2f(0.001, 0.0);
+                return normalize(vec3f(
+                    get_scene_info(p + e.xyy).dist - get_scene_info(p - e.xyy).dist,
+                    get_scene_info(p + e.yxy).dist - get_scene_info(p - e.yxy).dist,
+                    get_scene_info(p + e.yyx).dist - get_scene_info(p - e.yyx).dist
+                ));
+            }
+
+            @compute @workgroup_size(8, 8)
+            fn main(@builtin(global_invocation_id) id : vec3u) {
+                if (f32(id.x) >= config.resolution.x || f32(id.y) >= config.resolution.y) { return; }
+                
+                init_rng(id.xy, config.frame_count);
+
+                // derivation of pure view-space rays to avoid projection matrix inversion bugs
+                let uv = (vec2f(id.xy) + vec2f(rand_f32(), rand_f32())) / config.resolution;
+                let aspect = config.resolution.x / config.resolution.y;
+                let fov = 60.0 * PI / 180.0;
+                let f = 1.0 / tan(fov * 0.5);
+                
+                let ndc = vec2f(uv.x * 2.0 - 1.0, 1.0 - uv.y * 2.0);
+                let view_ray = normalize(vec3f(ndc.x * aspect, ndc.y, f));
+                
+                let ray_dir = normalize((config.view_inverse * vec4f(view_ray, 0.0)).xyz);
+                let ray_origin = config.view_inverse[3].xyz;
+
+                var current_ray = Ray(ray_origin, ray_dir);
+                var radiance = vec3f(0.0);
+                var throughput = vec3f(1.0);
+
+                for (var bounce = 0; bounce < 4; bounce++) {
+                    var t = 0.01;
+                    var hit = false;
+                    var res : HitRecord;
+                    for (var i = 0; i < 180; i++) {
+                        let p = current_ray.origin + current_ray.direction * t;
+                        res = get_scene_info(p);
+                        if (res.dist < 0.0005) { hit = true; break; }
+                        t += res.dist;
+                        if (t > 40.0) { break; }
+                    }
+                    if (hit) {
+                        let p = current_ray.origin + current_ray.direction * t;
+                        let n = get_normal(p);
+                        radiance += res.emissive * throughput;
+                        throughput *= res.color;
+                        current_ray.origin = p + n * 0.01;
+                        current_ray.direction = random_on_hemisphere(n);
+                        
+                        let p_continue = max(throughput.r, max(throughput.g, throughput.b));
+                        if (rand_f32() > p_continue) { break; }
+                        throughput /= p_continue;
+                    } else {
+                        radiance += vec3f(0.01, 0.01, 0.02) * throughput;
+                        break;
+                    }
+                }
+
+                let prev_color = textureLoad(prev_accumulation, id.xy, 0).rgb;
+                let weight = 1.0 / (f32(config.frame_count) + 1.0);
+                let final_color = mix(prev_color, radiance, weight);
+                textureStore(next_accumulation, id.xy, vec4f(final_color, 1.0));
+            }
+        `;
+
+        const RENDER_PASS_WGSL = `
+            @vertex
+            fn vert_main(@builtin(vertex_index) idx : u32) -> @builtin(position) vec4f {
+                var pos = array<vec2f, 3>(vec2f(-1.0, -1.0), vec2f(3.0, -1.0), vec2f(-1.0, 3.0));
+                return vec4f(pos[idx], 0.0, 1.0);
+            }
+
+            @group(0) @binding(0) var tex : texture_2d<f32>;
+
+            @fragment
+            fn frag_main(@builtin(position) frag_pos : vec4f) -> @location(0) vec4f {
+                let coords = vec2i(frag_pos.xy);
+                var color = textureLoad(tex, coords, 0).rgb;
+                color = color / (color + vec3f(1.0));
+                color = pow(color, vec3f(1.0 / 2.2));
+                return vec4f(color, 1.0);
+            }
+        `;
+
+        async function init() {
+            if (!navigator.gpu) {
+                document.getElementById('error-screen').classList.remove('hidden');
+                return;
+            }
+
+            const adapter = await navigator.gpu.requestAdapter();
+            const device = await adapter.requestDevice();
+            const canvas = document.getElementById('gpu-canvas');
+            const context = canvas.getContext('webgpu');
+            const format = navigator.gpu.getPreferredCanvasFormat();
+
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+
+            context.configure({ device, format, alphaMode: 'premultiplied' });
+
+            let frameCount = 0;
+            const camPos = { x: 0, y: 1.8, z: -3.0 }; // Corrected z-coordinate strictly within SDF boundaries
+            const camRot = { yaw: 0, pitch: 0 };
+            const keys = {};
+
+            const createAccTexture = () => device.createTexture({
+                size: [width, height],
+                format: 'rgba32float',
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            });
+
+            let accTextures = [createAccTexture(), createAccTexture()];
+
+            const uniformBuffer = device.createBuffer({
+                size: 80, // Explicitly matched to struct size alignment
+                usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+            });
+
+            const traceModule = device.createShaderModule({ code: WGSL_SOURCE });
+            const renderModule = device.createShaderModule({ code: RENDER_PASS_WGSL });
+
+            const tracePipeline = device.createComputePipeline({
+                layout: 'auto',
+                compute: { module: traceModule, entryPoint: 'main' }
+            });
+
+            const renderPipeline = device.createRenderPipeline({
+                layout: 'auto',
+                vertex: { module: renderModule, entryPoint: 'vert_main' },
+                fragment: { module: renderModule, entryPoint: 'frag_main', targets: [{ format }] },
+                primitive: { topology: 'triangle-list' }
+            });
+
+            function getTraceBindGroup(idx) {
+                return device.createBindGroup({
+                    layout: tracePipeline.getBindGroupLayout(0),
+                    entries: [
+                        { binding: 0, resource: { buffer: uniformBuffer } },
+                        { binding: 1, resource: accTextures[idx].createView() },
+                        { binding: 2, resource: accTextures[1 - idx].createView() }
+                    ]
+                });
+            }
+
+            function getRenderBindGroup(idx) {
+                return device.createBindGroup({
+                    layout: renderPipeline.getBindGroupLayout(0),
+                    entries: [{ binding: 0, resource: accTextures[idx].createView() }]
+                });
+            }
+
+            function updateCamera(dt) {
+                const speed = 0.005 * dt;
+                const forward = [
+                    Math.sin(camRot.yaw) * Math.cos(camRot.pitch),
+                    Math.sin(camRot.pitch),
+                    Math.cos(camRot.yaw) * Math.cos(camRot.pitch)
+                ];
+                const right = [Math.cos(camRot.yaw), 0, -Math.sin(camRot.yaw)];
+
+                let moved = false;
+                if (keys['KeyW']) { camPos.x += forward[0] * speed; camPos.z += forward[2] * speed; moved = true; }
+                if (keys['KeyS']) { camPos.x -= forward[0] * speed; camPos.z -= forward[2] * speed; moved = true; }
+                if (keys['KeyA']) { camPos.x -= right[0] * speed; camPos.z -= right[2] * speed; moved = true; }
+                if (keys['KeyD']) { camPos.x += right[0] * speed; camPos.z += right[2] * speed; moved = true; }
+
+                // Bounds restriction to prevent camera clipping outside the evaluated SDF volume
+                if (camPos.x < -3.8 || camPos.x > 3.8 || camPos.z < -3.8 || camPos.z > 3.8) {
+                    camPos.x = Math.max(-3.8, Math.min(3.8, camPos.x));
+                    camPos.z = Math.max(-3.8, Math.min(3.8, camPos.z));
+                    moved = true;
+                }
+
+                if (moved) frameCount = 0;
+                return moved;
+            }
+
+            function getMatrices() {
+                const target = [
+                    camPos.x + Math.sin(camRot.yaw) * Math.cos(camRot.pitch),
+                    camPos.y + Math.sin(camRot.pitch),
+                    camPos.z + Math.cos(camRot.yaw) * Math.cos(camRot.pitch)
+                ];
+                
+                const z = normalize([target[0] - camPos.x, target[1] - camPos.y, target[2] - camPos.z]);
+                const x = normalize(cross([0, 1, 0], z));
+                const y = cross(z, x);
+                
+                const viewInv = new Float32Array([
+                    x[0], x[1], x[2], 0, y[0], y[1], y[2], 0, z[0], z[1], z[2], 0, camPos.x, camPos.y, camPos.z, 1
+                ]);
+                return { viewInv };
+            }
+
+            const normalize = v => { let l = Math.sqrt(v[0]**2 + v[1]**2 + v[2]**2); return [v[0]/l, v[1]/l, v[2]/l]; };
+            const cross = (a, b) => [a[1]*b[2]-a[2]*b[1], a[2]*b[0]-a[0]*b[2], a[0]*b[1]-a[1]*b[0]];
+
+            const resSpan = document.getElementById('res-val');
+            const sppSpan = document.getElementById('spp-val');
+            const timeSpan = document.getElementById('time-val');
+            resSpan.textContent = `${width}x${height}`;
+
+            let lastTime = performance.now();
+
+            function frame() {
+                const now = performance.now();
+                const dt = Math.min(now - lastTime, 100);
+                lastTime = now;
+                updateCamera(dt);
+                
+                const { viewInv } = getMatrices();
+                const uniformData = new ArrayBuffer(80);
+                const floatView = new Float32Array(uniformData);
+                const uintView = new Uint32Array(uniformData);
+                
+                floatView.set(viewInv, 0);
+                floatView.set([width, height], 16);
+                uintView.set([frameCount], 18);
+                floatView.set([now * 0.001], 19);
+                device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+
+                const currentAccIdx = frameCount % 2;
+                const encoder = device.createCommandEncoder();
+                
+                const computePass = encoder.beginComputePass();
+                computePass.setPipeline(tracePipeline);
+                computePass.setBindGroup(0, getTraceBindGroup(currentAccIdx));
+                computePass.dispatchWorkgroups(Math.ceil(width / 8), Math.ceil(height / 8));
+                computePass.end();
+
+                const renderPass = encoder.beginRenderPass({
+                    colorAttachments: [{
+                        view: context.getCurrentTexture().createView(),
+                        loadOp: 'clear', storeOp: 'store',
+                        clearValue: { r: 0, g: 0, b: 0, a: 1 }
+                    }]
+                });
+                renderPass.setPipeline(renderPipeline);
+                renderPass.setBindGroup(0, getRenderBindGroup(1 - currentAccIdx));
+                renderPass.draw(3);
+                renderPass.end();
+
+                device.queue.submit([encoder.finish()]);
+                frameCount++;
+                sppSpan.textContent = frameCount;
+                timeSpan.textContent = dt.toFixed(1);
+                requestAnimationFrame(frame);
+            }
+
+            window.addEventListener('keydown', e => keys[e.code] = true);
+            window.addEventListener('keyup', e => keys[e.code] = false);
+            canvas.addEventListener('mousedown', () => canvas.requestPointerLock());
+            window.addEventListener('mousemove', e => {
+                if (document.pointerLockElement === canvas) {
+                    camRot.yaw += e.movementX * 0.002;
+                    camRot.pitch = Math.max(-Math.PI/2 + 0.1, Math.min(Math.PI/2 - 0.1, camRot.pitch - e.movementY * 0.002));
+                    frameCount = 0;
+                }
+            });
+            requestAnimationFrame(frame);
+        }
+        window.onload = init;
+    </script>
+</body>
+</html>
