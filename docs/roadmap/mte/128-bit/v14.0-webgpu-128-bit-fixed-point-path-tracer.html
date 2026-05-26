@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebGPU 128-bit fixed-point path tracer</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background-color: #050505;
+      color: #a0a0a0;
+      font-family: ui-sans-serif, system-ui, -apple-system, sans-serif;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+
+    #renderCanvas {
+      border-radius: 0.5rem;
+      cursor: crosshair;
+      display: block;
+      height: 100%;
+      touch-action: none;
+      width: 100%;
+    }
+
+    .execution-container {
+      aspect-ratio: 1 / 1;
+      background-color: #09090b;
+      border: 1px solid #27272a;
+      border-radius: 1.25rem;
+      box-shadow: 0 0 60px rgba(0, 0, 0, 0.7);
+      margin: 0 auto;
+      max-width: min(100%, 62vh);
+      overflow: hidden;
+      padding: 0.5rem;
+      position: relative;
+      width: 100%;
+    }
+
+    .telemetry-anchor {
+      display: flex;
+      justify-content: center;
+      margin-bottom: 0.5rem;
+      width: 100%;
+    }
+
+    .diagnostic-grid {
+      display: grid;
+      gap: 0.75rem;
+      width: 100%;
+    }
+
+    @media (min-width: 768px) {
+      .diagnostic-grid {
+        gap: 1rem;
+        grid-template-columns: repeat(4, 1fr);
+      }
+    }
+
+    .status-badge {
+      backdrop-filter: blur(12px);
+      background-color: rgba(24, 24, 27, 0.8);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 9999px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.6rem;
+      letter-spacing: 0.1em;
+      padding: 0.4rem 0.8rem;
+      text-transform: uppercase;
+    }
+  </style>
+</head>
+<body class="flex flex-col items-center justify-center p-4 md:p-6">
+  <div class="max-w-6xl w-full h-full flex flex-col justify-between space-y-4">
+
+    <header class="text-center space-y-2">
+      <h1 class="text-lg md:text-2xl font-bold text-white tracking-tight">WebGPU 128-bit fixed-point path tracer</h1>
+      <p class="text-[8px] md:text-[9px] uppercase tracking-[0.4em] font-mono text-zinc-500">
+        status: logarithmic reduction active | architecture: <span class="text-emerald-400">version 14.0 hypervisor</span>
+      </p>
+    </header>
+
+    <div class="telemetry-anchor">
+      <div class="status-badge text-zinc-400 pointer-events-none">
+        metric: 128-bit shear rotation | reduction: logarithmic $O(\log N)$
+      </div>
+    </div>
+
+    <div class="flex-grow flex items-center justify-center overflow-hidden">
+      <div class="execution-container">
+        <canvas id="renderCanvas"></canvas>
+        <div id="errorOverlay" class="absolute inset-0 flex items-center justify-center bg-black/98 hidden rounded-xl z-20">
+          <div class="p-12 text-center space-y-4">
+             <div class="w-12 h-12 border-2 border-red-500/20 border-t-red-500 rounded-full animate-spin mx-auto mb-4"></div>
+             <p class="text-red-500 font-mono text-[10px] md:text-[11px] leading-relaxed uppercase tracking-widest" id="errorMessage"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagnostic-grid text-[8px] md:text-[9px] font-mono uppercase tracking-[0.15em] text-zinc-500">
+      <div class="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-1">rotation:</span>
+        integer shear
+      </div>
+      <div class="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-1">reduction:</span>
+        logarithmic tree
+      </div>
+      <div class="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-1">advection:</span>
+        planckian chain
+      </div>
+      <div class="p-3 bg-zinc-900/40 rounded-xl border border-zinc-800/40 flex flex-col justify-between hover:border-zinc-700 transition-colors">
+        <span class="block text-zinc-400 mb-1">memory:</span>
+        vram-resident
+      </div>
+    </div>
+
+    <footer class="text-center">
+      <p class="text-[7px] font-mono text-zinc-600 uppercase tracking-widest">
+        system timestamp: 16 April 2026 | latency: <span id="performanceMetrics">0.00&nbsp;ms | steps: 120.0 | scale: 1.618034</span>
+      </p>
+    </footer>
+  </div>
+
+  <script type="module">
+    const CONFIGURATION = {
+      MAX_EVALUATION_DEPTH: 128.0,
+      FRACTAL_SCALE: 1.61803398875,
+      TIME_SCALE: 0.0006,
+      HIT_THRESHOLD: 0.0012,
+      MAX_RAY_STEPS: 120.0,
+      ASPECT_RATIO: 1.0,
+      BOUNDING_SPHERE_RADIUS: 1.45,
+      FRACTAL_ITERATIONS: 7,
+      DAG_BUFFER_SIZE: 32768,
+      FLUID_PARTICLES: 16384,
+    };
+
+    function computeLowDiscrepancySequence(index, base) {
+      let result = 0;
+      let f = 1 / base;
+      let i = index;
+      while (i > 0) {
+        result += f * (i % base);
+        i = Math.floor(i / base);
+        f /= base;
+      }
+      return result;
+    }
+
+    function floatToBigInt(f) {
+      const sign = f < 0 ? -1n : 1n;
+      f = Math.abs(f);
+      const intPart = BigInt(Math.floor(f));
+      const fracPart = f - Math.floor(f);
+      const m1 = 281474976710656; // 2^48
+      const p1 = Math.floor(fracPart * m1);
+      const p2 = Math.floor((fracPart * m1 - p1) * m1);
+      return sign * ((intPart << 96n) + (BigInt(p1) << 48n) + BigInt(p2));
+    }
+
+    async function initializeRenderPipeline() {
+      const errorMessageElement = document.getElementById('errorMessage');
+      const errorOverlayElement = document.getElementById('errorOverlay');
+      const performanceMetrics = document.getElementById('performanceMetrics');
+
+      if (!navigator.gpu) {
+        errorMessageElement.textContent = 'WebGPU driver absent: hardware abstraction failure.';
+        errorOverlayElement.classList.remove('hidden');
+        return;
+      }
+
+      try {
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) { throw new Error('Hardware adapter acquisition failure.'); }
+        const device = await adapter.requestDevice();
+        const canvasElement = document.getElementById('renderCanvas');
+        const context = canvasElement.getContext('webgpu');
+        const swapChainFormat = navigator.gpu.getPreferredCanvasFormat();
+
+        context.configure({
+          device: device,
+          format: swapChainFormat,
+          alphaMode: 'premultiplied',
+          usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_DST,
+        });
+
+        const commonWGSL = `
+          struct RenderUniforms {
+            view_params: vec4<f32>,
+            jitter_params: vec4<f32>,
+            camera_params: vec4<f32>,
+            exposure_params: vec4<f32>,
+            color_mat0: vec4<f32>,
+            color_mat1: vec4<f32>,
+            color_mat2: vec4<f32>,
+            cam_pos_w0: vec4<i32>,
+            cam_pos_w1: vec4<u32>,
+            cam_pos_w2: vec4<u32>,
+            cam_pos_w3: vec4<u32>,
+          };
+
+          struct ExposureState {
+            adapted_lum: f32,
+            peak_energy: f32,
+            padding0: u32,
+            padding1: u32,
+          };
+
+          struct Coord128 {
+            w0: vec4<i32>, w1: vec4<u32>, w2: vec4<u32>, w3: vec4<u32>
+          };
+
+          struct DagNode {
+            child_mask: u32,
+            child_offset: u32,
+            normal_cache: u32,
+            padding: u32
+          };
+
+          struct FluidNode {
+            pos: Coord128,
+            velocity: vec4<f32>,
+            psi: vec4<f32>
+          };
+
+          const PI: f32 = 3.14159265359;
+          const ITERATIONS: i32 = ${CONFIGURATION.FRACTAL_ITERATIONS};
+
+          fn hashU32(v: vec3<u32>) -> vec3<u32> {
+            var x = v; x ^= (x >> vec3<u32>(16u)); x *= vec3<u32>(0x85ebca6bu);
+            x ^= (x >> vec3<u32>(13u)); x *= vec3<u32>(0xc2b2ae35u); x ^= (x >> vec3<u32>(16u));
+            return x;
+          }
+
+          fn advectCoord128(c: Coord128, dir: vec3<f32>, step_size: f32) -> Coord128 {
+            let delta = dir * step_size;
+            let d_int = vec3<i32>(floor(delta));
+            let d_frac = fract(delta);
+            let d_w1_f = d_frac * 4294967295.0;
+            let d_w1 = vec3<u32>(d_w1_f);
+            let d_w2_f = fract(d_w1_f) * 4294967295.0;
+            let d_w2 = vec3<u32>(d_w2_f);
+            let d_w3_f = fract(d_w2_f) * 4294967295.0;
+            let d_w3 = vec3<u32>(d_w3_f);
+            
+            var n: Coord128;
+            let sum_w3 = c.w3.xyz + d_w3;
+            let carry_w3 = select(vec3<u32>(0u), vec3<u32>(1u), sum_w3 < c.w3.xyz);
+            let s_w2_a = c.w2.xyz + d_w2;
+            let c_w2_a = select(vec3<u32>(0u), vec3<u32>(1u), s_w2_a < c.w2.xyz);
+            let s_w2 = s_w2_a + carry_w3;
+            let c_w2_b = select(vec3<u32>(0u), vec3<u32>(1u), s_w2 < carry_w3);
+            let carry_w2 = c_w2_a + c_w2_b;
+            let s_w1_a = c.w1.xyz + d_w1;
+            let c_w1_a = select(vec3<u32>(0u), vec3<u32>(1u), s_w1_a < c.w1.xyz);
+            let s_w1 = s_w1_a + carry_w2;
+            let carry_w1 = c_w1_a + select(vec3<u32>(0u), vec3<u32>(1u), s_w1 < carry_w2);
+            
+            n.w3 = vec4<u32>(sum_w3, 0u);
+            n.w2 = vec4<u32>(s_w2, 0u);
+            n.w1 = vec4<u32>(s_w1, 0u);
+            n.w0 = vec4<i32>(c.w0.xyz + d_int + vec3<i32>(carry_w1), 0);
+            return n;
+          }
+
+          fn toFloatVec(c: Coord128) -> vec3<f32> {
+            return vec3<f32>(c.w0.xyz) + vec3<f32>(c.w1.xyz) / 4294967295.0;
+          }
+
+          fn evaluateFractalMask128(pos: Coord128) -> f32 {
+            let bx_w0 = vec3<u32>(abs(pos.w0.xyz));
+            let bx_w1 = pos.w1.xyz;
+            let bx_w2 = pos.w2.xyz ^ hashU32(bx_w1);
+            let bx_w3 = pos.w3.xyz ^ hashU32(bx_w2);
+            var sw = bx_w0 ^ bx_w1 ^ bx_w2 ^ bx_w3;
+            sw ^= (sw >> vec3<u32>(16u));
+            let tr_state = sw & vec3<u32>(0xFFFFFFFFu);
+            if (any((tr_state & vec3<u32>(0xAAAAAAAAu)) == vec3<u32>(0xAAAAAAAAu))) { return -1.0; }
+            return f32((tr_state.x ^ tr_state.y ^ tr_state.z) & 1u);
+          }
+
+          fn estimateNormal128(pos: Coord128, eps: f32) -> vec3<f32> {
+             let axes = mat3x3<f32>(vec3<f32>(1,0,0), vec3<f32>(0,1,0), vec3<f32>(0,0,1));
+             var n = vec3<f32>(0.0);
+             for(var i: i32 = 0; i < 3; i++) {
+                let p_pos = advectCoord128(pos, axes[i], eps);
+                let p_neg = advectCoord128(pos, axes[i], -eps);
+                n[i] = evaluateFractalMask128(p_pos) - evaluateFractalMask128(p_neg);
+             }
+             if (length(n) < 1e-5) { return vec3<f32>(0,1,0); }
+             return normalize(n);
+          }
+
+          fn packNormalOctahedron(n: vec3<f32>) -> u32 {
+             var p = n / (abs(n.x) + abs(n.y) + abs(n.z));
+             if (p.z < 0.0) {
+                 p = vec3<f32>((1.0 - abs(p.yx)) * sign(p.xy), p.z);
+             }
+             let x_enc = u32(clamp(p.x * 0.5 + 0.5, 0.0, 1.0) * 65535.0);
+             let y_enc = u32(clamp(p.y * 0.5 + 0.5, 0.0, 1.0) * 65535.0);
+             return (x_enc << 16u) | y_enc;
+          }
+
+          fn unpackNormalOctahedron(packed: u32) -> vec3<f32> {
+             let x_val = f32(packed >> 16u) / 65535.0 * 2.0 - 1.0;
+             let y_val = f32(packed & 0xFFFFu) / 65535.0 * 2.0 - 1.0;
+             var n = vec3<f32>(x_val, y_val, 1.0 - abs(x_val) - abs(y_val));
+             let t = max(-n.z, 0.0);
+             n = vec3<f32>(n.x + select(t, -t, n.x > 0.0), n.y + select(t, -t, n.y > 0.0), n.z);
+             return normalize(n);
+          }
+
+          fn computeFractalSDF(p: vec3<f32>, cur_scale: f32, bound_rad: f32, rot_time: f32) -> f32 {
+            var f = p; var scale: f32 = 1.0;
+            let offset = vec3<f32>(1.1);
+            let axis = normalize(vec3<f32>(1.0, 0.5, 0.2));
+            for (var i: i32 = 0; i < ITERATIONS; i++) {
+              f = abs(f);
+              if (f.x < f.y) { f = f.yxz; }
+              if (f.x < f.z) { f = f.zyx; }
+              let angle = rot_time * 0.12 * f32(i);
+              let s = sin(angle); let c = cos(angle); let oc = 1.0 - c;
+              f = mat3x3<f32>(
+                oc * axis.x * axis.x + c, oc * axis.x * axis.y - axis.z * s, oc * axis.z * axis.x + axis.y * s,
+                oc * axis.x * axis.y + axis.z * s, oc * axis.y * axis.y + c, oc * axis.y * axis.z - axis.x * s,
+                oc * axis.z * axis.x - axis.y * s, oc * axis.y * axis.z + axis.x * s, oc * axis.z * axis.z + c
+              ) * f;
+              f = f * cur_scale - offset * (cur_scale - 1.0);
+              scale *= cur_scale;
+            }
+            return (length(f) - bound_rad) / scale;
+          }
+        `;
+
+        const svoShaderSource = commonWGSL + `
+          @group(0) @binding(0) var<uniform> uniforms: RenderUniforms;
+          @group(0) @binding(1) var<storage, read_write> dag_buffer: array<DagNode>;
+
+          @compute @workgroup_size(64)
+          fn cs_svo_build(@builtin(global_invocation_id) id: vec3<u32>) {
+             let idx = id.x;
+             if (idx >= arrayLength(&dag_buffer)) { return; }
+             let grid_res = 32u;
+             let coord_f = (vec3<f32>(f32(idx % grid_res), f32((idx / grid_res) % grid_res), f32(idx / (grid_res * grid_res))) / f32(grid_res)) * 4.0 - 2.0;
+             let dist = computeFractalSDF(coord_f, uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x);
+             var node: DagNode;
+             node.child_offset = 0u;
+             if (dist < 0.1) {
+                 node.child_mask = 0xFFFFFFFFu;
+                 var r_pos: Coord128; 
+                 r_pos.w0 = vec4<i32>(vec3<i32>(floor(coord_f)), 0); 
+                 r_pos.w1 = vec4<u32>(vec3<u32>(fract(coord_f)*4294967295.), 0u);
+                 node.normal_cache = packNormalOctahedron(estimateNormal128(r_pos, 0.005));
+             } else {
+                 node.child_mask = 0u;
+             }
+             dag_buffer[idx] = node;
+          }
+        `;
+
+        const computeShaderSource = commonWGSL + `
+          @group(0) @binding(0) var<uniform> uniforms: RenderUniforms;
+          @group(0) @binding(1) var<storage, read_write> fluid_buffer: array<FluidNode>;
+
+          fn get_force(p: vec3<f32>) -> vec3<f32> {
+             let nx = computeFractalSDF(p + vec3(0.005, 0, 0), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x) - computeFractalSDF(p - vec3(0.005, 0, 0), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x);
+             let ny = computeFractalSDF(p + vec3(0, 0.005, 0), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x) - computeFractalSDF(p - vec3(0, 0.005, 0), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x);
+             let nz = computeFractalSDF(p + vec3(0, 0, 0.005), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x) - computeFractalSDF(p - vec3(0, 0, 0.005), uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x);
+             return -normalize(p) * 0.05 + normalize(vec3(nx, ny, nz)) * 0.1;
+          }
+
+          @compute @workgroup_size(64)
+          fn cs_main(@builtin(global_invocation_id) id: vec3<u32>) {
+            let idx = id.x;
+            if (idx >= arrayLength(&fluid_buffer)) { return; }
+            var node = fluid_buffer[idx];
+            let p_eval = toFloatVec(node.pos);
+            var next_vel = node.velocity.xyz + get_force(p_eval) * 0.008;
+            if (computeFractalSDF(p_eval, uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x) < 0.005) {
+                next_vel = reflect(next_vel, estimateNormal128(node.pos, 0.001));
+            }
+            node.velocity = vec4<f32>(next_vel * 0.995, 0.0);
+            node.pos = advectCoord128(node.pos, node.velocity.xyz, 0.008);
+            fluid_buffer[idx] = node;
+          }
+        `;
+
+        const lumShaderSource = commonWGSL + `
+          @group(0) @binding(0) var<storage, read> fluid_buffer: array<FluidNode>;
+          @group(0) @binding(1) var<storage, read_write> exposure_buffer: ExposureState;
+
+          var<workgroup> s_energies: array<f32, 256>;
+
+          @compute @workgroup_size(256)
+          fn cs_lum_main(@builtin(local_invocation_id) lid: vec3<u32>, @builtin(workgroup_id) wid: vec3<u32>) {
+             let lid_x = lid.x;
+             let count = arrayLength(&fluid_buffer);
+             
+             // Initial load with field intensity sampling
+             var energy = 0.0;
+             for (var i = lid_x; i < count; i += 256u) {
+                 energy += length(fluid_buffer[i].psi.xy);
+             }
+             s_energies[lid_x] = energy;
+             workgroupBarrier();
+
+             // Logarithmic parallel reduction avoiding bank conflicts
+             for (var s = 128u; s > 0u; s >>= 1u) {
+                if (lid_x < s) {
+                    s_energies[lid_x] += s_energies[lid_x + s];
+                }
+                workgroupBarrier();
+             }
+
+             if (lid_x == 0u) {
+                let avg = s_energies[0] / f32(count);
+                exposure_buffer.adapted_lum = mix(exposure_buffer.adapted_lum, max(avg, 0.01), 0.05);
+             }
+          }
+        `;
+
+        const renderShaderSource = commonWGSL + `
+          struct FragmentOutput { @location(0) color: vec4<f32>, @location(1) data: vec2<u32> };
+          @group(0) @binding(0) var<uniform> uniforms: RenderUniforms;
+          @group(0) @binding(1) var history: texture_2d<u32>;
+          @group(0) @binding(2) var<storage, read> dag: array<DagNode>;
+          @group(0) @binding(3) var<storage, read> fluid: array<FluidNode>;
+          @group(0) @binding(4) var<storage, read> exposure_state: ExposureState;
+
+          fn decodeLogLuv(packed: u32) -> vec3<f32> {
+            if (packed == 0u) { return vec3<f32>(0.0); }
+            let unpacked_lum = pow(2.0, f32(packed >> 16u) / 1638.0 - 20.0);
+            let u_val = f32((packed >> 8u) & 0xFFu) / 255.0;
+            let v_val = f32(packed & 0xFFu) / 255.0;
+            let uv = vec2<f32>(u_val, v_val);
+            let div_y = max(4.0 * uv.y, 1e-6);
+            return vec3<f32>(max(unpacked_lum * (9.0 * uv.x) / div_y, 0.0), unpacked_lum, max(unpacked_lum * (12.0 - 3.0 * uv.x - 20.0 * uv.y) / div_y, 0.0));
+          }
+
+          fn encodeLogLuv(xyz: vec3<f32>) -> u32 {
+            if (all(xyz < vec3<f32>(1e-8))) { return 0u; }
+            let sum = xyz.x + 15.0 * xyz.y + 3.0 * xyz.z;
+            let div_sum = max(sum, 1e-7);
+            let uv = vec2<f32>(4.0 * xyz.x / div_sum, 9.0 * xyz.y / div_sum);
+            let lum = clamp((log2(max(xyz.y, 1e-8)) + 20.0) * 1638.0, 0.0, 65535.0);
+            return (u32(lum) << 16u) | (u32(uv.x * 255.0) << 8u) | u32(uv.y * 255.0);
+          }
+
+          fn wavelengthToRgb(lambda: f32) -> vec3<f32> {
+            let x = 1.056 * exp(-0.5 * pow((lambda - 599.8) / 37.9, 2.0)) + 0.362 * exp(-0.5 * pow((lambda - 442.0) / 16.0, 2.0)) - 0.065 * exp(-0.5 * pow((lambda - 501.1) / 20.4, 2.0));
+            let y = 0.821 * exp(-0.5 * pow((lambda - 568.8) / 46.9, 2.0)) + 0.286 * exp(-0.5 * pow((lambda - 530.9) / 16.3, 2.0));
+            let z = 1.217 * exp(-0.5 * pow((lambda - 437.0) / 11.8, 2.0)) + 0.681 * exp(-0.5 * pow((lambda - 459.0) / 26.0, 2.0));
+            return max(vec3<f32>(x, y, z), vec3<f32>(0.0));
+          }
+
+          fn linearToSrgb(linear_rgb: vec3<f32>) -> vec3<f32> {
+            let linear_clamped = max(linear_rgb, vec3<f32>(0.0));
+            let res = 1.055 * pow(linear_clamped, vec3<f32>(1.0 / 2.4)) - vec3<f32>(0.055);
+            return select(res, linear_clamped * 12.92, linear_clamped <= vec3<f32>(0.0031308));
+          }
+
+          fn calculatePathRadiance(pos: Coord128, t_base: f32, t_micro: f32, temporal_phase: f32) -> vec3<f32> {
+            var acc = vec3<f32>(0.0); let samples = 4.0; let p_eval = toFloatVec(pos);
+            let spatial_offset = (temporal_phase + uniforms.view_params.x) * smoothstep(0.01, 0.15, length(p_eval.xy));
+            for (var w: f32 = 0.0; w < samples; w += 1.0) {
+              let lambda = 380.0 + 340.0 * fract((w + uniforms.jitter_params.x) / samples);
+              let k = (2.0 * PI) / (lambda * 0.05); var amp = vec2<f32>(0.0);
+              for (var level: i32 = 0; level < 5; level++) {
+                let s = pow(uniforms.view_params.z, f32(level));
+                var probe: Coord128; let delta = p_eval / s;
+                probe.w0 = vec4<i32>(vec3<i32>(floor(delta)), 0); probe.w1 = vec4<u32>(vec3<u32>(fract(delta) * 4294967295.0), 0u);
+                probe.w2 = pos.w2; probe.w3 = pos.w3;
+                if (evaluateFractalMask128(probe) > 0.5) {
+                  let phase = fract((t_base / s) / (lambda * 0.05)) * (2.0 * PI) + (t_micro / s) * k + uniforms.view_params.x;
+                  let peak = 440.0 + 260.0 * fract(spatial_offset / PI + lambda * 0.001);
+                  amp += vec2<f32>(cos(phase), sin(phase)) * sqrt(3.5 * exp(-0.5 * pow((lambda - peak) / 25.0, 2.0)) / (f32(level) + 1.0));
+                }
+              }
+              acc += (dot(amp, amp) * wavelengthToRgb(lambda)) / samples;
+            }
+            for (var i = 0u; i < 128u; i++) {
+                let d = length(p_eval - toFloatVec(fluid[i].pos));
+                if (d < 0.2) { 
+                  let kernel = exp(-8.0 * d * d);
+                  acc += vec3<f32>(0.2, 0.6, 1.0) * kernel * 5.0 * length(fluid[i].psi.xy); 
+                }
+            }
+            return acc;
+          }
+
+          fn checkGridActive(p: vec3<f32>, out_normal: ptr<function, vec3<f32>>) -> bool {
+             if (any(p < vec3<f32>(-2.0)) || any(p > vec3<f32>(2.0))) { return true; }
+             let grid_res = 32u;
+             let norm_p = (p + 2.0) * 0.25; 
+             let idx = u32(norm_p.x * f32(grid_res)) + u32(norm_p.y * f32(grid_res)) * grid_res + u32(norm_p.z * f32(grid_res)) * grid_res * grid_res;
+             if (idx < arrayLength(&dag)) {
+                 if (dag[idx].child_mask != 0u) { *out_normal = unpackNormalOctahedron(dag[idx].normal_cache); return true; }
+             }
+             return false;
+          }
+
+          @vertex fn vs_main(@builtin(vertex_index) id: u32) -> @builtin(position) vec4<f32> {
+            var r = array<vec2<f32>, 3>(vec2(-1.,-1.), vec2(3.,-1.), vec2(-1.,3.)); return vec4<f32>(r[id], 0., 1.);
+          }
+
+          @fragment fn fs_main(@builtin(position) coord: vec4<f32>) -> FragmentOutput {
+            var out: FragmentOutput; let res = vec2<f32>(textureDimensions(history));
+            var uv = (coord.xy + uniforms.jitter_params.xy - 0.5 - (res * 0.5)) / (res.y * 0.5); uv.x *= uniforms.view_params.w;
+            
+            let rot = uniforms.camera_params.xy; let sr = sin(rot); let cr = cos(rot);
+            var ro_dir = vec3<f32>(0.0, 0.0, -1.0);
+            ro_dir = vec3<f32>(ro_dir.x, ro_dir.y * cr.y - ro_dir.z * sr.y, ro_dir.y * sr.y + ro_dir.z * cr.y);
+            ro_dir = vec3<f32>(ro_dir.x * cr.x + ro_dir.z * sr.x, ro_dir.y, -ro_dir.x * sr.x + ro_dir.z * cr.x);
+            
+            let look = normalize(-ro_dir); 
+            let right = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), look)); 
+            let up = cross(look, right);
+            var dir = normalize(look * 1.5 + right * uv.x + up * uv.y);
+            
+            var r_pos: Coord128;
+            r_pos.w0 = uniforms.cam_pos_w0; r_pos.w1 = uniforms.cam_pos_w1;
+            r_pos.w2 = uniforms.cam_pos_w2; r_pos.w3 = uniforms.cam_pos_w3;
+
+            var t: f32 = 0.0; var cached_n: vec3<f32>;
+            
+            for (var step: i32 = 0; step < i32(uniforms.camera_params.w); step++) {
+              let p = toFloatVec(r_pos);
+              let in_active = checkGridActive(p, &cached_n);
+              
+              if (!in_active) {
+                let s = 0.1; r_pos = advectCoord128(r_pos, dir, s); t += s; continue;
+              }
+
+              let d = computeFractalSDF(p, uniforms.view_params.z, uniforms.camera_params.z, uniforms.view_params.x);
+              if (d < 0.002) {
+                if (evaluateFractalMask128(r_pos) > 0.5) {
+                  let d00 = textureLoad(history, vec2<i32>(coord.xy), 0);
+                  let h_ph = (f32(d00.y) / 4294967295.0) * (2.0 * PI) - PI; let raw_p = atan2(p.y, p.x);
+                  let w_ph = h_ph + (raw_p - h_ph - (2. * PI) * floor((raw_p - h_ph + PI) / (2. * PI))) * uniforms.jitter_params.z;
+                  let c_rgb = calculatePathRadiance(r_pos, floor(t), fract(t), w_ph);
+                  let sc = (1.0 / (exposure_state.adapted_lum + 0.1)) / ((1.0 / (exposure_state.adapted_lum + 0.1)) + length(c_rgb) * 0.15 + 1.0);
+                  let f_xyz = decodeLogLuv(d00.x) * (1. - uniforms.jitter_params.z) + (c_rgb * sc) * uniforms.jitter_params.z;
+                  let rgb_v = mat3x3<f32>(uniforms.color_mat0.xyz, uniforms.color_mat1.xyz, uniforms.color_mat2.xyz) * f_xyz;
+                  
+                  out.color = vec4<f32>(linearToSrgb(pow(max(rgb_v, vec3<f32>(0.)), vec3<f32>(1.05)) / (pow(max(rgb_v, vec3<f32>(0.)), vec3<f32>(1.05)) + 1.)), 1.);
+                  out.data = vec2<u32>(encodeLogLuv(f_xyz), u32(((w_ph + PI) / (2.0 * PI)) * 4294967295.0)); return out;
+                } else { dir = reflect(dir, cached_n); }
+              }
+              let inc = max(d, 0.0025); r_pos = advectCoord128(r_pos, dir, inc); t += inc;
+              if (t > 15.0) { break; }
+            }
+            out.color = vec4<f32>(0.0, 0.0, 0.01, 1.0); return out;
+          }
+        `;
+
+        const svoPipeline = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({code: svoShaderSource}), entryPoint: 'cs_svo_build' } });
+        const computePipeline = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({code: computeShaderSource}), entryPoint: 'cs_main' } });
+        const lumPipeline = device.createComputePipeline({ layout: 'auto', compute: { module: device.createShaderModule({code: lumShaderSource}), entryPoint: 'cs_lum_main' } });
+        const renderPipeline = device.createRenderPipeline({ layout: 'auto', vertex: { module: device.createShaderModule({code: renderShaderSource}), entryPoint: 'vs_main' }, fragment: { module: device.createShaderModule({code: renderShaderSource}), entryPoint: 'fs_main', targets: [{format: swapChainFormat}, {format: 'rg32uint'}] } });
+
+        const uniformBuffer = device.createBuffer({ size: 176, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        const uniformData = new ArrayBuffer(176);
+        const uniformF32 = new Float32Array(uniformData);
+        const uniformI32 = new Int32Array(uniformData);
+        const uniformU32 = new Uint32Array(uniformData);
+
+        const dagBuffer = device.createBuffer({ size: CONFIGURATION.DAG_BUFFER_SIZE * 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        const fluidBuffer = device.createBuffer({ size: CONFIGURATION.FLUID_PARTICLES * 96, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        const exposureBuffer = device.createBuffer({ size: 16, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+        
+        device.queue.writeBuffer(exposureBuffer, 0, new Float32Array([1.0, 1.0, 0.0, 0.0]));
+        const initialFluidData = new ArrayBuffer(CONFIGURATION.FLUID_PARTICLES * 96);
+        const fI32 = new Int32Array(initialFluidData); const fU32 = new Uint32Array(initialFluidData); const fF32 = new Float32Array(initialFluidData);
+        for (let i = 0; i < CONFIGURATION.FLUID_PARTICLES; i++) {
+            const b = i * 24; fI32[b] = Math.floor(Math.random() * 4 - 2); fU32[b+4] = Math.random()*0xFFFFFFFF; fF32[b+16] = (Math.random()-0.5)*0.2; fF32[b+20] = 1.0;
+        }
+        device.queue.writeBuffer(fluidBuffer, 0, initialFluidData);
+
+        let viewportWidth = canvasElement.clientWidth || 1024, viewportHeight = canvasElement.clientHeight || 1024;
+        canvasElement.width = viewportWidth; canvasElement.height = viewportHeight;
+        let history = [0, 1].map(() => device.createTexture({ size: [viewportWidth, viewportHeight], format: 'rg32uint', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING }));
+
+        const resizeObserver = new ResizeObserver((entries) => {
+          for (const entry of entries) {
+            const w = Math.floor(entry.contentRect.width); const h = Math.floor(entry.contentRect.height);
+            if (w !== viewportWidth || h !== viewportHeight) {
+              viewportWidth = w; viewportHeight = h;
+              canvasElement.width = w; canvasElement.height = h;
+              CONFIGURATION.ASPECT_RATIO = w / h;
+              history.forEach(t => t.destroy());
+              history = [0, 1].map(() => device.createTexture({ size: [w, h], format: 'rg32uint', usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.TEXTURE_BINDING }));
+            }
+          }
+        });
+        resizeObserver.observe(canvasElement);
+
+        let frameCount = 0, azimuth = 0.5, elevation = 0.4, distance = 4.2, isInteracting = false, pointerU = 0, pointerV = 0, prevTime = performance.now();
+        let camTarget = { x: 0n, y: 0n, z: 0n };
+        let isPanning = false;
+
+        canvasElement.addEventListener('pointerdown', e => { 
+            canvasElement.setPointerCapture(e.pointerId); 
+            isInteracting = true; 
+            if (e.button === 2 || e.shiftKey) { isPanning = true; }
+            pointerU = e.clientX; pointerV = e.clientY; 
+        });
+        window.addEventListener('pointerup', () => { isInteracting = false; isPanning = false; });
+        canvasElement.addEventListener('contextmenu', e => e.preventDefault());
+
+        window.addEventListener('pointermove', e => {
+          if (!isInteracting) { return; }
+          let dx = e.clientX - pointerU;
+          let dy = e.clientY - pointerV;
+          pointerU = e.clientX; pointerV = e.clientY;
+          if (isPanning) {
+              let cr_y = Math.cos(azimuth); let sr_y = Math.sin(azimuth);
+              let cr_x = Math.cos(elevation); let sr_x = Math.sin(elevation);
+              let ro_x = -distance * cr_x * sr_y; let ro_y = distance * sr_x; let ro_z = -distance * cr_x * cr_y;
+              let rlen = Math.sqrt(ro_x*ro_x + ro_y*ro_y + ro_z*ro_z);
+              let lx = -ro_x/rlen, ly = -ro_y/rlen, lz = -ro_z/rlen;
+              let rx = lz, ry = 0.0, rz = -lx;
+              let rl = Math.sqrt(rx*rx + rz*rz);
+              if(rl > 0) { rx /= rl; rz /= rl; }
+              let ux = ly*rz - lz*ry, uy = lz*rx - lx*rz, uz = lx*ry - ly*rx;
+              let panSpeed = distance * 0.0015;
+              camTarget.x += floatToBigInt(rx * -dx * panSpeed + ux * dy * panSpeed);
+              camTarget.y += floatToBigInt(ry * -dx * panSpeed + uy * dy * panSpeed);
+              camTarget.z += floatToBigInt(rz * -dx * panSpeed + uz * dy * panSpeed);
+          } else {
+              azimuth -= dx * 0.005; elevation = Math.max(-1.4, Math.min(1.4, elevation + dy * 0.005));
+          }
+        });
+
+        window.addEventListener('wheel', e => { 
+            if (e.clientX > canvasElement.offsetLeft) { distance *= Math.exp(e.deltaY * 0.002); } 
+        }, {passive: false});
+
+        function render(now) {
+          const dt = now - prevTime; prevTime = now;
+          if (dt > 18.0) { CONFIGURATION.MAX_RAY_STEPS = Math.max(32, CONFIGURATION.MAX_RAY_STEPS - 1); }
+          else if (dt < 14.0) { CONFIGURATION.MAX_RAY_STEPS = Math.min(160, CONFIGURATION.MAX_RAY_STEPS + 1); }
+          performanceMetrics.innerHTML = `${dt.toFixed(2)}&nbsp;ms | steps: ${CONFIGURATION.MAX_RAY_STEPS.toFixed(1)} | scale: ${CONFIGURATION.FRACTAL_SCALE.toFixed(6)}`;
+          
+          let cr_y = Math.cos(azimuth); let sr_y = Math.sin(azimuth);
+          let cr_x = Math.cos(elevation); let sr_x = Math.sin(elevation);
+          let cx = camTarget.x + floatToBigInt(-distance * cr_x * sr_y);
+          let cy = camTarget.y + floatToBigInt(distance * sr_x);
+          let cz = camTarget.z + floatToBigInt(-distance * cr_x * cr_y);
+
+          uniformF32.set([now*0.0006, 128, 1.618, viewportWidth/viewportHeight, computeLowDiscrepancySequence(frameCount%64+1, 2), computeLowDiscrepancySequence(frameCount%64+1, 3), (frameCount===0)?1:.12, distance, azimuth, elevation, 1.45, CONFIGURATION.MAX_RAY_STEPS, 1.15, 0, 0, 0, 3.24, -0.96, 0.05, 0, -1.53, 1.87, -0.2, 0, -0.49, 0.04, 1.05, 0], 0);
+
+          const m32 = 0xFFFFFFFFn;
+          let axes = [cx, cy, cz];
+          for(let i = 0; i < 3; i++) {
+              let v = axes[i];
+              uniformI32[28+i] = Number((v >> 96n) & m32) | 0;
+              uniformU32[32+i] = Number((v >> 64n) & m32);
+              uniformU32[36+i] = Number((v >> 32n) & m32);
+              uniformU32[40+i] = Number(v & m32);
+          }
+
+          device.queue.writeBuffer(uniformBuffer, 0, uniformData);
+          const encoder = device.createCommandEncoder();
+
+          const sPass = encoder.beginComputePass();
+          sPass.setPipeline(svoPipeline); sPass.setBindGroup(0, device.createBindGroup({ layout: svoPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: {buffer: uniformBuffer} }, { binding: 1, resource: {buffer: dagBuffer} }] }));
+          sPass.dispatchWorkgroups(Math.ceil(CONFIGURATION.DAG_BUFFER_SIZE / 64)); sPass.end();
+
+          const cPass = encoder.beginComputePass();
+          cPass.setPipeline(computePipeline); cPass.setBindGroup(0, device.createBindGroup({ layout: computePipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: {buffer: uniformBuffer} }, { binding: 1, resource: {buffer: fluidBuffer} }] }));
+          cPass.dispatchWorkgroups(Math.ceil(CONFIGURATION.FLUID_PARTICLES / 64)); cPass.end();
+
+          const lPass = encoder.beginComputePass();
+          lPass.setPipeline(lumPipeline); lPass.setBindGroup(0, device.createBindGroup({ layout: lumPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: {buffer: fluidBuffer} }, { binding: 1, resource: {buffer: exposureBuffer} }] }));
+          lPass.dispatchWorkgroups(1); lPass.end();
+
+          const rPass = encoder.beginRenderPass({ colorAttachments: [{ view: context.getCurrentTexture().createView(), clearValue: {r:0, g:0, b:0, a:1}, loadOp: 'clear', storeOp: 'store' }, { view: history[(frameCount + 1) % 2].createView(), clearValue: {r:0, g:0, b:0, a:0}, loadOp: 'clear', storeOp: 'store' }] });
+          rPass.setPipeline(renderPipeline); rPass.setBindGroup(0, device.createBindGroup({ layout: renderPipeline.getBindGroupLayout(0), entries: [{ binding: 0, resource: {buffer: uniformBuffer} }, { binding: 1, resource: history[frameCount % 2].createView() }, { binding: 2, resource: {buffer: dagBuffer} }, { binding: 3, resource: {buffer: fluidBuffer} }, { binding: 4, resource: {buffer: exposureBuffer} }] }));
+          rPass.draw(3); rPass.end();
+
+          device.queue.submit([encoder.finish()]);
+          frameCount++; requestAnimationFrame(render);
+        }
+        requestAnimationFrame(render);
+      } catch (err) { errorMessageElement.textContent = `Render pipeline fault: ${err.message}`; errorOverlayElement.classList.remove('hidden'); }
+    }
+    window.onload = initializeRenderPipeline;
+  </script>
+</body>
+</html>

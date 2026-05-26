@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monte Carlo global illumination algorithm</title>
+  <style>
+    body {
+      align-items: center;
+      background: #050505;
+      color: #e0e0e0;
+      display: flex;
+      flex-direction: column;
+      font-family: monospace;
+      height: 100vh;
+      justify-content: center;
+      margin: 0;
+      overflow: hidden;
+    }
+
+    canvas {
+      display: block;
+      height: 100%;
+      width: 100%;
+    }
+
+    #rendering-pipeline-telemetry {
+      backdrop-filter: blur(8px);
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid #333;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.5);
+      left: 20px;
+      padding: 20px;
+      pointer-events: none;
+      position: absolute;
+      top: 20px;
+      z-index: 10;
+    }
+
+    .telemetry-variable-value {
+      font-size: 14px;
+      font-variant-numeric: tabular-nums;
+      margin-bottom: 8px;
+    }
+
+    .telemetry-variable-identifier {
+      color: #888;
+      font-size: 10px;
+      font-weight: bold;
+      letter-spacing: 1.2px;
+      margin-bottom: 2px;
+      margin-top: 10px;
+      text-transform: uppercase;
+    }
+
+    #input-event-listener-instructions {
+      background: rgba(10, 10, 10, 0.85);
+      border: 1px solid #333;
+      border-radius: 8px;
+      bottom: 20px;
+      color: #aaa;
+      font-size: 12px;
+      left: 50%;
+      padding: 10px 20px;
+      pointer-events: none;
+      position: absolute;
+      transform: translateX(-50%);
+      z-index: 10;
+    }
+
+    #runtime-exception-stack-trace {
+      background: #110000;
+      border: 1px solid #ff4444;
+      color: #ff4444;
+      display: none;
+      max-width: 80%;
+      padding: 20px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <div id="rendering-pipeline-telemetry">
+    <div class="telemetry-variable-identifier">Floating-point format</div>
+    <div class="telemetry-variable-value">IEEE 754–2019 specification</div>
+    <div class="telemetry-variable-identifier">Stochastic sampling algorithm</div>
+    <div class="telemetry-variable-value">Unbiased bidirectional reflectance distribution function evaluation</div>
+    <div class="telemetry-variable-identifier">Variance reduction algorithm</div>
+    <div class="telemetry-variable-value">Multiple importance sampling (MIS)</div>
+    <div class="telemetry-variable-identifier">Temporal reprojection buffer</div>
+    <div id="temporal-accumulation-counter" class="telemetry-variable-value">Zero accumulated iterations per fragment</div>
+  </div>
+
+  <div id="input-event-listener-instructions">
+    Execute Document.requestPointerLock() API. Mutate translation vectors via WASD keycodes: mutate scalar elevation via QE keycodes.
+  </div>
+  
+  <div id="runtime-exception-stack-trace">
+    WebGPU API context null: validate GPU driver execution environment.
+  </div>
+  
+  <canvas id="webgpu-swapchain-canvas"></canvas>
+
+  <script type="module">
+    /**
+     * @fileoverview GPU-accelerated stochastic global illumination solver.
+     * Executes Monte Carlo integration over rendering equation via 
+     * unbiased light transport algorithms and temporal buffering.
+     */
+
+    /** @type {string} WGSL compute kernel string defining radiance evaluation. */
+    const compute_shader_payload = `
+      struct GlobalPipelineParameters {
+        framebuffer_width: f32,
+        framebuffer_height: f32,
+        render_loop_iteration: u32,
+        cryptographic_nonce: u32,
+        view_matrix_origin: vec3<f32>,
+        memory_alignment_padding_0: f32,
+        view_matrix_right: vec3<f32>,
+        memory_alignment_padding_1: f32,
+        view_matrix_up: vec3<f32>,
+        memory_alignment_padding_2: f32,
+        view_matrix_forward: vec3<f32>,
+        memory_alignment_padding_3: f32,
+      };
+
+      @group(0) @binding(0) var<uniform> pipeline_parameters: GlobalPipelineParameters;
+      @group(0) @binding(1) var accumulation_buffer_read: texture_2d<f32>;
+      @group(0) @binding(2) var accumulation_buffer_write: texture_storage_2d<rgba32float, write>;
+
+      // --- Pseudorandom number generation utilising PCG hashing ---
+
+      var<private> prng_entropy_state: u32;
+
+      fn execute_pcg_hash_function() -> u32 {
+        let bitwise_state = prng_entropy_state * 747796405u + 2891336453u;
+        let bitwise_word = ((bitwise_state >> ((bitwise_state >> 28u) + 4u)) ^ bitwise_state) * 277803737u;
+        prng_entropy_state = (bitwise_word >> 22u) ^ bitwise_word;
+        return prng_entropy_state;
+      }
+
+      fn generate_uniform_float() -> f32 {
+        return f32(execute_pcg_hash_function()) / 4294967296.0;
+      }
+
+      fn generate_uniform_vec2() -> vec2<f32> {
+        return vec2<f32>(generate_uniform_float(), generate_uniform_float());
+      }
+
+      // --- Spatial bounding volumes and ray-casting algorithms ---
+
+      struct VectorRay {
+        origin_coordinate: vec3<f32>,
+        direction_vector: vec3<f32>,
+      };
+
+      struct ImplicitSphereGeometry {
+        centroid_coordinate: vec3<f32>,
+        scalar_radius: f32,
+        albedo_coefficient: vec3<f32>,
+        emittance_vector: vec3<f32>,
+      };
+
+      struct RayIntersectionPayload {
+        scalar_distance: f32,
+        intersection_coordinate: vec3<f32>,
+        surface_normal_vector: vec3<f32>,
+        diffuse_brdf_coefficient: vec3<f32>,
+        radiant_emittance_vector: vec3<f32>,
+        boolean_intersection_valid: bool,
+      };
+
+      var<private> spatial_acceleration_array: array<ImplicitSphereGeometry, 5> = array<ImplicitSphereGeometry, 5>(
+        ImplicitSphereGeometry(vec3<f32>(0.0, -1001.5, -5.0), 1000.0, vec3<f32>(0.7, 0.7, 0.7), vec3<f32>(0.0)),
+        ImplicitSphereGeometry(vec3<f32>(-3.0, 0.0, -5.0), 1.5, vec3<f32>(0.9, 0.1, 0.1), vec3<f32>(0.0)),
+        ImplicitSphereGeometry(vec3<f32>(0.0, 0.0, -5.0), 1.5, vec3<f32>(0.1, 0.9, 0.1), vec3<f32>(0.0)),
+        ImplicitSphereGeometry(vec3<f32>(3.0, 0.0, -5.0), 1.5, vec3<f32>(0.1, 0.1, 0.9), vec3<f32>(0.0)),
+        ImplicitSphereGeometry(vec3<f32>(0.0, 8.5, -5.0), 2.0, vec3<f32>(0.0), vec3<f32>(40.0, 40.0, 40.0))
+      );
+
+      fn evaluate_quadratic_ray_sphere_intersection(ray: VectorRay, geometry_node: ImplicitSphereGeometry) -> f32 {
+        let displacement_vector = ray.origin_coordinate - geometry_node.centroid_coordinate;
+        let polynomial_b = dot(displacement_vector, ray.direction_vector);
+        let polynomial_c = dot(displacement_vector, displacement_vector) - geometry_node.scalar_radius * geometry_node.scalar_radius;
+        let algebraic_discriminant = polynomial_b * polynomial_b - polynomial_c;
+        if (algebraic_discriminant < 0.0) { return -1.0; }
+        return -polynomial_b - sqrt(algebraic_discriminant);
+      }
+
+      fn traverse_linear_scene_graph(ray: VectorRay) -> RayIntersectionPayload {
+        var payload: RayIntersectionPayload;
+        payload.scalar_distance = 1e30;
+        payload.boolean_intersection_valid = false;
+
+        for (var iterator = 0u; iterator < 5u; iterator++) {
+          let scalar_t = evaluate_quadratic_ray_sphere_intersection(ray, spatial_acceleration_array[iterator]);
+          if (scalar_t > 0.001 && scalar_t < payload.scalar_distance) {
+            payload.scalar_distance = scalar_t;
+            payload.intersection_coordinate = ray.origin_coordinate + ray.direction_vector * scalar_t;
+            payload.surface_normal_vector = normalize(payload.intersection_coordinate - spatial_acceleration_array[iterator].centroid_coordinate);
+            payload.diffuse_brdf_coefficient = spatial_acceleration_array[iterator].albedo_coefficient;
+            payload.radiant_emittance_vector = spatial_acceleration_array[iterator].emittance_vector;
+            payload.boolean_intersection_valid = true;
+          }
+        }
+        return payload;
+      }
+
+      // --- Stochastic integration and probability density functions ---
+
+      fn evaluate_mis_balance_heuristic(probability_density_function_a: f32, probability_density_function_b: f32) -> f32 {
+        let squared_pdf_a = probability_density_function_a * probability_density_function_a;
+        let squared_pdf_b = probability_density_function_b * probability_density_function_b;
+        return squared_pdf_a / (squared_pdf_a + squared_pdf_b);
+      }
+
+      fn execute_cosine_weighted_hemisphere_sampling(normal_vector: vec3<f32>, uniform_distribution: vec2<f32>) -> vec3<f32> {
+        let scalar_r = sqrt(uniform_distribution.x);
+        let azimuthal_angle = 6.28318530718 * uniform_distribution.y;
+        let cartesian_x = scalar_r * cos(azimuthal_angle);
+        let cartesian_y = scalar_r * sin(azimuthal_angle);
+        let cartesian_z = sqrt(max(0.0, 1.0 - uniform_distribution.x));
+        
+        var orthonormal_basis_up = vec3<f32>(1.0, 0.0, 0.0);
+        if (abs(normal_vector.x) > 0.99) { orthonormal_basis_up = vec3<f32>(0.0, 1.0, 0.0); }
+        let orthonormal_tangent = normalize(cross(orthonormal_basis_up, normal_vector));
+        let orthonormal_bitangent = cross(normal_vector, orthonormal_tangent);
+        
+        return normalize(orthonormal_tangent * cartesian_x + orthonormal_bitangent * cartesian_y + normal_vector * cartesian_z);
+      }
+
+      fn execute_direct_illumination_sampling(
+        intersection_coordinate: vec3<f32>, 
+        emissive_geometry_node: ImplicitSphereGeometry, 
+        uniform_distribution: vec2<f32>, 
+        sampled_direction_pointer: ptr<function, vec3<f32>>, 
+        probability_density_pointer: ptr<function, f32>
+      ) {
+        let displacement_vector = emissive_geometry_node.centroid_coordinate - intersection_coordinate;
+        let squared_distance = dot(displacement_vector, displacement_vector);
+        let scalar_distance = sqrt(squared_distance);
+        let normal_axis = displacement_vector / scalar_distance;
+        
+        let squared_sin_theta_max = (emissive_geometry_node.scalar_radius * emissive_geometry_node.scalar_radius) / squared_distance;
+        let cos_theta_max = sqrt(max(0.0, 1.0 - squared_sin_theta_max));
+        
+        let cartesian_z = 1.0 - uniform_distribution.x * (1.0 - cos_theta_max);
+        let scalar_r = sqrt(max(0.0, 1.0 - cartesian_z * cartesian_z));
+        let azimuthal_angle = 6.28318530718 * uniform_distribution.y;
+        
+        var orthonormal_tangent_basis = vec3<f32>(1.0, 0.0, 0.0);
+        if (abs(normal_axis.x) > 0.99) { orthonormal_tangent_basis = vec3<f32>(0.0, 1.0, 0.0); }
+        let orthonormal_tangent = normalize(cross(orthonormal_tangent_basis, normal_axis));
+        let orthonormal_bitangent = cross(normal_axis, orthonormal_tangent);
+        
+        *sampled_direction_pointer = normalize(orthonormal_tangent * scalar_r * cos(azimuthal_angle) + orthonormal_bitangent * scalar_r * sin(azimuthal_angle) + normal_axis * cartesian_z);
+        *probability_density_pointer = 1.0 / (6.28318530718 * (1.0 - cos_theta_max));
+      }
+
+      @compute @workgroup_size(16, 16)
+      fn compute_kernel_entry(@builtin(global_invocation_id) thread_invocation_identifier: vec3<u32>) {
+        if (f32(thread_invocation_identifier.x) >= pipeline_parameters.framebuffer_width || f32(thread_invocation_identifier.y) >= pipeline_parameters.framebuffer_height) { 
+          return; 
+        }
+        
+        prng_entropy_state = thread_invocation_identifier.x * 1973u + thread_invocation_identifier.y * 9277u + pipeline_parameters.render_loop_iteration * 26699u + pipeline_parameters.cryptographic_nonce;
+        execute_pcg_hash_function(); 
+        
+        let subpixel_stochastic_offset = generate_uniform_vec2();
+        let normalised_device_coordinates = (vec2<f32>(thread_invocation_identifier.xy) + subpixel_stochastic_offset) / vec2<f32>(pipeline_parameters.framebuffer_width, pipeline_parameters.framebuffer_height);
+        let framebuffer_aspect_ratio = pipeline_parameters.framebuffer_width / pipeline_parameters.framebuffer_height;
+        let orthographic_projection_uv = (normalised_device_coordinates * 2.0 - 1.0) * vec2<f32>(framebuffer_aspect_ratio, -1.0);
+        
+        var integration_ray: VectorRay;
+        integration_ray.origin_coordinate = pipeline_parameters.view_matrix_origin;
+        
+        let projection_matrix_focal_length = 1.5;
+        let projection_matrix_scalar = 0.75;
+        let ray_direction_vector = pipeline_parameters.view_matrix_forward * projection_matrix_focal_length + 
+                               pipeline_parameters.view_matrix_right * (orthographic_projection_uv.x * projection_matrix_scalar) + 
+                               pipeline_parameters.view_matrix_up * (orthographic_projection_uv.y * projection_matrix_scalar);
+        integration_ray.direction_vector = normalize(ray_direction_vector);
+        
+        var recursive_throughput_vector = vec3<f32>(1.0);
+        var monte_carlo_radiance_accumulator = vec3<f32>(0.0);
+        var previous_bounce_probability_density = 1.0;
+        
+        let emissive_geometry_reference = spatial_acceleration_array[4];
+        
+        for (var recursion_depth_iterator = 0; recursion_depth_iterator < 4; recursion_depth_iterator++) {
+          let geometric_payload = traverse_linear_scene_graph(integration_ray);
+          
+          if (!geometric_payload.boolean_intersection_valid) {
+            monte_carlo_radiance_accumulator += recursive_throughput_vector * vec3<f32>(0.02); 
+            break;
+          }
+          
+          let boolean_emittance_active = dot(geometric_payload.radiant_emittance_vector, geometric_payload.radiant_emittance_vector) > 0.0;
+          
+          if (boolean_emittance_active) {
+            if (recursion_depth_iterator == 0) { 
+              monte_carlo_radiance_accumulator += recursive_throughput_vector * geometric_payload.radiant_emittance_vector; 
+            } else {
+              let displacement_vector = emissive_geometry_reference.centroid_coordinate - integration_ray.origin_coordinate;
+              let squared_distance = dot(displacement_vector, displacement_vector);
+              let squared_sin = (emissive_geometry_reference.scalar_radius * emissive_geometry_reference.scalar_radius) / squared_distance;
+              let cos_max = sqrt(max(0.0, 1.0 - squared_sin));
+              let geometry_probability_density = 1.0 / (6.28318530718 * (1.0 - cos_max));
+              
+              let mis_balance_weight = evaluate_mis_balance_heuristic(previous_bounce_probability_density, geometry_probability_density);
+              monte_carlo_radiance_accumulator += recursive_throughput_vector * geometric_payload.radiant_emittance_vector * mis_balance_weight;
+            }
+            break; 
+          }
+          
+          var light_sampling_direction_vector: vec3<f32>;
+          var light_sampling_probability_density: f32;
+          execute_direct_illumination_sampling(geometric_payload.intersection_coordinate, emissive_geometry_reference, generate_uniform_vec2(), &light_sampling_direction_vector, &light_sampling_probability_density);
+          
+          let cos_theta_illumination = dot(geometric_payload.surface_normal_vector, light_sampling_direction_vector);
+          if (cos_theta_illumination > 0.0) {
+            var visibility_occlusion_ray: VectorRay;
+            visibility_occlusion_ray.origin_coordinate = geometric_payload.intersection_coordinate + geometric_payload.surface_normal_vector * 0.001;
+            visibility_occlusion_ray.direction_vector = light_sampling_direction_vector;
+            let occlusion_geometric_payload = traverse_linear_scene_graph(visibility_occlusion_ray);
+            
+            if (occlusion_geometric_payload.boolean_intersection_valid && dot(occlusion_geometric_payload.radiant_emittance_vector, occlusion_geometric_payload.radiant_emittance_vector) > 0.0) {
+              let brdf_probability_density = cos_theta_illumination / 3.14159265359;
+              let mis_balance_weight = evaluate_mis_balance_heuristic(light_sampling_probability_density, brdf_probability_density);
+              let lambertian_brdf_coefficient = geometric_payload.diffuse_brdf_coefficient / 3.14159265359;
+              monte_carlo_radiance_accumulator += recursive_throughput_vector * lambertian_brdf_coefficient * emissive_geometry_reference.emittance_vector * cos_theta_illumination * mis_balance_weight / light_sampling_probability_density;
+            }
+          }
+          
+          let reflection_direction_vector = execute_cosine_weighted_hemisphere_sampling(geometric_payload.surface_normal_vector, generate_uniform_vec2());
+          previous_bounce_probability_density = dot(geometric_payload.surface_normal_vector, reflection_direction_vector) / 3.14159265359;
+          
+          recursive_throughput_vector *= geometric_payload.diffuse_brdf_coefficient;
+          integration_ray.origin_coordinate = geometric_payload.intersection_coordinate + geometric_payload.surface_normal_vector * 0.001;
+          integration_ray.direction_vector = reflection_direction_vector;
+          
+          if (recursion_depth_iterator > 2) {
+            let scalar_max_throughput = max(max(recursive_throughput_vector.x, recursive_throughput_vector.y), recursive_throughput_vector.z);
+            let russian_roulette_probability = clamp(scalar_max_throughput, 0.05, 0.95);
+            if (generate_uniform_float() > russian_roulette_probability) { break; }
+            recursive_throughput_vector /= russian_roulette_probability;
+          }
+        }
+        
+        let temporally_reprojected_radiance = textureLoad(accumulation_buffer_read, vec2<i32>(thread_invocation_identifier.xy), 0).rgb;
+        let temporal_exponential_moving_average_scalar = 1.0 / f32(pipeline_parameters.render_loop_iteration + 1u);
+        
+        var resolved_fragment_colour = mix(temporally_reprojected_radiance, monte_carlo_radiance_accumulator, temporal_exponential_moving_average_scalar);
+        if (any(resolved_fragment_colour != resolved_fragment_colour)) { resolved_fragment_colour = vec3<f32>(0.0); }
+        
+        textureStore(accumulation_buffer_write, thread_invocation_identifier.xy, vec4<f32>(resolved_fragment_colour, 1.0));
+      }
+    `;
+
+    /** @type {string} WGSL fragment shader string defining ACES filmic operator and sRGB colour space transformation. */
+    const rasterisation_shader_payload = `
+      @group(0) @binding(0) var memory_mapped_radiance_buffer: texture_2d<f32>;
+
+      struct VertexShaderOutputData {
+        @builtin(position) clip_space_coordinate: vec4<f32>,
+        @location(0) texture_mapping_uv: vec2<f32>,
+      };
+
+      @vertex
+      fn vertex_shader_entry(@builtin(vertex_index) vertex_array_index: u32) -> VertexShaderOutputData {
+        var geometry_vertex_array = array<vec2<f32>, 4>(vec2<f32>(-1.0, -1.0), vec2<f32>(1.0, -1.0), vec2<f32>(-1.0, 1.0), vec2<f32>(1.0, 1.0));
+        var output_data: VertexShaderOutputData;
+        output_data.clip_space_coordinate = vec4<f32>(geometry_vertex_array[vertex_array_index], 0.0, 1.0);
+        output_data.texture_mapping_uv = geometry_vertex_array[vertex_array_index] * 0.5 + 0.5;
+        output_data.texture_mapping_uv.y = 1.0 - output_data.texture_mapping_uv.y;
+        return output_data;
+      }
+
+      @fragment
+      fn fragment_shader_entry(input_data: VertexShaderOutputData) -> @location(0) vec4<f32> {
+        let framebuffer_dimensions = vec2<f32>(textureDimensions(memory_mapped_radiance_buffer));
+        let memory_address_vector = vec2<i32>(input_data.texture_mapping_uv * framebuffer_dimensions);
+        let linear_colour_space_radiance = textureLoad(memory_mapped_radiance_buffer, memory_address_vector, 0).rgb;
+        
+        let photographic_exposure_scalar = 1.0;
+        let filmic_tonemapped_colour = (linear_colour_space_radiance * photographic_exposure_scalar * (2.51 * linear_colour_space_radiance * photographic_exposure_scalar + 0.03)) / (linear_colour_space_radiance * photographic_exposure_scalar * (2.43 * linear_colour_space_radiance * photographic_exposure_scalar + 0.59) + 0.14);
+        
+        return vec4<f32>(pow(max(vec3<f32>(0.0), filmic_tonemapped_colour), vec3<f32>(0.4545)), 1.0);
+      }
+    `;
+
+    /**
+     * Instantiates WebGPU device context and executes compute pipeline.
+     * @returns {Promise<void>}
+     */
+    async function initialise_compute_pipeline_abstraction() {
+      if (!navigator.gpu) {
+        const standard_error_output = document.getElementById('runtime-exception-stack-trace');
+        if (standard_error_output) {
+          standard_error_output.style.display = 'block';
+        }
+        return;
+      }
+
+      const hardware_adapter_interface = await navigator.gpu.requestAdapter();
+      if (!hardware_adapter_interface) return;
+
+      const hardware_device_interface = await hardware_adapter_interface.requestDevice();
+      const rendering_canvas_element = document.getElementById('webgpu-swapchain-canvas');
+      if (!(rendering_canvas_element instanceof HTMLCanvasElement)) return;
+
+      const webgpu_rendering_context = rendering_canvas_element.getContext('webgpu');
+      if (!webgpu_rendering_context) return;
+      
+      const device_pixel_ratio_scalar = window.devicePixelRatio || 1;
+      rendering_canvas_element.width = window.innerWidth * device_pixel_ratio_scalar;
+      rendering_canvas_element.height = window.innerHeight * device_pixel_ratio_scalar;
+      
+      const swapchain_texture_format = navigator.gpu.getPreferredCanvasFormat();
+      webgpu_rendering_context.configure({ 
+        device: hardware_device_interface, 
+        format: swapchain_texture_format, 
+        alphaMode: 'premultiplied' 
+      });
+
+      /**
+       * Provisions IEEE 754 32-bit floating-point GPUTexture.
+       * @returns {GPUTexture}
+       */
+      const allocate_vram_texture_buffer = () => hardware_device_interface.createTexture({
+        size: [rendering_canvas_element.width, rendering_canvas_element.height],
+        format: 'rgba32float',
+        usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST
+      });
+      
+      const ping_pong_accumulation_buffers = [allocate_vram_texture_buffer(), allocate_vram_texture_buffer()];
+      const uniform_memory_buffer = hardware_device_interface.createBuffer({ 
+        size: 80, 
+        usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST 
+      });
+
+      const compute_shader_pipeline = hardware_device_interface.createComputePipeline({
+        layout: 'auto',
+        compute: { 
+          module: hardware_device_interface.createShaderModule({ code: compute_shader_payload }), 
+          entryPoint: 'compute_kernel_entry' 
+        }
+      });
+
+      const rasterisation_shader_pipeline = hardware_device_interface.createRenderPipeline({
+        layout: 'auto',
+        vertex: { 
+          module: hardware_device_interface.createShaderModule({ code: rasterisation_shader_payload }), 
+          entryPoint: 'vertex_shader_entry' 
+        },
+        fragment: { 
+          module: hardware_device_interface.createShaderModule({ code: rasterisation_shader_payload }), 
+          entryPoint: 'fragment_shader_entry', 
+          targets: [{ format: swapchain_texture_format }] 
+        },
+        primitive: { topology: 'triangle-strip' }
+      });
+
+      let render_loop_iteration_counter = 0;
+      const translation_matrix_origin = [0.0, 1.5, 7.5];
+      let euler_angle_y = -Math.PI / 2;
+      let euler_angle_x = 0;
+      
+      const keyboard_event_state_machine = { w: false, a: false, s: false, d: false, q: false, e: false };
+      let transformation_matrix_dirty_flag = true;
+
+      window.addEventListener('keydown', (dom_event) => {
+        const character_code = dom_event.key.toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(keyboard_event_state_machine, character_code)) {
+          keyboard_event_state_machine[character_code] = true;
+        }
+      });
+
+      window.addEventListener('keyup', (dom_event) => {
+        const character_code = dom_event.key.toLowerCase();
+        if (Object.prototype.hasOwnProperty.call(keyboard_event_state_machine, character_code)) {
+          keyboard_event_state_machine[character_code] = false;
+        }
+      });
+
+      rendering_canvas_element.addEventListener('mousedown', () => {
+        if (document.pointerLockElement !== rendering_canvas_element) {
+          rendering_canvas_element.requestPointerLock().catch((runtime_error) => {
+            console.error('DOM API exception: Document.requestPointerLock() rejected.', runtime_error.message);
+          });
+        }
+      });
+
+      document.addEventListener('mousemove', (dom_event) => {
+        if (document.pointerLockElement === rendering_canvas_element) {
+          euler_angle_y += dom_event.movementX * 0.002;
+          euler_angle_x -= dom_event.movementY * 0.002;
+          euler_angle_x = Math.max(-Math.PI / 2 + 0.01, Math.min(Math.PI / 2 - 0.01, euler_angle_x));
+          transformation_matrix_dirty_flag = true;
+        }
+      });
+
+      const uniform_buffer_array_backing = new ArrayBuffer(80);
+      const float32_memory_view = new Float32Array(uniform_buffer_array_backing);
+      const uint32_memory_view = new Uint32Array(uniform_buffer_array_backing);
+      const telemetry_dom_node_reference = document.getElementById('temporal-accumulation-counter');
+
+      /**
+       * Dispatches compute workgroups and executes rasterisation pipeline.
+       */
+      function dispatch_render_loop_iteration() {
+        let boolean_translation_active = false;
+        const translation_scalar = 0.15;
+
+        const forward_directional_vector = [
+          Math.cos(euler_angle_x) * Math.cos(euler_angle_y),
+          Math.sin(euler_angle_x),
+          Math.cos(euler_angle_x) * Math.sin(euler_angle_y)
+        ];
+
+        const right_directional_vector = [
+          -Math.cos(euler_angle_y - Math.PI / 2),
+          0,
+          -Math.sin(euler_angle_y - Math.PI / 2)
+        ];
+
+        const up_directional_vector = [
+          right_directional_vector[1] * forward_directional_vector[2] - right_directional_vector[2] * forward_directional_vector[1],
+          right_directional_vector[2] * forward_directional_vector[0] - right_directional_vector[0] * forward_directional_vector[2],
+          right_directional_vector[0] * forward_directional_vector[1] - right_directional_vector[1] * forward_directional_vector[0]
+        ];
+
+        if (keyboard_event_state_machine['w']) { translation_matrix_origin[0] += forward_directional_vector[0] * translation_scalar; translation_matrix_origin[1] += forward_directional_vector[1] * translation_scalar; translation_matrix_origin[2] += forward_directional_vector[2] * translation_scalar; boolean_translation_active = true; }
+        if (keyboard_event_state_machine['s']) { translation_matrix_origin[0] -= forward_directional_vector[0] * translation_scalar; translation_matrix_origin[1] -= forward_directional_vector[1] * translation_scalar; translation_matrix_origin[2] -= forward_directional_vector[2] * translation_scalar; boolean_translation_active = true; }
+        if (keyboard_event_state_machine['a']) { translation_matrix_origin[0] -= right_directional_vector[0] * translation_scalar; translation_matrix_origin[1] -= right_directional_vector[1] * translation_scalar; translation_matrix_origin[2] -= right_directional_vector[2] * translation_scalar; boolean_translation_active = true; }
+        if (keyboard_event_state_machine['d']) { translation_matrix_origin[0] += right_directional_vector[0] * translation_scalar; translation_matrix_origin[1] += right_directional_vector[1] * translation_scalar; translation_matrix_origin[2] += right_directional_vector[2] * translation_scalar; boolean_translation_active = true; }
+        if (keyboard_event_state_machine['e']) { translation_matrix_origin[1] += translation_scalar; boolean_translation_active = true; }
+        if (keyboard_event_state_machine['q']) { translation_matrix_origin[1] -= translation_scalar; boolean_translation_active = true; }
+
+        if (boolean_translation_active || transformation_matrix_dirty_flag) {
+          render_loop_iteration_counter = 0;
+          transformation_matrix_dirty_flag = false;
+        }
+
+        const read_memory_pointer_index = render_loop_iteration_counter % 2;
+        const write_memory_pointer_index = (render_loop_iteration_counter + 1) % 2;
+        
+        float32_memory_view[0] = rendering_canvas_element.width;
+        float32_memory_view[1] = rendering_canvas_element.height;
+        uint32_memory_view[2] = render_loop_iteration_counter;
+        uint32_memory_view[3] = Math.floor(Math.random() * 1000000);
+        
+        float32_memory_view[4] = translation_matrix_origin[0]; float32_memory_view[5] = translation_matrix_origin[1]; float32_memory_view[6] = translation_matrix_origin[2]; 
+        float32_memory_view[8] = right_directional_vector[0]; float32_memory_view[9] = right_directional_vector[1]; float32_memory_view[10] = right_directional_vector[2]; 
+        float32_memory_view[12] = up_directional_vector[0]; float32_memory_view[13] = up_directional_vector[1]; float32_memory_view[14] = up_directional_vector[2]; 
+        float32_memory_view[16] = forward_directional_vector[0]; float32_memory_view[17] = forward_directional_vector[1]; float32_memory_view[18] = forward_directional_vector[2]; 
+
+        hardware_device_interface.queue.writeBuffer(uniform_memory_buffer, 0, uniform_buffer_array_backing);
+
+        const compute_shader_bind_group = hardware_device_interface.createBindGroup({
+          layout: compute_shader_pipeline.getBindGroupLayout(0),
+          entries: [
+            { binding: 0, resource: { buffer: uniform_memory_buffer } },
+            { binding: 1, resource: ping_pong_accumulation_buffers[read_memory_pointer_index].createView() },
+            { binding: 2, resource: ping_pong_accumulation_buffers[write_memory_pointer_index].createView() }
+          ]
+        });
+
+        const rasterisation_shader_bind_group = hardware_device_interface.createBindGroup({
+          layout: rasterisation_shader_pipeline.getBindGroupLayout(0),
+          entries: [{ binding: 0, resource: ping_pong_accumulation_buffers[write_memory_pointer_index].createView() }]
+        });
+
+        const command_buffer_encoder = hardware_device_interface.createCommandEncoder();
+        const compute_pass_encoder = command_buffer_encoder.beginComputePass();
+        compute_pass_encoder.setPipeline(compute_shader_pipeline);
+        compute_pass_encoder.setBindGroup(0, compute_shader_bind_group);
+        compute_pass_encoder.dispatchWorkgroups(Math.ceil(rendering_canvas_element.width / 16), Math.ceil(rendering_canvas_element.height / 16));
+        compute_pass_encoder.end();
+
+        const render_pass_encoder = command_buffer_encoder.beginRenderPass({
+          colorAttachments: [{ 
+            view: webgpu_rendering_context.getCurrentTexture().createView(), 
+            clearValue: { r: 0, g: 0, b: 0, a: 1 }, 
+            loadOp: 'clear', 
+            storeOp: 'store' 
+          }]
+        });
+        render_pass_encoder.setPipeline(rasterisation_shader_pipeline);
+        render_pass_encoder.setBindGroup(0, rasterisation_shader_bind_group);
+        render_pass_encoder.draw(4);
+        render_pass_encoder.end();
+
+        hardware_device_interface.queue.submit([command_buffer_encoder.finish()]);
+        render_loop_iteration_counter++;
+        
+        if (render_loop_iteration_counter % 5 === 0 && telemetry_dom_node_reference) { 
+          let counter_string_representation = render_loop_iteration_counter.toString();
+          if (render_loop_iteration_counter < 10) {
+             const lexical_numerical_array = ['zero', 'one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine'];
+             counter_string_representation = lexical_numerical_array[render_loop_iteration_counter];
+          }
+          telemetry_dom_node_reference.innerText = `${counter_string_representation} accumulated iterations per fragment`; 
+        }
+        
+        requestAnimationFrame(dispatch_render_loop_iteration);
+      }
+      
+      dispatch_render_loop_iteration();
+    }
+
+    window.addEventListener('load', initialise_compute_pipeline_abstraction);
+  </script>
+</body>
+</html>
