@@ -1,0 +1,588 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictive Simulation Render Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #0f172a; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; }
+        #ui-layer { position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; padding: 1.5rem; display: flex; flex-direction: column; justify-content: space-between; }
+        .panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(8px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1.5rem; pointer-events: auto; }
+        select, input[type="checkbox"] { background: #1e293b; border: 1px solid #334155; color: #f8fafc; padding: 0.5rem; border-radius: 0.25rem; }
+        select:focus, input[type="checkbox"]:focus { outline: none; border-color: #38bdf8; }
+        .telemetry-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; color: #38bdf8; }
+    </style>
+</head>
+<body>
+
+<canvas id="render-canvas"></canvas>
+
+<div id="ui-layer">
+    <div class="panel max-w-md">
+        <h1 class="text-xl font-bold mb-4">Simulation parameters</h1>
+        
+        <div class="mb-4">
+            <label class="block text-sm font-medium mb-1" for="scene-select">Test scene</label>
+            <select id="scene-select" class="w-full">
+                <option value="cornell">Cornell test box</option>
+            </select>
+        </div>
+
+        <div class="mb-4">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" id="toggle-procedural" class="form-checkbox h-5 w-5 text-blue-500">
+                <span class="text-sm font-medium">Enable procedural predictive simulation</span>
+            </label>
+            <p class="text-xs text-slate-400 mt-1">Replaces standard stochastic random number generation with localised Gaussian exploitation in primary sample space.</p>
+        </div>
+
+        <div class="mb-4">
+            <label class="flex items-center space-x-3 cursor-pointer">
+                <input type="checkbox" id="toggle-spectral" class="form-checkbox h-5 w-5 text-blue-500">
+                <span class="text-sm font-medium">Enable Arithmetic-Bound Spectral Path Tracer</span>
+            </label>
+            <p class="text-xs text-slate-400 mt-1">Evaluates continuous electromagnetic wavelengths rather than standard RGB colour approximations.</p>
+        </div>
+    </div>
+
+    <div class="panel max-w-sm self-end">
+        <h2 class="text-lg font-bold mb-3">Telemetry and metrics</h2>
+        <div class="grid grid-cols-2 gap-y-2 text-sm">
+            <div class="text-slate-300">Frame time:</div>
+            <div id="metric-frametime" class="telemetry-value text-right">0 ms</div>
+            
+            <div class="text-slate-300">Accumulated samples:</div>
+            <div id="metric-samples" class="telemetry-value text-right">0</div>
+            
+            <div class="text-slate-300">Rays per second:</div>
+            <div id="metric-rps" class="telemetry-value text-right">0 M</div>
+
+            <div class="text-slate-300">Resolution:</div>
+            <div id="metric-res" class="telemetry-value text-right">0 x 0</div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    const WGSL_SOURCE = `
+        struct Uniforms {
+            resolution: vec2<f32>,
+            frame: u32,
+            procedural_mode: u32,
+            spectral_mode: u32,
+            padding: vec3<u32>,
+        };
+
+        @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+        @group(0) @binding(1) var accumulation_buffer: texture_storage_2d<rgba32float, read_write>;
+        @group(0) @binding(2) var render_texture: texture_storage_2d<rgba8unorm, write>;
+
+        var<private> seed: u32;
+
+        // Standard PCG Hash for stochastic rendering
+        fn pcg_hash(input: u32) -> u32 {
+            var state = input * 747796405u + 2891336453u;
+            var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+            return (word >> 22u) ^ word;
+        }
+
+        fn rand() -> f32 {
+            seed = pcg_hash(seed);
+            return f32(seed) / 4294967295.0;
+        }
+
+        // Simulated predictive Gaussian swarming
+        fn rand_gaussian(mean: f32, std_dev: f32) -> f32 {
+            let u1 = max(1e-8, rand());
+            let u2 = rand();
+            let z0 = sqrt(-2.0 * log(u1)) * cos(6.28318530718 * u2);
+            return z0 * std_dev + mean;
+        }
+
+        fn get_random_number() -> f32 {
+            if (uniforms.procedural_mode == 1u) {
+                // Simulate procedural continuous exploitation rather than uniform random scattering
+                return clamp(rand_gaussian(0.5, 0.25), 0.0, 1.0);
+            }
+            return rand();
+        }
+
+        struct Ray {
+            origin: vec3<f32>,
+            direction: vec3<f32>,
+        }
+
+        struct Material {
+            colour: vec3<f32>,
+            emission: vec3<f32>,
+            is_spectral: bool,
+            spectral_peak: f32, // Wavelength in nm (e.g., 650 for red, 530 for green)
+        }
+
+        struct HitRecord {
+            distance: f32,
+            normal: vec3<f32>,
+            material: Material,
+        }
+
+        // Analytical approximation of CIE 1931 colour matching functions
+        fn wavelength_to_xyz(lambda: f32) -> vec3<f32> {
+            let x = exp(-pow((lambda - 599.8) / 37.9, 2.0)) * 1.0622 + 
+                    exp(-pow((lambda - 442.0) / 30.6, 2.0)) * 0.3127 + 
+                    exp(-pow((lambda - 501.1) / 26.9, 2.0)) * 0.0044;
+            let y = exp(-pow((lambda - 568.8) / 46.9, 2.0)) * 0.8256 + 
+                    exp(-pow((lambda - 530.9) / 16.3, 2.0)) * 0.2840;
+            let z = exp(-pow((lambda - 437.0) / 11.8, 2.0)) * 1.2164 + 
+                    exp(-pow((lambda - 459.0) / 26.0, 2.0)) * 0.6805;
+            return vec3<f32>(x, y, z);
+        }
+
+        fn xyz_to_rgb(xyz: vec3<f32>) -> vec3<f32> {
+            let r =  3.2404542 * xyz.x - 1.5371385 * xyz.y - 0.4985314 * xyz.z;
+            let g = -0.9692660 * xyz.x + 1.8760108 * xyz.y + 0.0415560 * xyz.z;
+            let b =  0.0556434 * xyz.x - 0.2040259 * xyz.y + 1.0572252 * xyz.z;
+            return max(vec3<f32>(0.0), vec3<f32>(r, g, b));
+        }
+
+        fn intersect_plane(ray: Ray, normal: vec3<f32>, d: f32, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let t = -(dot(ray.origin, normal) + d) / dot(ray.direction, normal);
+            if (t > 0.001 && t < (*best_hit).distance) {
+                // Check bounds for Cornell box walls
+                let p = ray.origin + t * ray.direction;
+                if (abs(p.x) <= 1.0 && abs(p.y) <= 1.0 && p.z >= -1.0 && p.z <= 1.0) {
+                    (*best_hit).distance = t;
+                    (*best_hit).normal = normal;
+                    (*best_hit).material = mat;
+                }
+            }
+        }
+
+        fn intersect_box(ray: Ray, bmin: vec3<f32>, bmax: vec3<f32>, mat: Material, best_hit: ptr<function, HitRecord>) {
+            var tmin = (bmin - ray.origin) / ray.direction;
+            var tmax = (bmax - ray.origin) / ray.direction;
+            
+            var t1 = min(tmin, tmax);
+            var t2 = max(tmin, tmax);
+            
+            let t_near = max(max(t1.x, t1.y), t1.z);
+            let t_far = min(min(t2.x, t2.y), t2.z);
+            
+            if (t_near > 0.001 && t_near < t_far && t_near < (*best_hit).distance) {
+                (*best_hit).distance = t_near;
+                (*best_hit).material = mat;
+                
+                let p = ray.origin + t_near * ray.direction;
+                let c = (bmin + bmax) * 0.5;
+                let d = abs(p - c) / ((bmax - bmin) * 0.5);
+                
+                if (d.x > d.y && d.x > d.z) {
+                    (*best_hit).normal = vec3<f32>(sign(p.x - c.x), 0.0, 0.0);
+                } else if (d.y > d.z) {
+                    (*best_hit).normal = vec3<f32>(0.0, sign(p.y - c.y), 0.0);
+                } else {
+                    (*best_hit).normal = vec3<f32>(0.0, 0.0, sign(p.z - c.z));
+                }
+            }
+        }
+
+        fn rotate_y(v: vec3<f32>, angle: f32) -> vec3<f32> {
+            let c = cos(angle);
+            let s = sin(angle);
+            return vec3<f32>(c * v.x + s * v.z, v.y, -s * v.x + c * v.z);
+        }
+
+        fn map_scene(ray: Ray) -> HitRecord {
+            var hit = HitRecord(10000.0, vec3<f32>(0.0), Material(vec3<f32>(0.0), vec3<f32>(0.0), false, 0.0));
+            
+            let white = Material(vec3<f32>(0.725), vec3<f32>(0.0), true, 550.0); // Broad spectrum
+            let red   = Material(vec3<f32>(0.63, 0.065, 0.05), vec3<f32>(0.0), true, 650.0); // Long wavelength
+            let green = Material(vec3<f32>(0.14, 0.45, 0.09), vec3<f32>(0.0), true, 530.0); // Mid wavelength
+            let light = Material(vec3<f32>(0.0), vec3<f32>(15.0), true, 500.0); // Broad emission
+
+            // Room walls
+            intersect_plane(ray, vec3<f32>(1.0, 0.0, 0.0), 1.0, red, &hit);   // Left
+            intersect_plane(ray, vec3<f32>(-1.0, 0.0, 0.0), 1.0, green, &hit); // Right
+            intersect_plane(ray, vec3<f32>(0.0, 1.0, 0.0), 1.0, white, &hit);  // Floor
+            intersect_plane(ray, vec3<f32>(0.0, -1.0, 0.0), 1.0, white, &hit); // Ceiling
+            intersect_plane(ray, vec3<f32>(0.0, 0.0, 1.0), 1.0, white, &hit);  // Back
+
+            // Light source
+            intersect_box(ray, vec3<f32>(-0.25, 0.99, -0.25), vec3<f32>(0.25, 1.0, 0.25), light, &hit);
+
+            // Tall box
+            var r1 = ray;
+            r1.origin = rotate_y(r1.origin - vec3<f32>(-0.3, -0.4, -0.3), -0.3);
+            r1.direction = rotate_y(r1.direction, -0.3);
+            var hit1 = HitRecord(10000.0, vec3<f32>(0.0), white);
+            intersect_box(r1, vec3<f32>(-0.3, -0.6, -0.3), vec3<f32>(0.3, 0.6, 0.3), white, &hit1);
+            if (hit1.distance < hit.distance) {
+                hit.distance = hit1.distance;
+                hit.normal = rotate_y(hit1.normal, 0.3);
+                hit.material = white;
+            }
+
+            // Short box
+            var r2 = ray;
+            r2.origin = rotate_y(r2.origin - vec3<f32>(0.3, -0.7, 0.3), 0.3);
+            r2.direction = rotate_y(r2.direction, 0.3);
+            var hit2 = HitRecord(10000.0, vec3<f32>(0.0), white);
+            intersect_box(r2, vec3<f32>(-0.3, -0.3, -0.3), vec3<f32>(0.3, 0.3, 0.3), white, &hit2);
+            if (hit2.distance < hit.distance) {
+                hit.distance = hit2.distance;
+                hit.normal = rotate_y(hit2.normal, -0.3);
+                hit.material = white;
+            }
+
+            return hit;
+        }
+
+        fn trace_path(start_ray: Ray, lambda: f32) -> vec3<f32> {
+            var ray = start_ray;
+            var radiance = vec3<f32>(0.0);
+            var throughput = vec3<f32>(1.0);
+
+            for (var bounce = 0; bounce < 4; bounce++) {
+                let hit = map_scene(ray);
+                if (hit.distance > 9999.0) {
+                    break;
+                }
+
+                radiance += throughput * hit.material.emission;
+
+                // Diffuse scatter
+                let r1 = 6.28318530718 * get_random_number();
+                let r2 = get_random_number();
+                let r2s = sqrt(r2);
+                
+                let w = hit.normal;
+                var u = normalize(cross(abs(w.x) > 0.1 ? vec3<f32>(0.0, 1.0, 0.0) : vec3<f32>(1.0, 0.0, 0.0), w));
+                let v = cross(w, u);
+                
+                let dir = normalize(u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0 - r2));
+
+                ray.origin = ray.origin + hit.distance * ray.direction + hit.normal * 0.001;
+                ray.direction = dir;
+
+                if (uniforms.spectral_mode == 1u) {
+                    // Spectral reflectance evaluation
+                    // Emulates material reflectance response at the specific sampled wavelength
+                    let dist = abs(lambda - hit.material.spectral_peak);
+                    let reflectance = exp(-pow(dist / 100.0, 2.0)); 
+                    // Baseline reflectance for white/broad spectrum materials
+                    let base_reflectance = select(0.05, 0.75, hit.material.spectral_peak == 550.0);
+                    throughput *= max(base_reflectance, reflectance);
+                } else {
+                    // Standard RGB multiplication
+                    throughput *= hit.material.colour;
+                }
+            }
+            return radiance;
+        }
+
+        @compute @workgroup_size(16, 16)
+        fn main_compute(@builtin(global_invocation_id) id: vec3<u32>) {
+            let dims = vec2<f32>(uniforms.resolution);
+            let pixel = vec2<f32>(id.xy);
+            
+            if (pixel.x >= dims.x || pixel.y >= dims.y) {
+                return;
+            }
+
+            seed = pcg_hash(id.x * 1973u + id.y * 9277u + uniforms.frame * 26699u);
+
+            let jitter = vec2<f32>(get_random_number(), get_random_number());
+            let uv = ((pixel + jitter) / dims) * 2.0 - 1.0;
+            let aspect = dims.x / dims.y;
+
+            var ray: Ray;
+            ray.origin = vec3<f32>(0.0, 0.0, 2.8);
+            ray.direction = normalize(vec3<f32>(uv.x * aspect, -uv.y, -2.0));
+
+            var colour = vec3<f32>(0.0);
+
+            if (uniforms.spectral_mode == 1u) {
+                // Arithmetic-Bound Spectral simulation
+                // Sample a random wavelength within the visible spectrum (380nm - 780nm)
+                let lambda = 380.0 + get_random_number() * 400.0;
+                let spectral_radiance = trace_path(ray, lambda);
+                
+                // Convert spectral measurement to XYZ, then to sRGB
+                let xyz = wavelength_to_xyz(lambda) * spectral_radiance.x * 2.0; // Scale intensity
+                colour = xyz_to_rgb(xyz);
+            } else {
+                // Standard RGB path tracing
+                colour = trace_path(ray, 0.0);
+            }
+
+            var accumulated = textureLoad(accumulation_buffer, id.xy).rgb;
+            if (uniforms.frame == 0u) {
+                accumulated = vec3<f32>(0.0);
+            }
+            
+            accumulated += colour;
+            textureStore(accumulation_buffer, id.xy, vec4<f32>(accumulated, 1.0));
+
+            // Tonemap and output
+            let final_colour = accumulated / f32(uniforms.frame + 1u);
+            let mapped = final_colour / (final_colour + vec3<f32>(1.0)); // Simple Reinhard
+            let gamma_corrected = pow(mapped, vec3<f32>(1.0 / 2.2));
+            
+            textureStore(render_texture, id.xy, vec4<f32>(gamma_corrected, 1.0));
+        }
+    `;
+
+    const RENDER_WGSL = `
+        @group(0) @binding(0) var render_texture: texture_2d<f32>;
+        @group(0) @binding(1) var samp: sampler;
+
+        struct VertexOutput {
+            @builtin(position) position: vec4<f32>,
+            @location(0) uv: vec2<f32>,
+        }
+
+        @vertex
+        fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+            var pos = array<vec2<f32>, 3>(
+                vec2<f32>(-1.0, -1.0),
+                vec2<f32>(3.0, -1.0),
+                vec2<f32>(-1.0, 3.0)
+            );
+            var out: VertexOutput;
+            out.position = vec4<f32>(pos[vertex_index], 0.0, 1.0);
+            out.uv = pos[vertex_index] * 0.5 + 0.5;
+            out.uv.y = 1.0 - out.uv.y;
+            return out;
+        }
+
+        @fragment
+        fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+            return textureSample(render_texture, samp, in.uv);
+        }
+    `;
+
+    async function init() {
+        if (!navigator.gpu) {
+            alert('WebGPU is not supported by your browser. Please ensure you are using a compatible browser and WebGPU is enabled.');
+            return;
+        }
+
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter) {
+            alert('Failed to obtain WebGPU adapter.');
+            return;
+        }
+        const device = await adapter.requestDevice();
+
+        const canvas = document.getElementById('render-canvas');
+        const context = canvas.getContext('webgpu');
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        
+        let width = window.innerWidth;
+        let height = window.innerHeight;
+        
+        // Render at half resolution for performance, scale up via canvas
+        let internalWidth = Math.floor(width / 2);
+        let internalHeight = Math.floor(height / 2);
+
+        canvas.width = internalWidth;
+        canvas.height = internalHeight;
+
+        context.configure({
+            device,
+            format,
+            alphaMode: 'premultiplied',
+        });
+
+        document.getElementById('metric-res').innerText = `${internalWidth} x ${internalHeight}`;
+
+        let accumulationBuffer = device.createTexture({
+            size: [internalWidth, internalHeight, 1],
+            format: 'rgba32float',
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+
+        let renderTexture = device.createTexture({
+            size: [internalWidth, internalHeight, 1],
+            format: 'rgba8unorm',
+            usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+        });
+
+        const uniformBuffer = device.createBuffer({
+            size: 32, // resolution(2), frame(1), proc(1), spec(1), padding(3)
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST,
+        });
+
+        const computeModule = device.createShaderModule({ code: WGSL_SOURCE });
+        const computePipeline = device.createComputePipeline({
+            layout: 'auto',
+            compute: {
+                module: computeModule,
+                entryPoint: 'main_compute',
+            },
+        });
+
+        const renderModule = device.createShaderModule({ code: RENDER_WGSL });
+        const renderPipeline = device.createRenderPipeline({
+            layout: 'auto',
+            vertex: {
+                module: renderModule,
+                entryPoint: 'vs_main',
+            },
+            fragment: {
+                module: renderModule,
+                entryPoint: 'fs_main',
+                targets: [{ format }],
+            },
+            primitive: {
+                topology: 'triangle-list',
+            },
+        });
+
+        const sampler = device.createSampler({
+            magFilter: 'linear',
+            minFilter: 'linear',
+        });
+
+        let computeBindGroup = device.createBindGroup({
+            layout: computePipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: { buffer: uniformBuffer } },
+                { binding: 1, resource: accumulationBuffer.createView() },
+                { binding: 2, resource: renderTexture.createView() },
+            ],
+        });
+
+        let renderBindGroup = device.createBindGroup({
+            layout: renderPipeline.getBindGroupLayout(0),
+            entries: [
+                { binding: 0, resource: renderTexture.createView() },
+                { binding: 1, resource: sampler },
+            ],
+        });
+
+        let frame = 0;
+        let lastTime = performance.now();
+        let totalRays = 0;
+
+        const updateUniforms = () => {
+            const arr = new Float32Array(8);
+            arr[0] = internalWidth;
+            arr[1] = internalHeight;
+            const u32Arr = new Uint32Array(arr.buffer);
+            u32Arr[2] = frame;
+            u32Arr[3] = document.getElementById('toggle-procedural').checked ? 1 : 0;
+            u32Arr[4] = document.getElementById('toggle-spectral').checked ? 1 : 0;
+            device.queue.writeBuffer(uniformBuffer, 0, arr.buffer);
+        };
+
+        const resetSimulation = () => {
+            frame = 0;
+            totalRays = 0;
+        };
+
+        document.getElementById('toggle-procedural').addEventListener('change', resetSimulation);
+        document.getElementById('toggle-spectral').addEventListener('change', resetSimulation);
+
+        window.addEventListener('resize', () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            internalWidth = Math.floor(width / 2);
+            internalHeight = Math.floor(height / 2);
+            
+            canvas.width = internalWidth;
+            canvas.height = internalHeight;
+            
+            document.getElementById('metric-res').innerText = `${internalWidth} x ${internalHeight}`;
+
+            accumulationBuffer.destroy();
+            renderTexture.destroy();
+
+            accumulationBuffer = device.createTexture({
+                size: [internalWidth, internalHeight, 1],
+                format: 'rgba32float',
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            });
+
+            renderTexture = device.createTexture({
+                size: [internalWidth, internalHeight, 1],
+                format: 'rgba8unorm',
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            });
+
+            computeBindGroup = device.createBindGroup({
+                layout: computePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: uniformBuffer } },
+                    { binding: 1, resource: accumulationBuffer.createView() },
+                    { binding: 2, resource: renderTexture.createView() },
+                ],
+            });
+
+            renderBindGroup = device.createBindGroup({
+                layout: renderPipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: renderTexture.createView() },
+                    { binding: 1, resource: sampler },
+                ],
+            });
+
+            resetSimulation();
+        });
+
+        function animate() {
+            updateUniforms();
+
+            const commandEncoder = device.createCommandEncoder();
+
+            const computePass = commandEncoder.beginComputePass();
+            computePass.setPipeline(computePipeline);
+            computePass.setBindGroup(0, computeBindGroup);
+            computePass.dispatchWorkgroups(Math.ceil(internalWidth / 16), Math.ceil(internalHeight / 16));
+            computePass.end();
+
+            const renderPass = commandEncoder.beginRenderPass({
+                colorAttachments: [{
+                    view: context.getCurrentTexture().createView(),
+                    clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 },
+                    loadOp: 'clear',
+                    storeOp: 'store',
+                }],
+            });
+            renderPass.setPipeline(renderPipeline);
+            renderPass.setBindGroup(0, renderBindGroup);
+            renderPass.draw(3, 1, 0, 0);
+            renderPass.end();
+
+            device.queue.submit([commandEncoder.finish()]);
+
+            const currentTime = performance.now();
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+
+            frame++;
+            
+            // 4 bounces per pixel per frame
+            const raysThisFrame = internalWidth * internalHeight * 4;
+            totalRays += raysThisFrame;
+
+            if (frame % 10 === 0) {
+                document.getElementById('metric-frametime').innerText = `${deltaTime.toFixed(2)} ms`;
+                document.getElementById('metric-samples').innerText = frame;
+                
+                const rps = (raysThisFrame / (deltaTime / 1000)) / 1000000;
+                document.getElementById('metric-rps').innerText = `${rps.toFixed(2)} M`;
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        animate();
+    }
+
+    init();
+</script>
+
+</body>
+</html>
