@@ -1,0 +1,762 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictive Simulation Render Engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000000; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; object-fit: contain; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #ui-layer { position: absolute; top: 0; right: 0; pointer-events: none; padding: 1rem; display: flex; justify-content: space-between; width: 100%; }
+        .panel { background: transparent; border: none; padding: 0.75rem; pointer-events: auto; }
+        .telemetry-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; color: #38bdf8; }
+        #error-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; background: #ef4444; padding: 1rem; border-radius: 0.5rem; }
+    </style>
+</head>
+<body>
+
+<canvas id="render-canvas"></canvas>
+<div id="error-msg">WebGPU is not supported by this browser.</div>
+
+<div id="ui-layer">
+    <div class="panel text-left">
+        <h2 class="text-sm font-bold mb-2">controls</h2>
+        <label class="flex items-center space-x-2 text-xs text-slate-300 mb-1 cursor-pointer">
+            <input type="checkbox" id="toggle-procedural" checked>
+            <span>procedural mcmc</span>
+        </label>
+        <label class="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" id="toggle-spectral" checked>
+            <span>spectral mode</span>
+        </label>
+        <div class="mt-4 text-[10px] text-slate-500 uppercase tracking-wider font-bold">navigation</div>
+        <div class="text-xs text-slate-400 mt-1 leading-relaxed">drag to rotate<br>scroll to zoom</div>
+    </div>
+
+    <div class="panel text-right">
+        <h2 class="text-sm font-bold mb-2">telemetry</h2>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-xs">
+            <div class="text-slate-300">ft:</div>
+            <div id="metric-frametime" class="telemetry-value text-right">0 ms</div>
+            
+            <div id="metric-samples-label" class="text-slate-300">sp:</div>
+            <div id="metric-samples" class="telemetry-value text-right">0</div>
+            
+            <div class="text-slate-300">rps:</div>
+            <div id="metric-rps" class="telemetry-value text-right">0 m</div>
+
+            <div class="text-slate-300">res:</div>
+            <div id="metric-res" class="telemetry-value text-right">0 x 0</div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    const WGSL_SOURCE = `
+        struct Uniforms {
+            resolution: vec2<f32>,
+            frame: u32,
+            procedural_mode: u32,
+            spectral_mode: u32,
+            pad1: u32,
+            pad2: u32,
+            pad3: u32,
+            cam_pos: vec4<f32>,
+        };
+
+        @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+        @group(0) @binding(1) var accumulation_buffer_read: texture_2d<f32>;
+        @group(0) @binding(2) var accumulation_buffer_write: texture_storage_2d<rgba32float, write>;
+        @group(0) @binding(3) var render_texture: texture_storage_2d<rgba8unorm, write>;
+        @group(0) @binding(4) var<storage, read_write> mcmc_state: array<u32>;
+
+        var<private> rand_seed: u32;
+        var<private> path_seed: u32;
+        var<private> mcmc_state_val: u32;
+        var<private> pss_dim: f32;
+
+        fn pcg_hash(input: u32) -> u32 {
+            var state = input * 747796405u + 2891336453u;
+            var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+            return (word >> 22u) ^ word;
+        }
+
+        fn hash_spatial_temporal(pos: vec2<u32>, frame: u32) -> u32 {
+            var state = pos.x * 747796405u + pos.y * 2891336453u;
+            state = state ^ (frame * 26699u);
+            return pcg_hash(state);
+        }
+
+        fn rand() -> f32 {
+            rand_seed = pcg_hash(rand_seed);
+            return f32(rand_seed >> 8u) / 16777216.0;
+        }
+
+        fn get_random_number() -> f32 {
+            if (uniforms.procedural_mode == 1u) {
+                if (pss_dim == 0.0) { pss_dim += 1.0; return f32(mcmc_state_val & 0xFFu) / 255.0; }
+                if (pss_dim == 1.0) { pss_dim += 1.0; return f32((mcmc_state_val >> 8u) & 0xFFu) / 255.0; }
+                if (pss_dim == 2.0) { pss_dim += 1.0; return f32((mcmc_state_val >> 16u) & 0xFFu) / 255.0; }
+                if (pss_dim == 3.0) { pss_dim += 1.0; return f32((mcmc_state_val >> 24u) & 0xFFu) / 255.0; }
+            }
+            pss_dim += 1.0;
+            path_seed = pcg_hash(path_seed);
+            return f32(path_seed >> 8u) / 16777216.0;
+        }
+
+        struct Ray {
+            origin: vec3<f32>,
+            direction: vec3<f32>,
+        }
+
+        struct Material {
+            colour: vec3<f32>,
+            emission: vec3<f32>,
+            is_spectral: bool,
+            spectral_peak: f32,
+            roughness: f32,
+            metallic: f32,
+            transmission: f32,
+            ior: f32,
+            procedural_id: u32,
+        }
+
+        struct HitRecord {
+            distance: f32,
+            normal: vec3<f32>,
+            material: Material,
+        }
+
+        fn wavelength_to_xyz(lambda: f32) -> vec3<f32> {
+            let x = exp(-pow((lambda - 599.8) / 37.9, 2.0)) * 1.0622 + 
+                    exp(-pow((lambda - 442.0) / 30.6, 2.0)) * 0.3127 + 
+                    exp(-pow((lambda - 501.1) / 26.9, 2.0)) * 0.0044;
+            let y = exp(-pow((lambda - 568.8) / 46.9, 2.0)) * 0.8256 + 
+                    exp(-pow((lambda - 530.9) / 16.3, 2.0)) * 0.2840;
+            let z = exp(-pow((lambda - 437.0) / 11.8, 2.0)) * 1.2164 + 
+                    exp(-pow((lambda - 459.0) / 26.0, 2.0)) * 0.6805;
+            return vec3<f32>(x, y, z);
+        }
+
+        fn xyz_to_rgb(xyz: vec3<f32>) -> vec3<f32> {
+            let r =  3.2404542 * xyz.x - 1.5371385 * xyz.y - 0.4985314 * xyz.z;
+            let g = -0.9692660 * xyz.x + 1.8760108 * xyz.y + 0.0415560 * xyz.z;
+            let b =  0.0556434 * xyz.x - 0.2040259 * xyz.y + 1.0572252 * xyz.z;
+            return max(vec3<f32>(0.0), vec3<f32>(r, g, b));
+        }
+
+        fn intersect_plane(ray: Ray, normal: vec3<f32>, d: f32, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let t = -(dot(ray.origin, normal) + d) / dot(ray.direction, normal);
+            if (t > 0.001 && t < (*best_hit).distance) {
+                let p = ray.origin + t * ray.direction;
+                if (abs(p.x) <= 1.01 && abs(p.y) <= 1.01 && p.z >= -1.01 && p.z <= 1.01) {
+                    (*best_hit).distance = t;
+                    (*best_hit).normal = normal;
+                    (*best_hit).material = mat;
+                }
+            }
+        }
+
+        fn intersect_box(ray: Ray, bmin: vec3<f32>, bmax: vec3<f32>, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let inv_dir = 1.0 / ray.direction;
+            let t0 = (bmin - ray.origin) * inv_dir;
+            let t1 = (bmax - ray.origin) * inv_dir;
+            
+            let tmin_vec = min(t0, t1);
+            let tmax_vec = max(t0, t1);
+            
+            let t_near = max(max(tmin_vec.x, tmin_vec.y), tmin_vec.z);
+            let t_far = min(min(tmax_vec.x, tmax_vec.y), tmax_vec.z);
+            
+            if (t_near > 0.001 && t_near < t_far && t_near < (*best_hit).distance) {
+                (*best_hit).distance = t_near;
+                (*best_hit).material = mat;
+                
+                let p = ray.origin + t_near * ray.direction;
+                let c = (bmin + bmax) * 0.5;
+                let extents = (bmax - bmin) * 0.5;
+                let d = abs(p - c) / extents;
+                let max_d = max(max(d.x, d.y), d.z);
+                
+                let epsilon = 1e-4;
+                let step_x = step(max_d - epsilon, d.x);
+                let step_y = step(max_d - epsilon, d.y);
+                let step_z = step(max_d - epsilon, d.z);
+                (*best_hit).normal = normalize(vec3<f32>(
+                    sign(p.x - c.x) * step_x,
+                    sign(p.y - c.y) * step_y,
+                    sign(p.z - c.z) * step_z
+                ));
+            }
+        }
+        
+        fn intersect_sphere(ray: Ray, centre: vec3<f32>, radius: f32, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let oc = ray.origin - centre;
+            let b = dot(oc, ray.direction);
+            let c = dot(oc, oc) - radius * radius;
+            let discriminant = b * b - c;
+            
+            if (discriminant > 0.0) {
+                var t = -b - sqrt(discriminant);
+                if (t < 0.001) { t = -b + sqrt(discriminant); }
+                if (t > 0.001 && t < (*best_hit).distance) {
+                    (*best_hit).distance = t;
+                    (*best_hit).normal = normalize((ray.origin + t * ray.direction) - centre);
+                    (*best_hit).material = mat;
+                }
+            }
+        }
+
+        fn hash3(p: vec3<f32>) -> vec3<f32> {
+            var q = vec3<f32>( dot(p, vec3<f32>(127.1, 311.7, 74.7)),
+                               dot(p, vec3<f32>(269.5, 183.3, 246.1)),
+                               dot(p, vec3<f32>(113.5, 271.9, 124.6)));
+            return fract(sin(q) * 43758.5453);
+        }
+
+        fn voronoi(x: vec3<f32>) -> f32 {
+            let p = floor(x);
+            let f = fract(x);
+            var res = 8.0;
+            for(var k = -1; k <= 1; k++) {
+                for(var j = -1; j <= 1; j++) {
+                    for(var i = -1; i <= 1; i++) {
+                        let b = vec3<f32>(f32(i), f32(j), f32(k));
+                        let r = b - f + hash3(p + b);
+                        let d = dot(r, r);
+                        res = min(res, d);
+                    }
+                }
+            }
+            return sqrt(res);
+        }
+
+        fn apply_procedural_materials(mat: ptr<function, Material>, p: vec3<f32>) {
+            if ((*mat).procedural_id == 1u) {
+                let v = voronoi(p * 4.0);
+                let v2 = voronoi(p * 8.0 + vec3<f32>(v));
+                let mix_val = clamp(v * 1.5 - v2 * 0.5, 0.0, 1.0);
+                (*mat).colour = mix(vec3<f32>(0.05, 0.05, 0.05), vec3<f32>(0.9, 0.9, 0.9), mix_val);
+            }
+        }
+
+        fn map_scene(ray: Ray) -> HitRecord {
+            var hit = HitRecord(10000.0, vec3<f32>(0.0), Material(vec3<f32>(0.0), vec3<f32>(0.0), false, 0.0, 0.0, 0.0, 0.0, 1.0, 0u));
+            
+            let white_floor = Material(vec3<f32>(0.725), vec3<f32>(0.0), false, 0.0, 1.0, 0.0, 0.0, 1.0, 1u);
+            let white       = Material(vec3<f32>(0.725), vec3<f32>(0.0), false, 0.0, 1.0, 0.0, 0.0, 1.0, 0u);
+            let red         = Material(vec3<f32>(0.63, 0.065, 0.05), vec3<f32>(0.0), true, 630.0, 1.0, 0.0, 0.0, 1.0, 0u);
+            let green       = Material(vec3<f32>(0.14, 0.45, 0.09), vec3<f32>(0.0), true, 530.0, 1.0, 0.0, 0.0, 1.0, 0u);
+            let light       = Material(vec3<f32>(0.0), vec3<f32>(15.0), false, 0.0, 1.0, 0.0, 0.0, 1.0, 0u);
+            let glass       = Material(vec3<f32>(1.0), vec3<f32>(0.0), false, 0.0, 0.0, 0.0, 1.0, 1.5, 0u);
+            let mirror      = Material(vec3<f32>(0.9), vec3<f32>(0.0), false, 0.0, 1.0, 1.0, 0.0, 1.0, 0u);
+
+            intersect_plane(ray, vec3<f32>(1.0, 0.0, 0.0), 1.0, red, &hit);
+            intersect_plane(ray, vec3<f32>(-1.0, 0.0, 0.0), 1.0, green, &hit);
+            intersect_plane(ray, vec3<f32>(0.0, 1.0, 0.0), 1.0, white_floor, &hit);
+            intersect_plane(ray, vec3<f32>(0.0, -1.0, 0.0), 1.0, white, &hit);
+            intersect_plane(ray, vec3<f32>(0.0, 0.0, 1.0), 1.0, white, &hit);
+            intersect_box(ray, vec3<f32>(-0.25, 0.99, -0.25), vec3<f32>(0.25, 1.0, 0.25), light, &hit);
+
+            intersect_sphere(ray, vec3<f32>(-0.4, -0.7, 0.3), 0.3, mirror, &hit);
+            intersect_sphere(ray, vec3<f32>(0.4, -0.7, -0.2), 0.3, glass, &hit);
+            
+            return hit;
+        }
+
+        fn trace_path_spectral(start_ray: Ray, lambdas: vec4<f32>) -> vec4<f32> {
+            var ray = start_ray;
+            var radiance = vec4<f32>(0.0);
+            var throughput = vec4<f32>(1.0);
+            
+            for (var bounce = 0; bounce < 4; bounce++) {
+                let hit = map_scene(ray);
+                if (hit.distance > 9999.0) { break; }
+                var mat = hit.material;
+                apply_procedural_materials(&mat, ray.origin + hit.distance * ray.direction);
+                
+                radiance += throughput * mat.emission.x;
+                if (mat.emission.x > 0.0) { break; }
+                
+                if (mat.transmission > 0.0) {
+                    let is_inside = dot(ray.direction, hit.normal) > 0.0;
+                    let n = select(hit.normal, -hit.normal, is_inside);
+                    let eta = select(1.0 / mat.ior, mat.ior, is_inside);
+                    
+                    let cos_theta_i = dot(-ray.direction, n);
+                    let sin2_theta_t = eta * eta * (1.0 - cos_theta_i * cos_theta_i);
+                    
+                    let r0 = pow((1.0 - mat.ior) / (1.0 + mat.ior), 2.0);
+                    let fresnel = r0 + (1.0 - r0) * pow(1.0 - cos_theta_i, 5.0);
+                    
+                    if (sin2_theta_t > 1.0 || get_random_number() < fresnel) {
+                        let dir = reflect(ray.direction, n);
+                        ray.origin = ray.origin + hit.distance * ray.direction + n * 0.002;
+                        ray.direction = dir;
+                    } else {
+                        let dir = refract(ray.direction, n, eta);
+                        ray.origin = ray.origin + hit.distance * ray.direction - n * 0.002;
+                        ray.direction = dir;
+                    }
+                    continue;
+                }
+                
+                if (mat.metallic > 0.0) {
+                    let dir = reflect(ray.direction, hit.normal);
+                    ray.origin = ray.origin + hit.distance * ray.direction + hit.normal * 0.002;
+                    ray.direction = dir;
+                    throughput *= 0.9;
+                    continue;
+                }
+                
+                let light_pos = vec3<f32>(get_random_number() * 0.5 - 0.25, 0.99, get_random_number() * 0.5 - 0.25);
+                let light_dir = light_pos - (ray.origin + hit.distance * ray.direction);
+                let dist2 = dot(light_dir, light_dir);
+                let dist = sqrt(dist2);
+                let l_dir = light_dir / dist;
+                let ndotl = max(0.0, dot(hit.normal, l_dir));
+                
+                if (ndotl > 0.0) {
+                    let shadow_ray = Ray(ray.origin + hit.distance * ray.direction + hit.normal * 0.002, l_dir);
+                    let shadow_hit = map_scene(shadow_ray);
+                    if (shadow_hit.distance >= dist - 0.005) {
+                        let light_intensity = 15.0 * 0.25 / dist2; 
+                        let brdf = ndotl / 3.14159; 
+                        var nee_reflectance = vec4<f32>(0.0);
+                        
+                        for (var i = 0u; i < 4u; i++) {
+                            if (mat.is_spectral) {
+                                let dist_l = abs(lambdas[i] - mat.spectral_peak);
+                                nee_reflectance[i] = min(0.9, exp(-pow(dist_l / 40.0, 2.0)));
+                            } else {
+                                nee_reflectance[i] = min(0.9, mat.colour.x);
+                            }
+                        }
+                        radiance += throughput * nee_reflectance * light_intensity * brdf;
+                    }
+                }
+                
+                let r1 = 6.28318530718 * get_random_number();
+                let r2 = get_random_number();
+                let r2s = sqrt(r2);
+                let w = hit.normal;
+                
+                var u = normalize(cross(select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), abs(w.x) > 0.9), w));
+                let v = cross(w, u);
+                let dir = normalize(u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0 - r2));
+                
+                ray.origin = ray.origin + hit.distance * ray.direction + hit.normal * 0.002;
+                ray.direction = dir;
+                
+                for (var i = 0u; i < 4u; i++) {
+                    if (mat.is_spectral) {
+                        let dist_l = abs(lambdas[i] - mat.spectral_peak);
+                        throughput[i] *= min(0.9, exp(-pow(dist_l / 40.0, 2.0)));
+                    } else {
+                        throughput[i] *= min(0.9, mat.colour.x);
+                    }
+                }
+            }
+            return radiance;
+        }
+
+        fn trace_path_rgb(start_ray: Ray) -> vec3<f32> {
+            var ray = start_ray;
+            var radiance = vec3<f32>(0.0);
+            var throughput = vec3<f32>(1.0);
+            
+            for (var bounce = 0; bounce < 4; bounce++) {
+                let hit = map_scene(ray);
+                if (hit.distance > 9999.0) { break; }
+                var mat = hit.material;
+                apply_procedural_materials(&mat, ray.origin + hit.distance * ray.direction);
+                
+                radiance += throughput * mat.emission;
+                if (mat.emission.x > 0.0) { break; }
+                
+                if (mat.transmission > 0.0) {
+                    let is_inside = dot(ray.direction, hit.normal) > 0.0;
+                    let n = select(hit.normal, -hit.normal, is_inside);
+                    let eta = select(1.0 / mat.ior, mat.ior, is_inside);
+                    let cos_theta_i = dot(-ray.direction, n);
+                    let sin2_theta_t = eta * eta * (1.0 - cos_theta_i * cos_theta_i);
+                    let r0 = pow((1.0 - mat.ior) / (1.0 + mat.ior), 2.0);
+                    let fresnel = r0 + (1.0 - r0) * pow(1.0 - cos_theta_i, 5.0);
+                    
+                    if (sin2_theta_t > 1.0 || get_random_number() < fresnel) {
+                        let dir = reflect(ray.direction, n);
+                        ray.origin = ray.origin + hit.distance * ray.direction + n * 0.002;
+                        ray.direction = dir;
+                    } else {
+                        let dir = refract(ray.direction, n, eta);
+                        ray.origin = ray.origin + hit.distance * ray.direction - n * 0.002;
+                        ray.direction = dir;
+                    }
+                    continue;
+                }
+                
+                if (mat.metallic > 0.0) {
+                    let dir = reflect(ray.direction, hit.normal);
+                    ray.origin = ray.origin + hit.distance * ray.direction + hit.normal * 0.002;
+                    ray.direction = dir;
+                    throughput *= mat.colour;
+                    continue;
+                }
+                
+                let light_pos = vec3<f32>(get_random_number() * 0.5 - 0.25, 0.99, get_random_number() * 0.5 - 0.25);
+                let light_dir = light_pos - (ray.origin + hit.distance * ray.direction);
+                let dist2 = dot(light_dir, light_dir);
+                let dist = sqrt(dist2);
+                let l_dir = light_dir / dist;
+                let ndotl = max(0.0, dot(hit.normal, l_dir));
+                
+                if (ndotl > 0.0) {
+                    let shadow_ray = Ray(ray.origin + hit.distance * ray.direction + hit.normal * 0.002, l_dir);
+                    let shadow_hit = map_scene(shadow_ray);
+                    if (shadow_hit.distance >= dist - 0.005) {
+                        let light_intensity = vec3<f32>(15.0) * 0.25 / dist2;
+                        let brdf = ndotl / 3.14159;
+                        let refl = min(vec3<f32>(0.9), mat.colour);
+                        radiance += throughput * refl * light_intensity * brdf;
+                    }
+                }
+                
+                let r1 = 6.28318530718 * get_random_number();
+                let r2 = get_random_number();
+                let r2s = sqrt(r2);
+                let w = hit.normal;
+                
+                var u = normalize(cross(select(vec3<f32>(1.0, 0.0, 0.0), vec3<f32>(0.0, 1.0, 0.0), abs(w.x) > 0.9), w));
+                let v = cross(w, u);
+                let dir = normalize(u * cos(r1) * r2s + v * sin(r1) * r2s + w * sqrt(1.0 - r2));
+                
+                ray.origin = ray.origin + hit.distance * ray.direction + hit.normal * 0.002;
+                ray.direction = dir;
+                
+                throughput *= min(vec3<f32>(0.9), mat.colour);
+            }
+            return radiance;
+        }
+
+        fn evaluate_path(initial_seed: u32, pixel: vec2<f32>, dims: vec2<f32>) -> vec3<f32> {
+            mcmc_state_val = initial_seed;
+            path_seed = pcg_hash(initial_seed ^ u32(pixel.x * 1973.0 + pixel.y * 9277.0));
+            pss_dim = 0.0;
+            
+            let jitter = vec2<f32>(get_random_number(), get_random_number());
+            
+            let uv = ((pixel + jitter) / dims) * 2.0 - 1.0;
+            let aspect = dims.x / dims.y;
+            
+            var start_ray: Ray;
+            let cam_pos = uniforms.cam_pos.xyz;
+            let lookat = vec3<f32>(0.0, 0.0, 0.0);
+            
+            let cw = normalize(cam_pos - lookat);
+            let cu = normalize(cross(vec3<f32>(0.0, 1.0, 0.0), cw));
+            let cv = cross(cw, cu);
+            let rd = normalize(uv.x * aspect * cu - uv.y * cv - 2.0 * cw);
+            
+            start_ray.origin = cam_pos;
+            start_ray.direction = rd;
+            
+            if (uniforms.spectral_mode == 1u) {
+                let base_lambda = 380.0 + get_random_number() * 400.0;
+                let lambdas = vec4<f32>(
+                    base_lambda,
+                    380.0 + (base_lambda - 280.0) % 400.0, 
+                    380.0 + (base_lambda - 180.0) % 400.0, 
+                    380.0 + (base_lambda - 80.0) % 400.0   
+                );
+                
+                let radiances = trace_path_spectral(start_ray, lambdas);
+                var total_xyz = vec3<f32>(0.0);
+                
+                for (var i = 0u; i < 4u; i++) {
+                    total_xyz += wavelength_to_xyz(lambdas[i]) * radiances[i];
+                }
+                
+                let color_balance = vec3<f32>(1.07367, 1.30158, 1.91692); 
+                return xyz_to_rgb(total_xyz * color_balance);
+            }
+            
+            return trace_path_rgb(start_ray);
+        }
+
+        @compute @workgroup_size(16, 16)
+        fn main_compute(@builtin(global_invocation_id) id: vec3<u32>) {
+            let dims = vec2<f32>(uniforms.resolution);
+            let pixel = vec2<f32>(id.xy);
+            if (pixel.x >= dims.x || pixel.y >= dims.y) { return; }
+            
+            let pixel_idx = u32(pixel.y) * u32(dims.x) + u32(pixel.x);
+            rand_seed = hash_spatial_temporal(id.xy, uniforms.frame * 113u);
+            
+            var accumulated_rgb = textureLoad(accumulation_buffer_read, id.xy, 0).rgb;
+            var accumulated_a = textureLoad(accumulation_buffer_read, id.xy, 0).a;
+            
+            var current_mcmc_seed = mcmc_state[pixel_idx];
+            
+            if (uniforms.frame == 0u) { 
+                accumulated_rgb = vec3<f32>(0.0);
+                accumulated_a = 0.0;
+                current_mcmc_seed = hash_spatial_temporal(id.xy, 0u);
+            }
+
+            if (uniforms.procedural_mode == 1u) {
+                var current_colour = evaluate_path(current_mcmc_seed, pixel, dims);
+                if (any(current_colour < vec3<f32>(0.0)) || any(current_colour > vec3<f32>(10000.0)) || any(current_colour != current_colour)) {
+                    current_colour = vec3<f32>(0.0);
+                }
+                
+                var current_energy = max(0.01, dot(current_colour, vec3<f32>(0.2126, 0.7152, 0.0722)));
+                
+                var current_state = vec4<f32>(
+                    f32(current_mcmc_seed & 0xFFu) / 255.0,
+                    f32((current_mcmc_seed >> 8u) & 0xFFu) / 255.0,
+                    f32((current_mcmc_seed >> 16u) & 0xFFu) / 255.0,
+                    f32((current_mcmc_seed >> 24u) & 0xFFu) / 255.0
+                );
+                
+                var mutated_state = current_state;
+                
+                if (rand() < 0.1) {
+                    mutated_state = vec4<f32>(rand(), rand(), rand(), rand());
+                } else {
+                    let mutation_scale = 0.02 + 0.03 * rand();
+                    for (var i = 0u; i < 4u; i++) {
+                        let u1 = max(1e-5, rand());
+                        let u2 = rand();
+                        let r = sqrt(-2.0 * log(u1));
+                        let theta = 6.28318530718 * u2;
+                        let gaussian = r * cos(theta);
+                        
+                        if (i == 0u) { mutated_state.x = fract(current_state.x + gaussian * mutation_scale); }
+                        else if (i == 1u) { mutated_state.y = fract(current_state.y + gaussian * mutation_scale); }
+                        else if (i == 2u) { mutated_state.z = fract(current_state.z + gaussian * mutation_scale); }
+                        else { mutated_state.w = fract(current_state.w + gaussian * mutation_scale); }
+                    }
+                }
+                
+                let mutated_seed = (u32(mutated_state.x * 255.0) & 0xFFu) |
+                                   ((u32(mutated_state.y * 255.0) & 0xFFu) << 8u) |
+                                   ((u32(mutated_state.z * 255.0) & 0xFFu) << 16u) |
+                                   ((u32(mutated_state.w * 255.0) & 0xFFu) << 24u);
+                                   
+                var mutated_colour = evaluate_path(mutated_seed, pixel, dims);
+                if (any(mutated_colour < vec3<f32>(0.0)) || any(mutated_colour > vec3<f32>(10000.0)) || any(mutated_colour != mutated_colour)) {
+                    mutated_colour = vec3<f32>(0.0);
+                }
+                var mutated_energy = max(0.01, dot(mutated_colour, vec3<f32>(0.2126, 0.7152, 0.0722)));
+                
+                let a_prob = min(1.0, mutated_energy / current_energy);
+                
+                let w_current = (1.0 - a_prob) / current_energy;
+                let w_mutated = a_prob / mutated_energy;
+                
+                let expected_rgb = current_colour * w_current + mutated_colour * w_mutated;
+                let expected_a = w_current + w_mutated;
+                
+                accumulated_rgb += min(expected_rgb, vec3<f32>(1000.0));
+                accumulated_a += min(expected_a, 1000.0);
+                
+                if (rand() < a_prob) {
+                    current_mcmc_seed = mutated_seed;
+                }
+                
+                if (rand() < 0.02) {
+                    let rotated_frame = (uniforms.frame << 11u) | (uniforms.frame >> 21u);
+                    current_mcmc_seed = pcg_hash(current_mcmc_seed ^ rotated_frame);
+                }
+            } else {
+                let standard_seed = hash_spatial_temporal(id.xy, uniforms.frame);
+                var frame_colour = evaluate_path(standard_seed, pixel, dims);
+                if (any(frame_colour < vec3<f32>(0.0)) || any(frame_colour > vec3<f32>(10000.0)) || any(frame_colour != frame_colour)) {
+                    frame_colour = vec3<f32>(0.0);
+                }
+                
+                accumulated_rgb += min(frame_colour, vec3<f32>(100.0));
+                accumulated_a += 1.0;
+            }
+
+            mcmc_state[pixel_idx] = current_mcmc_seed;
+            textureStore(accumulation_buffer_write, id.xy, vec4<f32>(accumulated_rgb, accumulated_a));
+            
+            let final_colour = accumulated_rgb / max(0.0001, accumulated_a);
+            let mapped = final_colour / (final_colour + vec3<f32>(1.0));
+            let gamma_corrected = pow(mapped, vec3<f32>(1.0 / 2.2));
+            textureStore(render_texture, id.xy, vec4<f32>(gamma_corrected, 1.0));
+        }
+    `;
+
+    const RENDER_WGSL = `
+        @group(0) @binding(0) var render_texture: texture_2d<f32>;
+        @group(0) @binding(1) var samp: sampler;
+
+        struct VertexOutput {
+            @builtin(position) position: vec4<f32>,
+            @location(0) uv: vec2<f32>,
+        }
+
+        @vertex
+        fn vs_main(@builtin(vertex_index) vertex_index: u32) -> VertexOutput {
+            var pos = array<vec2<f32>, 3>(
+                vec2<f32>(-1.0, -1.0),
+                vec2<f32>(3.0, -1.0),
+                vec2<f32>(-1.0, 3.0)
+            );
+            var out: VertexOutput;
+            out.position = vec4<f32>(pos[vertex_index], 0.0, 1.0);
+            out.uv = pos[vertex_index] * 0.5 + 0.5;
+            out.uv.y = 1.0 - out.uv.y;
+            return out;
+        }
+
+        @fragment
+        fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+            return textureSample(render_texture, samp, in.uv);
+        }
+    `;
+
+    async function init() {
+        if (!navigator.gpu) {
+            document.getElementById('error-msg').style.display = 'block';
+            return;
+        }
+        const adapter = await navigator.gpu.requestAdapter();
+        const device = await adapter.requestDevice();
+        const canvas = document.getElementById('render-canvas');
+        const context = canvas.getContext('webgpu');
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        
+        const internalWidth = 325;
+        const internalHeight = 325;
+        
+        canvas.width = internalWidth;
+        canvas.height = internalHeight;
+        context.configure({ device, format, alphaMode: 'premultiplied' });
+        document.getElementById('metric-res').innerText = `${internalWidth} x ${internalHeight}`;
+
+        let accumTextureA = device.createTexture({ size: [internalWidth, internalHeight, 1], format: 'rgba32float', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING });
+        let accumTextureB = device.createTexture({ size: [internalWidth, internalHeight, 1], format: 'rgba32float', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING });
+        let renderTexture = device.createTexture({ size: [internalWidth, internalHeight, 1], format: 'rgba8unorm', usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING });
+        let uniformBuffer = device.createBuffer({ size: 48, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+        let mcmcStateBuffer = device.createBuffer({ size: internalWidth * internalHeight * 4, usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST });
+
+        const computeModule = device.createShaderModule({ code: WGSL_SOURCE });
+        const computePipeline = device.createComputePipeline({ layout: 'auto', compute: { module: computeModule, entryPoint: 'main_compute' } });
+        const renderModule = device.createShaderModule({ code: RENDER_WGSL });
+        const renderPipeline = device.createRenderPipeline({ layout: 'auto', vertex: { module: renderModule, entryPoint: 'vs_main' }, fragment: { module: renderModule, entryPoint: 'fs_main', targets: [{ format }] }, primitive: { topology: 'triangle-list' } });
+        const sampler = device.createSampler({ magFilter: 'linear', minFilter: 'linear' });
+
+        const createComputeBindGroup = (readTex, writeTex, stateBuffer) => {
+            return device.createBindGroup({
+                layout: computePipeline.getBindGroupLayout(0),
+                entries: [
+                    { binding: 0, resource: { buffer: uniformBuffer } },
+                    { binding: 1, resource: readTex.createView() },
+                    { binding: 2, resource: writeTex.createView() },
+                    { binding: 3, resource: renderTexture.createView() },
+                    { binding: 4, resource: { buffer: stateBuffer } }
+                ],
+            });
+        };
+        let computeBindGroupA = createComputeBindGroup(accumTextureA, accumTextureB, mcmcStateBuffer);
+        let computeBindGroupB = createComputeBindGroup(accumTextureB, accumTextureA, mcmcStateBuffer);
+        let renderBindGroup = device.createBindGroup({ layout: renderPipeline.getBindGroupLayout(0), entries: [ { binding: 0, resource: renderTexture.createView() }, { binding: 1, resource: sampler } ] });
+
+        let frame = 0;
+        let lastTime = performance.now();
+        
+        let camTheta = 0.0;
+        let camPhi = 0.0;
+        let camRadius = 2.8;
+        let isDragging = false;
+        let lastMouseX = 0;
+        let lastMouseY = 0;
+
+        const resetSimulation = () => {
+            frame = 0;
+        };
+
+        canvas.addEventListener('mousedown', (e) => {
+            isDragging = true;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+        });
+        
+        window.addEventListener('mouseup', () => isDragging = false);
+        
+        window.addEventListener('mousemove', (e) => {
+            if (!isDragging) return;
+            const dx = e.clientX - lastMouseX;
+            const dy = e.clientY - lastMouseY;
+            lastMouseX = e.clientX;
+            lastMouseY = e.clientY;
+            camTheta -= dx * 0.01;
+            camPhi += dy * 0.01;
+            camPhi = Math.max(-Math.PI / 2.1, Math.min(Math.PI / 2.1, camPhi));
+            resetSimulation();
+        });
+
+        canvas.addEventListener('wheel', (e) => {
+            camRadius += e.deltaY * 0.002;
+            camRadius = Math.max(0.5, Math.min(5.0, camRadius));
+            resetSimulation();
+        });
+
+        document.getElementById('toggle-procedural').addEventListener('change', resetSimulation);
+        document.getElementById('toggle-spectral').addEventListener('change', resetSimulation);
+
+        const updateUniforms = () => {
+            const arr = new Float32Array(12);
+            arr[0] = internalWidth; 
+            arr[1] = internalHeight;
+            
+            const u32Arr = new Uint32Array(arr.buffer);
+            u32Arr[2] = frame; 
+            u32Arr[3] = document.getElementById('toggle-procedural').checked ? 1 : 0; 
+            u32Arr[4] = document.getElementById('toggle-spectral').checked ? 1 : 0;
+            
+            arr[8] = camRadius * Math.sin(camTheta) * Math.cos(camPhi);
+            arr[9] = camRadius * Math.sin(camPhi);
+            arr[10] = camRadius * Math.cos(camTheta) * Math.cos(camPhi);
+            
+            device.queue.writeBuffer(uniformBuffer, 0, arr.buffer);
+        };
+
+        function animate() {
+            updateUniforms();
+            const commandEncoder = device.createCommandEncoder();
+            const currentBindGroup = frame % 2 === 0 ? computeBindGroupA : computeBindGroupB;
+            const computePass = commandEncoder.beginComputePass();
+            computePass.setPipeline(computePipeline);
+            computePass.setBindGroup(0, currentBindGroup);
+            computePass.dispatchWorkgroups(Math.ceil(internalWidth / 16), Math.ceil(internalHeight / 16));
+            computePass.end();
+            const renderPass = commandEncoder.beginRenderPass({ colorAttachments: [{ view: context.getCurrentTexture().createView(), clearValue: { r: 0.0, g: 0.0, b: 0.0, a: 1.0 }, loadOp: 'clear', storeOp: 'store' }] });
+            renderPass.setPipeline(renderPipeline);
+            renderPass.setBindGroup(0, renderBindGroup);
+            renderPass.draw(3, 1, 0, 0);
+            renderPass.end();
+            device.queue.submit([commandEncoder.finish()]);
+            const currentTime = performance.now();
+            const deltaTime = currentTime - lastTime;
+            lastTime = currentTime;
+            frame++;
+            if (frame % 10 === 0) {
+                document.getElementById('metric-frametime').innerText = `${deltaTime.toFixed(2)} ms`;
+                document.getElementById('metric-samples').innerText = frame;
+                const rps = ((internalWidth * internalHeight * 4) / (deltaTime / 1000)) / 1000000;
+                document.getElementById('metric-rps').innerText = `${rps.toFixed(2)} m`;
+            }
+            requestAnimationFrame(animate);
+        }
+        animate();
+    }
+    init();
+</script>
+</body>
+</html>
