@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en-GB">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Predictive simulation render engine</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { margin: 0; overflow: hidden; background-color: #000000; color: #f8fafc; font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; }
+        canvas { display: block; width: 100vw; height: 100vh; object-fit: cover; cursor: grab; }
+        canvas:active { cursor: grabbing; }
+        #ui-layer { position: absolute; top: 0; right: 0; pointer-events: none; padding: 1.5rem; display: flex; justify-content: space-between; width: 100%; }
+        .panel { background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(4px); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 0.5rem; padding: 1rem; pointer-events: auto; }
+        .telemetry-value { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; color: #38bdf8; }
+        #error-msg { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); display: none; background: #ef4444; padding: 1.5rem; border-radius: 0.5rem; z-index: 50; max-width: 80%; text-align: centre; }
+    </style>
+</head>
+<body>
+
+<canvas id="render-canvas"></canvas>
+<div id="error-msg">WebGPU or subgroup support is missing from this environment.</div>
+
+<div id="ui-layer">
+    <div class="panel text-left">
+        <h2 class="text-sm font-bold mb-3">Controls</h2>
+        <label class="flex items-center space-x-2 text-xs text-slate-300 mb-2 cursor-pointer">
+            <input type="checkbox" id="toggle-procedural" checked class="accent-sky-500">
+            <span>procedural mcmc</span>
+        </label>
+        <label class="flex items-center space-x-2 text-xs text-slate-300 cursor-pointer">
+            <input type="checkbox" id="toggle-spectral" checked class="accent-sky-500">
+            <span>spectral mode</span>
+        </label>
+        <div class="mt-5 text-[10px] text-slate-500 uppercase tracking-wider font-bold">Navigation</div>
+        <div class="text-xs text-slate-400 mt-1 leading-relaxed">drag to rotate<br>scroll to zoom</div>
+    </div>
+
+    <div class="panel text-right">
+        <h2 class="text-sm font-bold mb-3">Telemetry</h2>
+        <div class="grid grid-cols-2 gap-x-4 gap-y-1.5 text-xs">
+            <div class="text-slate-300">system date:</div>
+            <div id="metric-date" class="telemetry-value text-right">6 May 2026</div>
+
+            <div class="text-slate-300">frame time:</div>
+            <div id="metric-frametime" class="telemetry-value text-right">0&nbsp;ms</div>
+            
+            <div id="metric-samples-label" class="text-slate-300">samples:</div>
+            <div id="metric-samples" class="telemetry-value text-right">0</div>
+            
+            <div class="text-slate-300">throughput:</div>
+            <div id="metric-rps" class="telemetry-value text-right">0&nbsp;m/s</div>
+
+            <div class="text-slate-300">resolution:</div>
+            <div id="metric-res" class="telemetry-value text-right">0&nbsp;x&nbsp;0</div>
+        </div>
+    </div>
+</div>
+
+<script type="module">
+    const WGSL_SOURCE = `
+        enable subgroups;
+
+        struct Uniforms {
+            resolution: vec2<f32>,
+            frame: u32,
+            procedural_mode: u32,
+            spectral_mode: u32,
+            pad1: u32,
+            pad2: u32,
+            pad3: u32,
+            cam_pos: vec4<f32>,
+        };
+
+        @group(0) @binding(0) var<uniform> uniforms: Uniforms;
+        @group(0) @binding(1) var<storage, read_write> accum_buffer: array<u32>;
+        @group(0) @binding(2) var render_texture: texture_storage_2d<rgba8unorm, write>;
+        @group(0) @binding(3) var<storage, read_write> mcmc_state: array<u32>;
+        @group(0) @binding(4) var<storage, read_write> exposure_state: array<f32>;
+
+        var<private> rand_seed: u32;
+        var<private> path_seed: u32;
+        var<private> mcmc_state_val: vec2<f32>;
+        var<private> pss_dim: u32;
+
+        fn pcg_hash(input: u32) -> u32 {
+            var state = input * 747796405u + 2891336453u;
+            var word = ((state >> ((state >> 28u) + 4u)) ^ state) * 277803737u;
+            return (word >> 22u) ^ word;
+        }
+
+        fn hash_spatial_temporal(pos: vec2<u32>, frame: u32) -> u32 {
+            var state = pos.x * 747796405u + pos.y * 2891336453u;
+            state = state ^ (frame * 26699u);
+            return pcg_hash(state);
+        }
+
+        fn rand() -> f32 {
+            rand_seed = pcg_hash(rand_seed);
+            return f32(rand_seed >> 8u) / 16777216.0;
+        }
+
+        fn get_random_number() -> f32 {
+            if (uniforms.procedural_mode == 1u) {
+                if (pss_dim == 0u) { pss_dim++; return mcmc_state_val.x; }
+                if (pss_dim == 1u) { pss_dim++; return mcmc_state_val.y; }
+            }
+            path_seed = pcg_hash(path_seed);
+            return f32(path_seed >> 8u) / 16777216.0;
+        }
+
+        fn f32_to_fixed128(val: f32) -> array<u32, 4> {
+            var res = array<u32, 4>(0u, 0u, 0u, 0u);
+            if (val <= 0.0) { return res; }
+            
+            let bits = bitcast<u32>(val);
+            let exp = (bits >> 23u) & 0xFFu;
+            var mantissa = bits & 0x7FFFFFu;
+            
+            if (exp > 0u) {
+                mantissa = mantissa | 0x800000u;
+            } else {
+                if (mantissa == 0u) { return res; }
+            }
+            
+            let true_exp = select(i32(exp) - 127, -126, exp == 0u);
+            let shift = true_exp + 41;
+            
+            if (shift < 0) {
+                let rshift = u32(-shift);
+                if (rshift < 32u) {
+                    res[0] = mantissa >> rshift;
+                }
+            } else {
+                let word_idx = u32(shift) / 32u;
+                let bit_shift = u32(shift) % 32u;
+                
+                let low_part = mantissa << bit_shift;
+                var high_part = 0u;
+                if (bit_shift > 0u) {
+                    high_part = mantissa >> (32u - bit_shift);
+                }
+                
+                if (word_idx == 0u) {
+                    res[0] = low_part; res[1] = high_part;
+                } else if (word_idx == 1u) {
+                    res[1] = low_part; res[2] = high_part;
+                } else if (word_idx == 2u) {
+                    res[2] = low_part; res[3] = high_part;
+                } else if (word_idx == 3u) {
+                    res[3] = low_part; 
+                }
+            }
+            return res;
+        }
+
+        fn add_radiance_128(base_idx: u32, radiance: vec3<f32>) {
+            for (var c = 0u; c < 3u; c++) {
+                let fixed_val = f32_to_fixed128(radiance[c]);
+                let idx = base_idx + c * 4u;
+                
+                let old_w0 = accum_buffer[idx];
+                let new_w0 = old_w0 + fixed_val[0];
+                var carry = select(0u, 1u, new_w0 < old_w0);
+                accum_buffer[idx] = new_w0;
+                
+                let old_w1 = accum_buffer[idx + 1u];
+                let sum1 = old_w1 + fixed_val[1];
+                let carry1 = select(0u, 1u, sum1 < old_w1);
+                let new_w1 = sum1 + carry;
+                let carry2 = select(0u, 1u, new_w1 < sum1);
+                carry = carry1 + carry2;
+                accum_buffer[idx + 1u] = new_w1;
+                
+                let old_w2 = accum_buffer[idx + 2u];
+                let sum2 = old_w2 + fixed_val[2];
+                let carry3 = select(0u, 1u, sum2 < old_w2);
+                let new_w2 = sum2 + carry;
+                let carry4 = select(0u, 1u, new_w2 < sum2);
+                carry = carry3 + carry4;
+                accum_buffer[idx + 2u] = new_w2;
+                
+                let old_w3 = accum_buffer[idx + 3u];
+                let sum3 = old_w3 + fixed_val[3];
+                accum_buffer[idx + 3u] = sum3 + carry;
+            }
+        }
+
+        fn read_radiance_128(base_idx: u32, frame_count: u32) -> vec3<f32> {
+            var col = vec3<f32>(0.0);
+            let frame_f = f32(max(frame_count, 1u));
+            let m0 = 1.0 / (4294967296.0 * 4294967296.0 * frame_f);
+            let m1 = 1.0 / (4294967296.0 * frame_f);
+            let m2 = 1.0 / frame_f;
+            let m3 = 4294967296.0 / frame_f;
+
+            for (var c = 0u; c < 3u; c++) {
+                let idx = base_idx + c * 4u;
+                let w0 = accum_buffer[idx];
+                let w1 = accum_buffer[idx + 1u];
+                let w2 = accum_buffer[idx + 2u];
+                let w3 = accum_buffer[idx + 3u];
+
+                col[c] = f32(w3) * m3 + f32(w2) * m2 + f32(w1) * m1 + f32(w0) * m0;
+            }
+            return col;
+        }
+
+        struct Ray {
+            origin: vec3<f32>,
+            direction: vec3<f32>,
+        }
+
+        struct Material {
+            colour: vec3<f32>,
+            emission: vec3<f32>,
+            is_spectral: bool,
+            spectral_peak: f32,
+            roughness: f32,
+            metallic: f32,
+            transmission: f32,
+            ior: f32,
+        }
+
+        struct HitRecord {
+            distance: f32,
+            normal: vec3<f32>,
+            material: Material,
+        }
+
+        fn wavelength_to_xyz(lambda: f32) -> vec3<f32> {
+            let x = exp(-pow((lambda - 599.8) / 37.9, 2.0)) * 1.0622 + 
+                    exp(-pow((lambda - 442.0) / 30.6, 2.0)) * 0.3127 + 
+                    exp(-pow((lambda - 501.1) / 26.9, 2.0)) * 0.0044;
+            let y = exp(-pow((lambda - 568.8) / 46.9, 2.0)) * 0.8256 + 
+                    exp(-pow((lambda - 530.9) / 16.3, 2.0)) * 0.2840;
+            let z = exp(-pow((lambda - 437.0) / 11.8, 2.0)) * 1.2164 + 
+                    exp(-pow((lambda - 459.0) / 26.0, 2.0)) * 0.6805;
+            return vec3<f32>(x, y, z);
+        }
+
+        fn xyz_to_rgb(xyz: vec3<f32>) -> vec3<f32> {
+            let r =  3.2404542 * xyz.x - 1.5371385 * xyz.y - 0.4985314 * xyz.z;
+            let g = -0.9692660 * xyz.x + 1.8760108 * xyz.y + 0.0415560 * xyz.z;
+            let b =  0.0556434 * xyz.x - 0.2040259 * xyz.y + 1.0572252 * xyz.z;
+            return max(vec3<f32>(0.0), vec3<f32>(r, g, b));
+        }
+
+        fn intersect_plane(ray: Ray, normal: vec3<f32>, d: f32, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let ndotd = dot(ray.direction, normal);
+            if (abs(ndotd) < 1e-6) { return; }
+            let t = -(dot(ray.origin, normal) + d) / ndotd;
+            if (t > 0.001 && t < (*best_hit).distance) {
+                let p = ray.origin + t * ray.direction;
+                let epsilon = 1e-4;
+                if (abs(p.x) <= 1.0 + epsilon && abs(p.y) <= 1.0 + epsilon && abs(p.z) <= 1.0 + epsilon) {
+                    (*best_hit).distance = t;
+                    (*best_hit).normal = normal;
+                    (*best_hit).material = mat;
+                }
+            }
+        }
+
+        fn intersect_box(ray: Ray, bmin: vec3<f32>, bmax: vec3<f32>, rotation: f32, mat: Material, best_hit: ptr<function, HitRecord>) {
+            let s = sin(rotation);
+            let c = cos(rotation);
+            let centre = (bmin + bmax) * 0.5;
+            let extents = (bmax - bmin) * 0.5;
+            
+            var ro = ray.origin - centre;
+            ro = vec3<f32>(ro.x * c + ro.z * s, ro.y, -ro.x * s + ro.z * c);
+            var rd = ray.direction;
+            rd = vec3<f32>(rd.x * c + rd.z * s, rd.y, -rd.x * s + rd.z * c);
+            
+            let inv_dir = 1.0 / (rd + 1e-8);
+            let t0 = (-extents - ro) * inv_dir;
+            let t1 = (extents - ro) * inv_dir;
+            let tmin_vec = min(t0, t1);
+            let tmax_vec = max(t0, t1);
+            let t_near = max(max(tmin_vec.x, tmin_vec.y), tmin_vec.z);
+            let t_far = min(min(tmax_vec.x, tmax_vec.y), tmax_vec.z);
+            
+            if (t_near > 0.001 && t_near < t_far && t_near < (*best_hit).distance) {
+                (*best_hit).distance = t_near;
+                (*best_hit).material = mat;
+                let p = ro + t_near * rd;
+                let d = abs(p) / extents;
+                let max_d = max(max(d.x, d.y), d.z);
+                let epsilon = 1e-3;
+                let local_normal = normalize(vec3<f32>(
+                    sign(p.x) * step(max_d - epsilon, d.x),
+                    sign(p.y) * step(max_d - epsilon, d.y),
+                    sign(p.z) * step(max_d - epsilon, d.z)
+                ));
+                (*best_hit).normal = vec3<f32>(local_normal.x * c - local_normal.z * s, local_normal.y, local_normal.x * s + local_normal.z * c);
+            }
+        }
+
+        fn map_scene(ray: Ray) -> HitRecord {
+            var hit = HitRecord(10000.0, vec3<f32>(0.0), Material(vec3<f32>(0.0), vec3<f32>(0.0), false, 0.0, 0.0, 0.0, 0.0, 1.0));
+            
+            let white = Material(vec3<f32>(0.73), vec3<f32>(0.0), false, 0.0, 1.0, 0.0, 0.0, 1.0);
+            let red   = Material(vec3<f32>(0.63, 0.06, 0.05), vec3<f32>(0.0), true, 630.0, 1.0, 0.0, 0.0, 1.0);
+            let green = Material(vec3<f32>(0.15, 0.48, 0.09), vec3<f32>(0.0), true, 510.0, 1.0, 0.0, 0.0, 1.0);
+            let light = Material(vec3<f32>(0.0), vec3<f32>(35.0), false, 0.0, 1.0, 0.0, 0.0, 1.0);
+
+            intersect_plane(ray, vec3<f32>(1.0, 0.0, 0.0), 1.0, red, &hit); 
+            intersect_plane(ray, vec3<f32>(-1.0, 0.0, 0.0), 1.0, green, &hit);
+            intersect_plane(ray, vec3<f32>(0.0, 1.0, 0.0), 1.0, white, &hit); 
+            intersect_plane(ray, vec3<f32>(0.0, -1.0, 0.0), 1.0, white, &hit); 
+            intersect_plane(ray, vec3<f32>(0.0, 0.0, 1.0), 1.0, white, &hit); 
+            
+            intersect_box(ray, vec3<f32>(-0.25, 0.98, -0.25), vec3<f32>(0.25, 1.0, 0.25), 0.0, light, &hit);
+            intersect_box(ray, vec3<f32>(-0.65, -1.0, -0.65), vec3<f32>(-0.05, 0.2, -0.05), -0.305, white, &hit); 
+            intersect_box(ray, vec3<f32>(0.15, -1.0, 0.05), vec3<f32>(0.75, -0.4, 0.65), 0.305, white, &hit);
+            
+            return hit;
+        }
+
+        fn evaluate_path(pixel: vec2<f32>, dims: vec2<f32>) -> vec3<f32> {
+            pss_dim = 0u;
+            let jitter = vec2<f32>(get_random_number(), get_random_number());
+            let aspect = dims.x / dims.y;
+            
+            let uv = vec2<f32>(
+                ((pixel.x + jitter.x) / dims.x) * 2.0 - 1.0,
+                1.0 - ((pixel.y + jitter.y) / dims.y) * 2.0
+            );
+            
+            var ray: Ray;
+            let cam_pos = uniforms.cam_pos.xyz;
+            let lookat = vec3<f32>(0.0, 0.0, 0.0);
+            let cw = normalize(lookat - cam_pos);
+            let cu = normalize(cross(cw, vec3<f32>(0.0, 1.0, 0.0)));
+            let cv = cross(cu, cw); 
+            ray.origin = cam_pos;
+            
+            let focal_length = 2.0; 
+            ray.direction = normalize(uv.x * aspect * cu + uv.y * cv + focal_length * cw);
+
+            var radiance = vec3<f32>(0.0);
+            var throughput = vec3<f32>(1.0);
+            var spectral_lambdas = vec4<f32>(550.0);
+            
+            if (uniforms.spectral_mode == 1u) {
+                let base = 380.0 + get_random_number() * 400.0;
+                spectral_lambdas = vec4<f32>(base, (base + 100.0) % 400.0 + 380.0, (base + 200.0) % 400.0 + 380.0, (base + 300.0) % 400.0 + 380.0);
+            }
+
+            for (var bounce = 0; bounce < 6; bounce++) {
+                let hit = map_scene(ray);
+                if (hit.distance > 999.0) { break; }
+                
+                let hit_p = ray.origin + hit.distance * ray.direction;
+                let mat = hit.material;
+                radiance += throughput * mat.emission;
+                if (any(mat.emission > vec3<f32>(0.0))) { break; }
+
+                let r1 = 6.283185307 * get_random_number();
+                let r2 = get_random_number();
+                let r2s = sqrt(r2);
+                let w = hit.normal;
+                let u_vec = normalize(cross(select(vec3<f32>(1,0,0), vec3<f32>(0,1,0), abs(w.x) > 0.9), w));
+                let v_vec = cross(w, u_vec);
+                
+                ray.origin = hit_p + hit.normal * 0.002;
+                ray.direction = normalize(u_vec * cos(r1) * r2s + v_vec * sin(r1) * r2s + w * sqrt(1.0 - r2));
+                
+                if (uniforms.spectral_mode == 1u && mat.is_spectral) {
+                    var spectral_weights = vec3<f32>(0.0);
+                    for(var i=0u; i<4u; i++) {
+                        let weight = exp(-pow((spectral_lambdas[i] - mat.spectral_peak) / 30.0, 2.0));
+                        spectral_weights += xyz_to_rgb(wavelength_to_xyz(spectral_lambdas[i])) * weight * 0.25;
+                    }
+                    throughput *= spectral_weights;
+                } else {
+                    throughput *= mat.colour;
+                }
+            }
+            return radiance;
+        }
+
+        var<workgroup> shared_lum: array<f32, 256>;
+
+        @compute @workgroup_size(256)
+        fn lum_compute(@builtin(local_invocation_id) local_id: vec3<u32>) {
+            let idx = local_id.x;
+            let dims = vec2<f32>(uniforms.resolution);
+
+            let x = u32(fract(f32(idx) * 0.61803398875) * dims.x);
+            let y = u32(fract(f32(idx) * 0.75487766624) * dims.y);
+
+            var lum = 0.0;
+            if (uniforms.frame > 0u) {
+                let base_idx = (y * u32(dims.x) + x) * 12u;
+                let col = read_radiance_128(base_idx, uniforms.frame);
+                lum = dot(col, vec3<f32>(0.2126, 0.7152, 0.0722));
+            }
+
+            shared_lum[idx] = lum;
+            workgroupBarrier();
+
+            for (var stride = 128u; stride > 0u; stride >>= 1u) {
+                if (idx < stride) {
+                    shared_lum[idx] += shared_lum[idx + stride];
+                }
+                workgroupBarrier();
+            }
+
+            if (idx == 0u) {
+                let avg_lum = shared_lum[0] / 256.0;
+                let target_exposure = 0.18 / max(avg_lum, 0.001);
+
+                var current_exposure = exposure_state[0];
+                if (uniforms.frame < 2u) {
+                    current_exposure = target_exposure;
+                } else {
+                    current_exposure = mix(current_exposure, target_exposure, 0.03); 
+                }
+
+                exposure_state[0] = clamp(current_exposure, 0.01, 100.0);
+            }
+        }
+
+        @compute @workgroup_size(16, 16)
+        fn main_compute(@builtin(global_invocation_id) id: vec3<u32>, @builtin(local_invocation_index) local_idx: u32) {
+            let dims = vec2<f32>(uniforms.resolution);
+            let pixel = vec2<f32>(id.xy);
+            let in_bounds = pixel.x < dims.x && pixel.y < dims.y;
+            
+            var current_colour = vec3<f32>(0.0);
+            var mut_energy = 0.0;
+            var mutated_val = vec2<f32>(0.0);
+            var pixel_idx = 0u;
+            var base_idx = 0u;
+
+            if (in_bounds) {
+                pixel_idx = id.y * u32(dims.x) + id.x;
+                base_idx = pixel_idx * 12u;
+                rand_seed = hash_spatial_temporal(id.xy, uniforms.frame * 1669u);
+                path_seed = rand_seed;
+
+                let packed_state = mcmc_state[pixel_idx];
+                mcmc_state_val = unpack2x16float(packed_state);
+
+                if (uniforms.frame == 0u) { 
+                    mcmc_state_val = vec2<f32>(rand(), rand());
+                    for (var c = 0u; c < 12u; c++) {
+                        accum_buffer[base_idx + c] = 0u;
+                    } 
+                }
+
+                current_colour = evaluate_path(pixel, dims);
+                
+                if (uniforms.procedural_mode == 1u) {
+                    let mutation_scale = 0.015;
+                    mutated_val = fract(mcmc_state_val + (vec2<f32>(rand(), rand()) - 0.5) * mutation_scale);
+                    
+                    let old_val = mcmc_state_val;
+                    mcmc_state_val = mutated_val;
+                    let m_colour = evaluate_path(pixel, dims);
+                    mut_energy = max(0.01, dot(m_colour, vec3<f32>(0.21, 0.71, 0.07)));
+                    
+                    mcmc_state_val = old_val;
+                    
+                    let cur_energy = max(0.01, dot(current_colour, vec3<f32>(0.21, 0.71, 0.07)));
+                    
+                    if (rand() < min(1.0, mut_energy / cur_energy)) {
+                        mcmc_state_val = mutated_val;
+                        current_colour = m_colour;
+                    }
+                }
+
+                mcmc_state[pixel_idx] = pack2x16float(mcmc_state_val);
+            
+                add_radiance_128(base_idx, current_colour);
+            
+                let final_rgb = read_radiance_128(base_idx, uniforms.frame + 1u);
+                let exposed_rgb = final_rgb * exposure_state[0];
+                let tone_mapped = exposed_rgb / (exposed_rgb + 1.2);
+                textureStore(render_texture, id.xy, vec4<f32>(pow(tone_mapped, vec3<f32>(1.0 / 2.2)), 1.0));
+            }
+        }
+    `;
+
+    const RENDER_WGSL = `
+        @group(0) @binding(0) var render_texture: texture_2d<f32>;
+        @group(0) @binding(1) var samp: sampler;
+        struct VertexOutput { @builtin(position) pos: vec4<f32>, @location(0) uv: vec2<f32> };
+        @vertex fn vs_main(@builtin(vertex_index) idx: u32) -> VertexOutput {
+            var pos = array<vec2<f32>, 3>(vec2(-1.0, -1.0), vec2(3.0, -1.0), vec2(-1.0, 3.0));
+            var out: VertexOutput;
+            out.pos = vec4<f32>(pos[idx], 0.0, 1.0);
+            out.uv = pos[idx] * 0.5 + 0.5;
+            out.uv.y = 1.0 - out.uv.y;
+            return out;
+        }
+        @fragment fn fs_main(in: VertexOutput) -> @location(0) vec4<f32> {
+            return textureSample(render_texture, samp, in.uv);
+        }
+    `;
+
+    async function initialise() {
+        if (!navigator.gpu) {
+            const err = document.getElementById('error-msg');
+            err.style.display = 'block';
+            err.innerText = "WebGPU is not supported in this browser.";
+            return;
+        }
+        
+        const adapter = await navigator.gpu.requestAdapter();
+        if (!adapter || !adapter.features.has('subgroups')) {
+             const err = document.getElementById('error-msg');
+             err.style.display = 'block';
+             err.innerText = "subgroup support is required for this engine.";
+            return;
+        }
+
+        const requiredLimits = { maxStorageBufferBindingSize: adapter.limits.maxStorageBufferBindingSize };
+        const device = await adapter.requestDevice({ 
+            requiredFeatures: ['subgroups'],
+            requiredLimits
+        });
+        const canvas = document.getElementById('render-canvas');
+        const context = canvas.getContext('webgpu');
+        const format = navigator.gpu.getPreferredCanvasFormat();
+        
+        let width, height;
+        let accumBuffer, renderTex, uniformsBuffer, mcmcBuffer, exposureBuffer;
+        let computeBGL, cPipe, lPipe, rPipe, mainBG, renderBG;
+        const uniformsSize = 48;
+
+        const updateResources = () => {
+            width = window.innerWidth;
+            height = window.innerHeight;
+            canvas.width = width;
+            canvas.height = height;
+            document.getElementById('metric-res').innerText = `${width}\u00A0x\u00A0${height}`;
+
+            if (renderTex) renderTex.destroy();
+            renderTex = device.createTexture({ 
+                size: [width, height, 1], 
+                format: 'rgba8unorm', 
+                usage: GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING 
+            });
+            
+            if (mcmcBuffer) mcmcBuffer.destroy();
+            mcmcBuffer = device.createBuffer({ 
+                size: width * height * 4, 
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST 
+            });
+
+            if (exposureBuffer) exposureBuffer.destroy();
+            exposureBuffer = device.createBuffer({
+                size: 4, 
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            });
+            device.queue.writeBuffer(exposureBuffer, 0, new Float32Array([1.0]));
+
+            if (accumBuffer) accumBuffer.destroy();
+            accumBuffer = device.createBuffer({ 
+                size: width * height * 12 * 4, 
+                usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST 
+            });
+
+            mainBG = device.createBindGroup({ 
+                layout: computeBGL, 
+                entries: [
+                    {binding:0, resource:{buffer:uniformsBuffer}}, 
+                    {binding:1, resource:{buffer:accumBuffer}}, 
+                    {binding:2, resource:renderTex.createView()}, 
+                    {binding:3, resource:{buffer:mcmcBuffer}},
+                    {binding:4, resource:{buffer:exposureBuffer}}
+                ] 
+            });
+
+            renderBG = device.createBindGroup({ 
+                layout: rPipe.getBindGroupLayout(0), 
+                entries: [
+                    {binding:0, resource:renderTex.createView()}, 
+                    {binding:1, resource:device.createSampler()}
+                ] 
+            });
+        };
+
+        context.configure({ device, format, alphaMode: 'premultiplied' });
+        uniformsBuffer = device.createBuffer({ size: uniformsSize, usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST });
+
+        const cMod = device.createShaderModule({ code: WGSL_SOURCE });
+        
+        computeBGL = device.createBindGroupLayout({
+            entries: [
+                { binding: 0, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'uniform' } },
+                { binding: 1, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 2, visibility: GPUShaderStage.COMPUTE, storageTexture: { access: 'write-only', format: 'rgba8unorm' } },
+                { binding: 3, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } },
+                { binding: 4, visibility: GPUShaderStage.COMPUTE, buffer: { type: 'storage' } }
+            ]
+        });
+
+        const computePipelineLayout = device.createPipelineLayout({
+            bindGroupLayouts: [computeBGL]
+        });
+        
+        cPipe = device.createComputePipeline({ layout: computePipelineLayout, compute: { module: cMod, entryPoint: 'main_compute' } });
+        lPipe = device.createComputePipeline({ layout: computePipelineLayout, compute: { module: cMod, entryPoint: 'lum_compute' } });
+        
+        const rMod = device.createShaderModule({ code: RENDER_WGSL });
+        rPipe = device.createRenderPipeline({ 
+            layout: 'auto', 
+            vertex: { module: rMod, entryPoint: 'vs_main' }, 
+            fragment: { module: rMod, entryPoint: 'fs_main', targets: [{ format }] }, 
+            primitive: { topology: 'triangle-list' } 
+        });
+
+        updateResources();
+
+        let frame = 0; 
+        let lastTime = performance.now();
+        let cam = { theta: 0.0, phi: 0.0, radius: 3.0 };
+        
+        document.getElementById('toggle-procedural').addEventListener('change', () => { frame = 0; });
+        document.getElementById('toggle-spectral').addEventListener('change', () => { frame = 0; });
+        
+        const updateUniforms = () => {
+            const data = new Float32Array(12);
+            data[0] = width; data[1] = height;
+            const u32 = new Uint32Array(data.buffer);
+            u32[2] = frame; 
+            u32[3] = document.getElementById('toggle-procedural').checked ? 1 : 0; 
+            u32[4] = document.getElementById('toggle-spectral').checked ? 1 : 0;
+            data[8] = cam.radius * Math.sin(cam.theta) * Math.cos(cam.phi);
+            data[9] = cam.radius * Math.sin(cam.phi);
+            data[10] = cam.radius * Math.cos(cam.theta) * Math.cos(cam.phi);
+            device.queue.writeBuffer(uniformsBuffer, 0, data);
+        };
+
+        const render = () => {
+            updateUniforms();
+            const encoder = device.createCommandEncoder();
+            const pass = encoder.beginComputePass();
+            
+            pass.setPipeline(lPipe);
+            pass.setBindGroup(0, mainBG);
+            pass.dispatchWorkgroups(1);
+            
+            pass.setPipeline(cPipe);
+            pass.dispatchWorkgroups(Math.ceil(width/16), Math.ceil(height/16));
+            pass.end();
+            
+            const rPass = encoder.beginRenderPass({ 
+                colorAttachments: [{ 
+                    view: context.getCurrentTexture().createView(), 
+                    clearValue: {r:0,g:0,b:0,a:1}, 
+                    loadOp: 'clear', 
+                    storeOp: 'store' 
+                }] 
+            });
+            rPass.setPipeline(rPipe);
+            rPass.setBindGroup(0, renderBG);
+            rPass.draw(3);
+            rPass.end();
+            device.queue.submit([encoder.finish()]);
+            
+            const now = performance.now();
+            if (now - lastTime >= 100) {
+                document.getElementById('metric-frametime').innerText = `${(now - lastTime).toFixed(2)}\u00A0ms`;
+                document.getElementById('metric-samples').innerText = frame;
+                const rpsValue = ((width * height * 6) / ((now - lastTime) / 1000)) / 1000000;
+                document.getElementById('metric-rps').innerText = `${rpsValue.toFixed(2)}\u00A0m/s`;
+                lastTime = now;
+            }
+            frame++;
+            requestAnimationFrame(render);
+        };
+
+        window.addEventListener('resize', () => {
+            updateResources();
+            frame = 0;
+        });
+
+        canvas.onmousedown = (e) => {
+            const startX = e.clientX; const startY = e.clientY;
+            const startTheta = cam.theta; const startPhi = cam.phi;
+            window.onmousemove = (me) => {
+                cam.theta = startTheta - (me.clientX - startX) * 0.01;
+                cam.phi = Math.max(-1.5, Math.min(1.5, startPhi + (me.clientY - startY) * 0.01));
+                frame = 0;
+            };
+            window.onmouseup = () => window.onmousemove = null;
+        };
+        canvas.onwheel = (e) => { 
+            cam.radius = Math.max(0.5, Math.min(8.0, cam.radius + e.deltaY * 0.005)); 
+            frame = 0; 
+            e.preventDefault(); 
+        };
+        
+        render();
+    }
+
+    // Set date stamp
+    const dateElement = document.getElementById('metric-date');
+    const now = new Date();
+    const months = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+    dateElement.innerText = `${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+
+    initialise();
+</script>
+</body>
+</html>
