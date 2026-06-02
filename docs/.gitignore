@@ -3,6 +3,6 @@
 *_cache/
 *_files/
 *.log
-reference/api.qmd
+reference/api.md
 
 **/*.quarto_ipynb
