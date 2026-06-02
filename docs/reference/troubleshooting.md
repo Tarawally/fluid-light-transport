@@ -1,10 +1,14 @@
-# Troubleshooting & FAQ {#sec-troubleshooting}
+---
+title: "Troubleshooting & FAQ"
+---
+
+# Troubleshooting & FAQ
 
 This chapter addresses common issues, performance problems, and implementation questions.
 
-## Performance Issues {#performance-issues}
+## Performance Issues
 
-### Problem: Low Frame Rate (< 30 FPS) {#low-framerate}
+### Problem: Low Frame Rate (< 30 FPS)
 
 **Symptoms**:
 - Stuttering or jerky animation
@@ -21,10 +25,14 @@ console.log(`Active tiles: ${State.profiler.activeTiles}`);
 
 **Solutions**:
 
-::: {.panel-tabset}
+Select an optimization option below to view details:
 
-#### Reduce Resolution
+```js
+const viewOpt = view(Inputs.radio(["Reduce Resolution", "Decrease Ray Count", "Increase Pixel Size", "Optimise Tile Budget"], {value: "Reduce Resolution", label: "Select Action:"}));
+```
 
+```js
+${viewOpt === "Reduce Resolution" ? md`
 ```javascript
 // In CONFIG object
 const CONFIG = {
@@ -32,47 +40,37 @@ const CONFIG = {
     // ...
 };
 ```
-
-**Impact**: 64% fewer pixels to process
+**Impact**: 64% fewer pixels to process  
 **Visual quality**: Slightly more pixelated
-
-#### Decrease Ray Count
-
+` : viewOpt === "Decrease Ray Count" ? md`
 ```javascript
 // In ray casting function
 const RAY_SAMPLES = 32;  // Reduce from 64
 ```
-
-**Impact**: 50% faster ray tracing
+**Impact**: 50% faster ray tracing  
 **Visual quality**: Slightly noisier shadows
-
-#### Increase Pixel Size
-
+` : viewOpt === "Increase Pixel Size" ? md`
 ```javascript
 const CONFIG = {
     TILE_SIZE: 8,  // Increase from 4
     // ...
 };
 ```
-
-**Impact**: Larger simulation blocks, fewer calculations
+**Impact**: Larger simulation blocks, fewer calculations  
 **Visual quality**: Blockier light propagation
-
-#### Optimise Tile Budget
-
+` : md`
 ```javascript
 const CONFIG = {
     TIMESTEP_BUDGET_MS: 10,  // Reduce from 14
     // ...
 };
 ```
-
-**Impact**: Frame renders even if simulation incomplete
+**Impact**: Frame renders even if simulation incomplete  
 **Visual quality**: Potentially incomplete light propagation
+`}
+```
 
-:::
-
-### Problem: Memory Usage Too High {#memory-usage}
+### Problem: Memory Usage Too High
 
 **Symptoms**:
 - Browser tab crashes
@@ -97,9 +95,9 @@ bytes = WIDTH × HEIGHT × STRIDE × 4 (Float32Array)
 120×68×12×4 = 391KB (optimised)
 ```
 
-## Visual Artifacts {#visual-artifacts}
+## Visual Artifacts
 
-### Problem: Flickering Shadows {#flickering}
+### Problem: Flickering Shadows
 
 **Cause**: Insufficient diffusion iterations or energy dissipation too high
 
@@ -111,7 +109,7 @@ const CONFIG = {
 };
 ```
 
-### Problem: Light Bleeding Through Walls {#light-bleeding}
+### Problem: Light Bleeding Through Walls
 
 **Cause**: Surface continuity check threshold too lenient
 
@@ -126,7 +124,7 @@ if (Math.abs(depth1 - depth2) < depthThreshold) {
 
 **Visual example**:
 
-```{mermaid}
+```mermaid
 graph LR
     A[Wall<br/>depth=5.0] -.->|❌ No transfer<br/>Δdepth=4.0| B[Background<br/>depth=9.0]
     C[Surface<br/>depth=5.0] -->|✓ Transfer<br/>Δdepth=0.2| D[Adjacent<br/>depth=5.2]
@@ -137,7 +135,7 @@ graph LR
     style D fill:#95e1d3
 ```
 
-### Problem: Overly Bright or Dark Rendering {#brightness}
+### Problem: Overly Bright or Dark Rendering
 
 **Cause**: Exposure/tone mapping incorrect
 
@@ -148,7 +146,7 @@ const exposure = 1.2;  // Increase to brighten
 const colour = Math.pow(rawColour * exposure, 1.0 / 2.2);  // Gamma correction
 ```
 
-## Common Errors {#common-errors}
+## Common Errors
 
 ### Error: "Cannot read property 'lattice' of undefined"
 
@@ -196,7 +194,7 @@ console.log('Scene objects:', Scene.objects.length);
 console.log('Main loop running:', State.profiler.frameCount > 0);
 ```
 
-## Frequently Asked Questions {#faq}
+## Frequently Asked Questions
 
 ### Why fluid simulation instead of traditional ray tracing?
 
@@ -255,12 +253,11 @@ The current implementation is 2D (screen-space simulation). For true 3D:
 3. Add 6-directional (instead of 4) fluid propagation
 4. **Warning**: Memory and computation cost increases cubically!
 
-## Performance Tuning Guide {#tuning-guide}
+## Performance Tuning Guide
 
 ### Target: 60 FPS (16.67ms frame budget)
 
-```{mermaid}
-%%| fig-cap: "Frame time budget allocation"
+```mermaid
 pie title Frame Time Budget (16.67ms)
     "Ray Tracing" : 40
     "Fluid Simulation" : 30
@@ -277,15 +274,17 @@ pie title Frame Time Budget (16.67ms)
 | Low-end/older | 120×68 | 32 | 8 | 30 |
 | Mobile | 80×45 | 16 | 8 | 30 |
 
-## Getting Help {#getting-help}
+## Getting Help
 
-::: {.callout-tip}
-## Resources
+<div class="tip">
 
-- **API Reference**: [Chapter 9](api.qmd)
+### Resources
+
+- **API Reference**: [Chapter 9](api)
 - **GitHub Issues**: [Report bugs](https://github.com/Tarawally/fluid-light-transport/issues)
-- **Source Code**: [`src/engine.js`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js)
-:::
+- **Source Code**: `src/engine.js`
+
+</div>
 
 ### Before Asking for Help
 
@@ -295,4 +294,4 @@ pie title Frame Time Budget (16.67ms)
 4. ✓ Review this troubleshooting guide
 5. ✓ Search [existing issues](https://github.com/Tarawally/fluid-light-transport/issues)
 
-[→ Next: API Reference](api.qmd) | [← Previous: Main Loop](../tutorial/07_mainloop.qmd)
+[→ Next: API Reference](api) | [← Previous: Main Loop](../tutorial/07-mainloop)

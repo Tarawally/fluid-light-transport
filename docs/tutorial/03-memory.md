@@ -1,3 +1,7 @@
+---
+title: "Memory & Data"
+---
+
 # Memory & Data
 
 Simulating reality requires storing vast amounts of information. Every pixel must know its colour, light velocity, and whether it represents a wall or empty air.
@@ -23,12 +27,14 @@ However, managing 200,000 objects is slow. Every time the computer seeks a new o
 
 Instead, we use a single massive array of numbers and use **Offsets** to locate data. This **Structure of Arrays (SoA)** layout keeps related data tightly packed, which the CPU prefers.
 
-::: {.callout-note collapse="true"}
-## Analogy: The Library Shelf
+<div class="note">
+
+### Analogy: The Library Shelf
 Imagine a library.
 *   **AoS**: Books are organised by Author. To find all red books, you must check every aisle.
 *   **SoA**: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.
-:::
+
+</div>
 
 In `src/engine.js`, we define these "shelves" using the `FIELD` constant.
 

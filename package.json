@@ -2,12 +2,13 @@
   "name": "fluid-light-transport",
   "version": "1.0.0",
   "description": "Hybrid Fluid-Light Transport Engine",
+  "type": "module",
   "scripts": {
     "test": "vitest run",
     "test:watch": "vitest",
     "docs:api": "node docs/scripts/build-api.js",
-    "docs:build": "quarto render",
-    "docs:preview": "quarto preview"
+    "docs:build": "observable build && cp -r docs/src dist/ && cp -r docs/assets dist/",
+    "docs:preview": "observable preview"
   },
   "repository": {
     "type": "git",
@@ -16,6 +17,7 @@
   "author": "Samuel Tarawally",
   "license": "MIT",
   "devDependencies": {
+    "@observablehq/framework": "^1.13.4",
     "jsdoc-to-markdown": "^8.0.3",
     "vitest": "^4.0.17"
   }

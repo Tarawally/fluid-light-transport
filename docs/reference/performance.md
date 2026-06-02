@@ -1,4 +1,8 @@
-# Performance Benchmarking {#sec-performance}
+---
+title: "Performance Benchmarking"
+---
+
+# Performance Benchmarking
 
 This page allows you to evaluate how the Hybrid Fluid-Light Transport engine performs on your specific hardware.
 
@@ -7,7 +11,8 @@ This page allows you to evaluate how the Hybrid Fluid-Light Transport engine per
 The simulation below runs a standardised "Stress Test" to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.
 
 <iframe 
-  src="../../src/index.html" 
+  id="perf-iframe"
+  src="../src/index.html" 
   style="width: 100%; height: 60vh; border: 1px solid #eee; border-radius: 8px;"
   title="Performance Benchmark">
 </iframe>
@@ -18,7 +23,7 @@ Treatment of light as a fluid is computationally demanding. Unlike standard GPU-
 
 ### The Stages of Execution
 
-```{mermaid}
+```mermaid
 graph TD
     A[Input Handling] --> B[Ray Tracing]
     B --> C[Advection Stage]
@@ -37,30 +42,31 @@ graph TD
 
 Adjust the parameters below to see their theoretical impact on your frame budget (16.6ms for 60 FPS).
 
-```{ojs}
-//| echo: false
-viewof res = Inputs.select([
+```js
+const res = view(Inputs.select([
   {label: "Low (160x90)", value: 14400},
   {label: "Medium (320x180)", value: 57600},
   {label: "High (640x360)", value: 230400}
-], {label: "Grid Resolution"})
+], {label: "Grid Resolution"}));
 
-viewof rays = Inputs.range([8, 128], {value: 64, step: 8, label: "Rays per Frame"})
+const rays = view(Inputs.range([8, 128], {value: 64, step: 8, label: "Rays per Frame"}));
+```
 
-msPerPixel = 0.00007 // Estimated CPU time per pixel advection/diffusion
-msPerRay = 0.05      // Estimated CPU time per ray cast
+```js
+const msPerPixel = 0.00007; // Estimated CPU time per pixel advection/diffusion
+const msPerRay = 0.05;      // Estimated CPU time per ray cast
 
-totalTime = (res * msPerPixel) + (rays * msPerRay)
-fps = Math.min(60, 1000 / totalTime)
+const totalTime = (res * msPerPixel) + (rays * msPerRay);
+const fps = Math.min(60, 1000 / totalTime);
 
-md`
+display(md`
 ### Predicted Frame Time: **${totalTime.toFixed(2)}ms**
 ### Predicted FPS: **${fps.toFixed(1)}**
 
 ${totalTime > 16.6 ? 
     "⚠️ **Performance Warning**: This configuration exceeds the 16.6ms budget. Expect stuttering." : 
     "✅ **Optimal**: This should run smoothly at 60 FPS."}
-`
+`);
 ```
 
 ## Potential Optimisations
@@ -70,3 +76,20 @@ To improve performance in future versions, we are exploring:
 - **Web Workers**: Moving the Diffusion and Advection loops to background threads.
 - **SIMD (Single Instruction, Multiple Data)**: Using `Float32Array` with vectorized operations via WebAssembly.
 - **GPU Acceleration**: Ports of the CA logic to WebGL/WebGPU compute shaders.
+
+```js
+// Sync theme to the embedded performance iframe reactively when the page theme changes
+const iframe = document.getElementById("perf-iframe");
+if (iframe) {
+  const postTheme = () => {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'themechange',
+        theme: dark ? 'dark' : 'light'
+      }, '*');
+    }
+  };
+  postTheme();
+  iframe.addEventListener('load', postTheme);
+}
+```

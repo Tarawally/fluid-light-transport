@@ -1,13 +1,16 @@
-# Casting Rays {#sec-raytracing}
+---
+title: "Casting Rays"
+---
+
+# Casting Rays
 
 With our grid (Canvas) and maths (Vectors) established, simulation begins. The first step is locating the light.
 
-## Reverse Ray Tracing {#reverse-ray-tracing}
+## Reverse Ray Tracing
 
 In reality, light travels from a bulb to your eye. In computer graphics, we work in reverse. We shoot a ray from the "Camera" (your eye) through every screen pixel to see what it strikes.
 
-```{mermaid}
-%%| fig-cap: "Ray tracing flow: from eye through screen to scene"
+```mermaid
 flowchart LR
     A[Eye/Camera] -->|1. Cast Ray| B[Screen Pixel]
     B -->|2. Trace Through Scene| C{Hit Object?}
@@ -17,16 +20,18 @@ flowchart LR
     E --> F
 ```
 
-::: {.callout-tip}
-## Why Reverse?
-Forward ray tracing (light → eye) is inefficient because most rays miss the camera. Reverse tracing (eye → scene) ensures every ray contributes to the image.
-:::
+<div class="tip">
 
-## The Ray Equation {#ray-equation}
+### Why Reverse?
+Forward ray tracing (light → eye) is inefficient because most rays miss the camera. Reverse tracing (eye → scene) ensures every ray contributes to the image.
+
+</div>
+
+## The Ray Equation
 
 A ray is defined mathematically as:
 
-$$ \mathbf{P}(t) = \mathbf{O} + t\mathbf{D} $$
+${tex`\mathbf{P}(t) = \mathbf{O} + t\mathbf{D}`}
 
 Where:
 - $\mathbf{O}$ = **Origin** (ray start position)
@@ -50,7 +55,7 @@ function rayPoint(ray, t) {
 }
 ```
 
-## Intersection: The Sphere {#sphere-intersection}
+## Intersection: The Sphere
 
 Our scene comprises spheres. To check if a ray hits a sphere, we use algebra. A sphere is defined as all points at a distance $r$ from a centre point $C$.
 
@@ -58,15 +63,15 @@ Our scene comprises spheres. To check if a ray hits a sphere, we use algebra. A 
 
 A sphere centred at $\mathbf{C}$ with radius $r$ satisfies:
 
-$$ |\mathbf{P} - \mathbf{C}|^2 = r^2 $$
+${tex`|\mathbf{P} - \mathbf{C}|^2 = r^2`}
 
 Substituting the ray equation $\mathbf{P}(t) = \mathbf{O} + t\mathbf{D}$:
 
-$$ |\mathbf{O} + t\mathbf{D} - \mathbf{C}|^2 = r^2 $$
+${tex`|\mathbf{O} + t\mathbf{D} - \mathbf{C}|^2 = r^2`}
 
 This becomes a quadratic equation:
 
-$$ at^2 + bt + c = 0 $$
+${tex`at^2 + bt + c = 0`}
 
 Where:
 - $a = \mathbf{D} \cdot \mathbf{D}$ (usually 1 if direction is normalised)
@@ -90,32 +95,34 @@ This is implemented in `Scene.trace` within `src/engine.js`:
 trace: function(ro, rd) {
     // ...
     const oc = {x: ro.x - sphere.x, y: ro.y - sphere.y};
-    const b = 2 * (rd.x * oc.x + rd.y * oc.y);      // <1>
-    const c = (oc.x * oc.x + oc.y * oc.y) - r * r; // <2>
+    const b = 2 * (rd.x * oc.x + rd.y * oc.y);
+    const c = (oc.x * oc.x + oc.y * oc.y) - r * r;
     
-    const d = b * b - c;                             // <3>
-    if (d > 0) {                                     // <4>
-        const t = (-b - Math.sqrt(d)) / 2;           // <5>
+    const d = b * b - c;
+    if (d > 0) {
+        const t = (-b - Math.sqrt(d)) / 2;
         // We hit the sphere at distance t!
     }
 }
 ```
 
-1.  Calculates coefficient $b = 2\mathbf{D} \cdot (\mathbf{O} - \mathbf{C})$
-2.  Calculates coefficient $c = |\mathbf{O} - \mathbf{C}|^2 - r^2$
-3.  Computes discriminant $\Delta = b^2 - 4ac$ (simplified since $a=1$)
-4.  Positive discriminant means intersection
-5.  Solves for $t$ using quadratic formula (takes nearest hit)
+In the implementation details above:
+1. We calculate coefficient $b = 2\mathbf{D} \cdot (\mathbf{O} - \mathbf{C})$
+2. We calculate coefficient $c = |\mathbf{O} - \mathbf{C}|^2 - r^2$
+3. We compute discriminant $\Delta = b^2 - 4ac$ (simplified since $a=1$)
+4. A positive discriminant means intersection occurs
+5. We solve for $t$ using the quadratic formula (taking the nearest hit)
 
-::: {.callout-tip}
-## API Reference
-See the complete implementation in [API Reference → Scene.trace](../reference/api.qmd#scene-trace).
-:::
+<div class="tip">
 
-## Ray Marching Visualization {#ray-marching}
+### API Reference
+See the complete implementation in [API Reference → Scene.trace](../reference/api#Scene.trace).
 
-```{mermaid}
-%%| fig-cap: "Step-by-step ray marching through a scene"
+</div>
+
+## Ray Marching Visualization
+
+```mermaid
 sequenceDiagram
     participant O as Ray Origin
     participant R as Ray
@@ -134,7 +141,7 @@ sequenceDiagram
     end
 ```
 
-## Injection {#light-injection}
+## Injection
 
 When a ray strikes a light source, we "inject" that energy into our fluid grid (`State.lattice`). This initiates our fluid simulation.
 
@@ -149,13 +156,15 @@ function injectLight(hitPoint, energy) {
 }
 ```
 
-The injected energy then propagates via fluid dynamics (see [Chapter 6: Fluids](06_fluids.qmd)).
+The injected energy then propagates via fluid dynamics (see [Chapter 6: Fluids](06-fluids)).
 
-::: {.callout-note}
-## Performance Considerations
+<div class="note">
+
+### Performance Considerations
 - **Ray count**: More rays = better quality but slower
 - **Step size**: Smaller steps = more accurate but more expensive
 - **Early termination**: Stop after first hit to save computation
-:::
 
-[→ Next: Fluid Simulation](06_fluids.qmd) | [← Previous: Mathematics](04_math.qmd)
+</div>
+
+[→ Next: Fluid Simulation](06-fluids) | [← Previous: Mathematics](04-math)

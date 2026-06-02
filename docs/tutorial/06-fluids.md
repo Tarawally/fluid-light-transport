@@ -1,20 +1,23 @@
-# Simulating Fluids {#sec-fluids}
+---
+title: "Simulating Fluids"
+---
+
+# Simulating Fluids
 
 This is the engine's heart. After injecting light energy into the grid, we treat it as a fluid.
 
-## The Fluid Analogy {#the-fluid-analogy}
+## The Fluid Analogy
 
-*   **Light Intensity** $\approx$ **Fluid Pressure** (Quantity)
-*   **Light Direction** $\approx$ **Fluid Velocity** (Flow direction)
+*   **Light Intensity** ≈ **Fluid Pressure** (Quantity)
+*   **Light Direction** ≈ **Fluid Velocity** (Flow direction)
 
 This analogy allows us to use fluid dynamics algorithms to simulate light transport through 2D space.
 
-## Cellular Automata {#cellular-automata}
+## Cellular Automata
 
 We use **Cellular Automata** (CA). Imagine a checkerboard where every square observes its neighbours to determine its next state.
 
-```{mermaid}
-%%| fig-cap: "Cellular automata neighbourhood in a 2D grid"
+```mermaid
 graph TD
     subgraph "Grid Cell and Neighbours"
         NW[Cell NW] --- N[Cell N] --- NE[Cell NE]
@@ -35,15 +38,16 @@ Each cell updates based on its 4 or 8 neighbours, creating emergent behaviour fr
 
 Adjust the "Centre Brightness" to see how energy spreads to the 4 adjacent neighbours.
 
-```{ojs}
-//| echo: false
-viewof centerVal = Inputs.range([0, 100], {value: 100, step: 1, label: "Centre Brightness"})
-viewof diffusionRate = Inputs.range([0, 1], {value: 0.25, step: 0.05, label: "Diffusion Rate"})
+```js
+const centerVal = view(Inputs.range([0, 100], {value: 100, step: 1, label: "Centre Brightness"}));
+const diffusionRate = view(Inputs.range([0, 1], {value: 0.25, step: 0.05, label: "Diffusion Rate"}));
+```
 
-neighborVal = (centerVal * diffusionRate) / 4
-centerRemaining = centerVal - (centerVal * diffusionRate)
+```js
+const neighborVal = (centerVal * diffusionRate) / 4;
+const centerRemaining = centerVal - (centerVal * diffusionRate);
 
-html`<div style="display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;">
+display(html`<div style="display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;">
   <div></div>
   <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
   <div></div>
@@ -55,10 +59,10 @@ html`<div style="display: grid; grid-template-columns: repeat(3, 60px); grid-gap
   <div></div>
   <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
   <div></div>
-</div>`
+</div>`);
 ```
 
-### 1. Advection (Movement) {#advection}
+### 1. Advection (Movement)
 
 If a pixel has velocity pointing Right, it pushes its energy to the Right neighbour.
 
@@ -78,7 +82,7 @@ function advect(x, y) {
 }
 ```
 
-### 2. Diffusion (Spreading) {#diffusion}
+### 2. Diffusion (Spreading)
 
 Even without velocity, energy spreads. This creates soft shadows and ambient occlusion.
 
@@ -98,7 +102,7 @@ function diffuse(x, y) {
 }
 ```
 
-## Performance Metrics {#performance}
+## Performance Metrics
 
 ### Computational Complexity
 
@@ -110,23 +114,31 @@ function diffuse(x, y) {
 | Rendering | O(w × h) | ~0.5ms (14,400 pixels) | Direct pixel buffer write |
 | **Total** | **O(w×h + n×s)** | **~4.3ms/frame** | **~230 FPS theoretical max** |
 
-::: {.callout-note}
-## Real-World Performance
+<div class="note">
+
+### Real-World Performance
 On a typical laptop (Intel i5, integrated graphics):
 - **160×90 resolution**: 60 FPS (16ms frame budget, ~70% idle time)
 - **320×180 resolution**: 35 FPS (28ms per frame)
 - **640×360 resolution**: 12 FPS (83ms per frame)
 
 The simulation is CPU-bound due to JavaScript single-threaded execution.
-:::
+
+</div>
 
 ### Optimisation: Naive vs. Efficient
 
-::: {.panel-tabset}
+Select a tab below to compare the algorithm architectures:
 
-### Naive Approach
+```js
+const viewAlgoChoice = view(Inputs.radio(["Naive", "Efficient", "Tile-Based"], {value: "Tile-Based", label: "Select Algorithm:"}));
+```
 
-```javascript
+```js
+${viewAlgoChoice === "Naive" ? md`
+#### Naive Approach
+
+\`\`\`javascript
 // O(n²) - checks every pixel pair
 function naiveDiffusion() {
     for (let i = 0; i < pixels.length; i++) {
@@ -138,13 +150,13 @@ function naiveDiffusion() {
     }
 }
 // 14,400² = 207 million checks!
-```
+\`\`\`
 
 **Performance**: Impossibly slow for real-time.
+` : viewAlgoChoice === "Efficient" ? md`
+#### Efficient Approach
 
-### Optimised Approach
-
-```javascript
+\`\`\`javascript
 // O(n) - only checks direct neighbours
 function efficientDiffusion() {
     for (let y = 1; y < HEIGHT - 1; y++) {
@@ -158,13 +170,13 @@ function efficientDiffusion() {
     }
 }
 // Only 14,400 × 4 = 57,600 operations
-```
+\`\`\`
 
 **Performance**: 3,625× faster! Fits in 1ms frame budget.
+` : md`
+#### Tile-Based Approach (Current)
 
-### Tile-Based (Current)
-
-```javascript
+\`\`\`javascript
 // Only processes active regions
 function tileDiffusion() {
     for (const tileIndex of activeTiles) {
@@ -175,42 +187,40 @@ function tileDiffusion() {
     }
 }
 // Typically only ~20% of tiles active
-```
+\`\`\`
 
 **Performance**: 5× faster than full-grid approach.
+`}
+```
 
-:::
+<div class="tip">
 
-::: {.callout-tip}
-## API Reference
-- [Complete diffusion implementation](../reference/api.qmd#diffuse)
-- [Tile-based optimisation](../reference/api.qmd#tile-system)
-- [Active region tracking](../reference/api.qmd#bitmask)
-:::
+### API Reference
+- [Complete diffusion implementation](../reference/api#evolveSimulation)
+- [Active region tracking and tiles](../reference/api#activateSpatialRegion)
 
-## Interactive Simulation
+</div>
+
+## Interactive 1D Simulation
 
 Below is a live version of the fluid logic running in this book.
 
-```{ojs}
-//| panel: sidebar
-viewof dissipation = Inputs.range([0.8, 0.999], {value: 0.98, step: 0.001, label: "Dissipation (Entropy)"})
-viewof advection = Inputs.range([0.0, 5.0], {value: 3.0, step: 0.1, label: "Advection Strength"})
-viewof diffusion = Inputs.range([0.0, 1.0], {value: 0.5, step: 0.05, label: "Diffusion (Spread)"})
+```js
+const dissipation = view(Inputs.range([0.8, 0.999], {value: 0.98, step: 0.001, label: "Dissipation (Entropy)"}));
+const advection = view(Inputs.range([0.0, 5.0], {value: 3.0, step: 0.1, label: "Advection Strength"}));
+const diffusion = view(Inputs.range([0.0, 1.0], {value: 0.5, step: 0.05, label: "Diffusion (Spread)"}));
 ```
 
-```{ojs}
-md`
+```js
+display(md`
 **Current Configuration:**
 *   **Energy Conservation:** ${(dissipation * 100).toFixed(1)}% energy retained per tick
 *   **Flow Velocity:** ${advection.toFixed(1)} pixels/tick impact
 *   **Scatter:** ${(diffusion * 100).toFixed(1)}% distribution to neighbours
-`
+`);
 ```
 
-```{ojs}
-//| echo: false
-// Simulation Logic - Hidden from view but interactive
+```js
 function simulate1D(steps, disp, adv, diff) {
   const width = 100;
   let grid =  new Float32Array(width * 2).fill(0);
@@ -256,33 +266,26 @@ function simulate1D(steps, disp, adv, diff) {
   return history;
 }
 
-data = simulate1D(60, dissipation, advection, diffusion)
+const data = simulate1D(60, dissipation, advection, diffusion);
+const viewChoice = view(Inputs.radio(["Visualisation", "Raw Data"], {value: "Visualisation", label: "Select View:"}));
 ```
 
-::: {.panel-tabset}
-
-## Visualisation
-
-```{ojs}
-Plot.plot({
-  marks: [
-    Plot.raster(data.flat(), { width: 100, height: 60, fill: d => d, interpolate: "nearest" }),
-    Plot.frame()
-  ],
-  color: { scheme: "magma", domain: [0, 2] },
-  y: { label: "Time (t) ↓", reverse: true },
-  x: { label: "Space (x) →" },
-  height: 300
-})
+```js
+if (viewChoice === "Visualisation") {
+  display(Plot.plot({
+    marks: [
+      Plot.raster(data.flat(), { width: 100, height: 60, fill: d => d, interpolate: "nearest" }),
+      Plot.frame()
+    ],
+    color: { scheme: "magma", domain: [0, 2] },
+    y: { label: "Time (t) ↓", reverse: true },
+    x: { label: "Space (x) →" },
+    height: 300
+  }));
+} else {
+  display(Inputs.table(data, { rows: 15 }));
+}
 ```
-
-## Raw Data
-
-```{ojs}
-Inputs.table(data, { rows: 15 })
-```
-
-:::
 
 ## Surface Continuity Check
 

@@ -1,3 +1,7 @@
+---
+title: "The Language of Logic"
+---
+
 # The Language of Logic
 
 To control pixels, we must speak the computer's language. Here, that language is **JavaScript**.
@@ -33,22 +37,23 @@ Our engine uses `bootSystem` to initialise the environment.
  */
 function bootSystem() {
   // 1. Calculate internal resolution
-  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE); // <1>
-  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE); // <1>
+  RESOLUTION.W = Math.ceil(window.innerWidth / CONFIG.DOWNSAMPLE);
+  RESOLUTION.H = Math.ceil(window.innerHeight / CONFIG.DOWNSAMPLE);
   
   // 2. Initialise buffers
-  GRID = new Float32Array(RESOLUTION.W * RESOLUTION.H * TILE_TYPES); // <2>
+  GRID = new Float32Array(RESOLUTION.W * RESOLUTION.H * TILE_TYPES);
   
   // 3. Inform the UI
-  UI.updateResolutionDisplay(RESOLUTION.W, RESOLUTION.H); // <3>
+  UI.updateResolutionDisplay(RESOLUTION.W, RESOLUTION.H);
 }
 ```
 
-1.  Calculate grid dimensions by dividing window size by a downsampling factor.
-2.  Allocate a flat array in memory to hold pixel data.
-3.  Update the on-screen display with the new coordinates.
+In the logic above:
+1. We calculate grid dimensions by dividing the window size by a downsampling factor.
+2. We allocate a flat array in memory to hold the pixel data.
+3. We update the on-screen display with the new coordinates.
 
-## Loops: Repetition {#loops}
+## Loops: Repetition
 
 Computers excel at repetition. We use a **Loop** to repeat instructions for thousands of pixels at once.
 
@@ -59,14 +64,15 @@ The common `for` loop states: "Start here, continue whilst this is true, and per
  * Zeroes out the entire light transport grid.
  */
 function ClearGrid() {
-  for (let i = 0; i < GRID.length; i++) { // <1>
-    GRID[i] = 0.0; // <2>
+  for (let i = 0; i < GRID.length; i++) {
+    GRID[i] = 0.0;
   }
 }
 ```
 
-1.  Iterate from index `0` up to the total length of the array.
-2.  Set every single value to zero, effectively "turning off the lights."
+In this loop:
+1. We iterate from index `0` up to the total length of the array (`GRID.length`).
+2. We set every single value to zero, effectively "turning off the lights."
 
 ```javascript
 for (let x = 0; x < width; x++) {

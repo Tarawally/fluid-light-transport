@@ -1,3 +1,7 @@
+---
+title: "The Digital Canvas"
+---
+
 # The Digital Canvas
 
 Before painting with light, we must understand our canvas.
@@ -6,14 +10,16 @@ Before painting with light, we must understand our canvas.
 
 Screens comprise millions of tiny squares called **Pixels** (Picture Elements). Each pixel is not a single colour but a blend of three primary lights: **Red**, **Green**, and **Blue** (RGB).
 
-::: {.callout-note collapse="true"}
-## Deep Dive: Additive Colour
+<div class="note">
+
+### Deep Dive: Additive Colour
 Unlike mixing paint (where red + blue = purple), mixing light is **additive**.
 *   Red + Green = Yellow
 *   Red + Blue = Magenta
 *   Green + Blue = Cyan
 *   Red + Green + Blue = White
-:::
+
+</div>
 
 ## The Cartesian Grid
 
@@ -23,8 +29,7 @@ In mathematics, graphs typically place $(0,0)$ in the centre with $Y$ increasing
 *   **X** increases to the **Right**.
 *   **Y** increases **Downwards**.
 
-```{ojs}
-//| echo: false
+```js
 Plot.plot({
   grid: true,
   x: {axis: "top", label: "X Axis →"},
@@ -62,7 +67,9 @@ const ctx = canvas.getContext('2d', {
 
 The [context](https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext) (`ctx`) is our tool for modifying the canvas.
 
-::: {.callout-tip}
-## Performance: Resizing
+<div class="tip">
+
+### Performance: Resizing
 Resizing the browser window is computationally expensive. Our engine employs a **debounce** function to ensure the grid is only recalculated once the user stops adjusting the window, preventing the simulation from freezing.
-:::
+
+</div>

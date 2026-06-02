@@ -1,5 +1,11 @@
-const fs = require('fs');
-const path = require('path');
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { createRequire } from 'module';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const require = createRequire(import.meta.url);
 
 console.log('Running build-api.js');
 
@@ -11,8 +17,8 @@ try {
         console.warn('⚠️ jsdoc-to-markdown not found.');
     }
 
-    const srcDir = path.join(__dirname, '../../src');
-    const outputFile = path.join(__dirname, '../reference/api.qmd');
+    const srcDir = path.join(__dirname, '../src');
+    const outputFile = path.join(__dirname, '../reference/api.md');
     const referenceDir = path.dirname(outputFile);
 
     if (!fs.existsSync(referenceDir)) {
@@ -27,17 +33,18 @@ try {
 
         const quarto = `---
 title: "API Reference"
-format: html
 ---
 
 # API Reference
 
 This documentation is automatically generated from source code JSDoc comments.
 
-::: {.callout-note}
-## Source Code
-The primary simulation logic resides in [\`src/engine.js\`](https://github.com/Tarawally/fluid-light-transport/blob/main/src/engine.js).
-:::
+<div class="note">
+
+### Source Code
+The primary simulation logic resides in \`docs/src/engine.js\`.
+
+</div>
 
 ${apiDocs}
 `;

@@ -1,3 +1,7 @@
+---
+title: "The Main Loop"
+---
+
 # The Main Loop
 
 We have the canvas, memory, mathematics, and physics. Now, we bring them to life.
@@ -8,13 +12,15 @@ Animation is an illusion. By updating the screen 60 times per second (60 Hz), we
 
 JavaScript provides [`requestAnimationFrame`](https://developer.mozilla.org/en-US/docs/Web/API/Window/requestAnimationFrame). This instructs the browser: "When ready to paint the screen, call my function first."
 
-[Why not `setInterval`? Because `requestAnimationFrame` pauses when you switch tabs, saving battery!]{.aside}
+<div class="aside">
+Why not `setInterval`? Because `requestAnimationFrame` pauses when you switch tabs, saving battery!
+</div>
 
 ## System Architecture
 
 Before viewing the code, let us observe the "Big Picture". The engine runs in three phases:
 
-```{mermaid}
+```mermaid
 graph LR
     A[Input Scene] -->|Ray Query| B(Injection Phase)
     B -->|Energy| C{Fluid Solver}

@@ -1,4 +1,8 @@
-# Engineering Quality {#sec-quality}
+---
+title: "Engineering Quality"
+---
+
+# Engineering Quality
 
 To ensure the reliability of the light simulation, we employ automated testing and documentation-as-code principles.
 
@@ -29,14 +33,16 @@ Our tests focus on the `src/math_utils.js` module, which contains the pure mathe
 On every push to the repository, a GitHub Action:
 1.  Installs dependencies.
 2.  Runs the Vitest suite.
-3.  Renders the Quarto documentation.
-4.  Deploys the bundled `_site` to GitHub Pages.
+3.  Renders the documentation.
+4.  Deploys the bundled site to GitHub Pages.
 
 ## Link Integrity
 
-We maintain link integrity between the documentation and the source code using `jsdoc-to-markdown`. The [API Reference](api.qmd) is always 1:1 with the code in `src/engine.js`.
+We maintain link integrity between the documentation and the source code using `jsdoc-to-markdown`. The [API Reference](api) is always 1:1 with the code in `src/engine.js`.
 
-::: {.callout-tip}
-## Contributing Tests
+<div class="tip">
+
+### Contributing Tests
 If you add new features to the engine, please include a corresponding test file in the `tests/` directory to help maintain the long-term stability of the project.
-:::
+
+</div>

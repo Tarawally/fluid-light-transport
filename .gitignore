@@ -70,3 +70,7 @@ obj/
 
 /.quarto/
 **/*.quarto_ipynb
+
+# --- Observable Framework ---
+.observablehq/
+

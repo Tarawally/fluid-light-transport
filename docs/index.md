@@ -1,7 +1,5 @@
 ---
-pagetitle: "Hybrid Light Transport Engine"
-page-layout: full
-css: src/style.css
+title: "Hybrid Light Transport Engine"
 ---
 
 # Fluid Light Transport Engine
@@ -10,17 +8,18 @@ css: src/style.css
 
 This project explores a novel approach to real-time global illumination by treating light as a fluid substance. It combines the geometric precision of stochastic ray tracing with the organic flow of fluid dynamics algorithms.
 
-::: {.callout-note appearance="simple" icon="false"}
-## [**Launch Scene**](app.qmd)
+<div class="note">
+
+[**Launch Scene**](app)  
 Click here to open the interactive scene in a dedicated view.
-:::
+
+</div>
 
 ## Hybrid Engine Architecture
 
 The engine pipeline consists of two distinct phases: **Injection** (Ray Tracing) and **Propagation** (Fluid Dynamics).
 
-```{mermaid}
-%%| fig-cap: "Fluid Light Transport Pipeline"
+```mermaid
 graph TD
     A[Scene Data] -->|Inject| B[Ray Tracing Phase]
     B -->|Photons| C[Screen-Space Grid]
