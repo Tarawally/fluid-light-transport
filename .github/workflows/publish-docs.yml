@@ -2,15 +2,12 @@ name: Publish Documentation
 
 on:
   push:
-    branches: [main, feat/quarto-website]
+    branches: [main, migrate-quarto-to-observable]
     paths:
       - "docs/**"
       - "src/**"
       - ".github/workflows/publish-docs.yml"
-      - "_quarto.yml"
-      - "*.qmd"
       - "assets/**"
-      - "theme-sync.js"
   workflow_dispatch:
 
 permissions:
@@ -31,17 +28,16 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - uses: quarto-dev/quarto-actions/setup@v2
-
       - name: Run Unit Tests
         run: npm test
 
-      - name: Render Quarto site (auto-generates JSDoc)
+      - name: Build Observable site (auto-generates JSDoc & static docs)
         run: |
-          quarto render
+          npm run docs:api
+          npm run docs:build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
-          publish_dir: ./_site
+          publish_dir: ./dist

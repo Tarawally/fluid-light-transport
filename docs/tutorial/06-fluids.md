@@ -304,3 +304,14 @@ if (depthDiff < 0.5) {
   State.lattice[nPtr + FIELD.R] += State.lattice[ptr + FIELD.R] * transfer;
 }
 ```
+
+```js
+import {marked} from "npm:marked";
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+```
+```

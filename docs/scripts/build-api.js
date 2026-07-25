@@ -31,7 +31,7 @@ try {
           files: `${srcDir}/**/*.js`,
         });
 
-        const quarto = `---
+        const markdownContent = `---
 title: "API Reference"
 ---
 
@@ -49,7 +49,7 @@ The primary simulation logic resides in \`docs/src/engine.js\`.
 ${apiDocs}
 `;
 
-        fs.writeFileSync(outputFile, quarto);
+        fs.writeFileSync(outputFile, markdownContent);
         console.log('✅ API generated.');
     } else {
         if (!fs.existsSync(outputFile)) {

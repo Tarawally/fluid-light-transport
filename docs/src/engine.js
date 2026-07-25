@@ -73,7 +73,7 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
-  SCENE_URL: 'assets/scene.json',
+  SCENE_URL: '../assets/scene.json',
 };
 
 // Expose CONFIG to window for OJS interaction
@@ -1064,26 +1064,19 @@ window.addEventListener('keydown', (e) => {
 async function initialiseEngine() {
   const uiStatus = document.getElementById('statusIndicator');
   const sourceDisplay = document.getElementById('sceneSource');
-  if (sourceDisplay) {
-    sourceDisplay.textContent = window.CONFIG.SCENE_URL;
-  }
-
   try {
-    // 1. FETCH: Get the raw data (The "Source")
-    if (uiStatus) {
-      uiStatus.innerText = '● LOADING SCENE...';
-      uiStatus.style.color = '#ffc107'; // Yellow
+    let sceneData;
+    if (window.CONFIG && window.CONFIG.SCENE_DATA) {
+      sceneData = window.CONFIG.SCENE_DATA;
+      if (sourceDisplay) sourceDisplay.textContent = 'Inline Scene Data';
+    } else {
+      if (sourceDisplay) sourceDisplay.textContent = window.CONFIG.SCENE_URL;
+      const response = await fetch(window.CONFIG.SCENE_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+      sceneData = await response.json();
     }
-
-    // UPDATED: fetching from assets folder
-    const response = await fetch(window.CONFIG.SCENE_URL);
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
-    // 2. PARSE: Convert JSON to JavaScript Objects
-    const sceneData = await response.json();
 
     // 3. HYDRATE: Populate the Engine State
     Scene.spheres = sceneData || [];

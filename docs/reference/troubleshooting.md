@@ -295,3 +295,13 @@ pie title Frame Time Budget (16.67ms)
 5. ✓ Search [existing issues](https://github.com/Tarawally/fluid-light-transport/issues)
 
 [→ Next: API Reference](api) | [← Previous: Main Loop](../tutorial/07-mainloop)
+
+```js
+import {marked} from "npm:marked";
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+```

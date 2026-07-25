@@ -1,10 +1,10 @@
 ---
-title: "Visualisation"
+title: Visualisation
 ---
 
 <iframe 
   id="sim-frame"
-  src="src/index.html" 
+  src="src/index.html"
   style="width: 100%; height: calc(100vh - 60px); border: none; display: block; margin: 0; padding: 0; border-radius: 8px;"
   title="Fluid Light Transport Scene">
 </iframe>
@@ -21,7 +21,6 @@ if (iframe) {
       }, '*');
     }
   };
-  // Post immediately and also on iframe load
   postTheme();
   iframe.addEventListener('load', postTheme);
 }

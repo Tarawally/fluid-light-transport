@@ -12,7 +12,7 @@ The simulation below runs a standardised "Stress Test" to measure the limits of 
 
 <iframe 
   id="perf-iframe"
-  src="../src/index.html" 
+  src="../src/index.html"
   style="width: 100%; height: 60vh; border: 1px solid #eee; border-radius: 8px;"
   title="Performance Benchmark">
 </iframe>

@@ -15,7 +15,7 @@
   }
 
   window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'themechange') {
+    if (event.data && (event.data.type === 'themechange' || event.data.type === 'set-theme')) {
       applyTheme(event.data.theme);
     }
   });

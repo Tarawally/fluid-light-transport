@@ -1,35 +1,94 @@
-# Fluid Light Transport
+# Fluid Light Transport Engine
 
-A hybrid simulation engine that treats light as a fluid. It uses stochastic ray tracing to inject photons into a grid, then propagates energy using cellular automata to create soft shadows and organic colour bleeding in real-time.
+A hybrid rendering engine that treats light as a fluid substance. It combines stochastic ray tracing with 2D fluid dynamics (cellular automata advection and diffusion) to simulate organic global illumination, soft shadows, and color bleeding in real-time at 60 FPS.
 
-This repository unifies the application with its technical documentation.
+This repository unifies the core simulation engine with an interactive documentation platform built using [Observable Framework](https://observablehq.com/framework/).
 
-## Quick Start
+---
 
-Ensure you have [Node.js](https://nodejs.org/) and the [Quarto CLI](https://quarto.org/) installed.
+## 🚀 Quick Start
+
+### Prerequisites
+* [Node.js](https://nodejs.org/) (v20 or higher)
+* `npm` (v10 or higher)
+
+### Installation & Local Development
 
 ```bash
-# Clone and install
+# Clone the repository
 git clone https://github.com/Tarawally/fluid-light-transport.git
 cd fluid-light-transport
+
+# Install dependencies
 npm install
 
-# Launch the interactive walkthrough & simulation
-quarto preview
+# Start the interactive development server
+npm run docs:preview
 ```
 
-## Highlights
+Once started, open your browser to **[http://127.0.0.1:3000/](http://127.0.0.1:3000/)**.
 
-- **Hybrid Engine**: Combines ray tracing with fluid dynamics for efficient global illumination.
-- **Interactive Documentation**: A "docs-as-code" walkthrough built with Quarto, featuring live simulation widgets and annotated source code.
-- **Tested Core**: Fundamental mathematics validated with Vitest.
+---
 
-## Navigation
+## 🛠 Available NPM Scripts
 
-- [**Simulation**](app.html): The standalone full-screen engine.
-- [**Tutorial**](docs/tutorial/01_canvas.qmd): A guided tour of the architecture.
-- [**API Reference**](docs/reference/api.qmd): Auto-generated documentation from `src/engine.js`.
+| Script | Command | Description |
+| :--- | :--- | :--- |
+| `npm run docs:preview` | `node docs/scripts/preview-server.js` | Starts the unified development proxy on **port 3000**, serving both Observable Framework documentation and raw static simulation assets (`/src/`, `/assets/`). |
+| `npm run docs:build` | `observable build && cp ...` | Builds the production site into `dist/` and copies static engine assets (`docs/src/` and `docs/assets/`) for static hosting. |
+| `npm run docs:api` | `node docs/scripts/build-api.js` | Auto-generates `docs/reference/api.md` from JSDoc comments in `docs/src/engine.js`. |
+| `npm test` | `vitest run` | Runs unit tests for math utilities (`tests/math.test.js`). |
+| `npm run test:watch` | `vitest` | Runs Vitest unit test suite in watch mode for active development. |
 
-## License
+---
 
-MIT
+## 🔬 How It Works
+
+The engine pipeline operates in two distinct phases:
+
+1. **Ray Tracing Phase (Injection):** Stochastic ray casting probes scene geometry and injects energy (photons) into a screen-space grid at the first surface hit point.
+2. **Fluid Dynamics Phase (Propagation):**
+   * **Advection:** Light momentum moves energy across neighboring cells.
+   * **Diffusion:** Light spreads softly into adjacent pixels to create soft shadows.
+   * **Depth Discontinuity Protection:** Checks scene depth buffers to prevent light bleeding across disconnected surfaces.
+
+---
+
+## 📁 Repository Structure
+
+```text
+fluid-light-transport/
+├── docs/
+│   ├── app.md                # Full-screen interactive simulation view
+│   ├── index.md              # Documentation home page
+│   ├── introduction.md       # Guided overview & interactive demo
+│   ├── assets/               # Scene configuration JSON and assets
+│   ├── reference/            # API reference, performance, and quality docs
+│   ├── scripts/
+│   │   ├── preview-server.js # Development proxy server (port 3000)
+│   │   └── build-api.js      # JSDoc generator script
+│   ├── src/                  # Standalone 60 FPS simulation engine
+│   │   ├── engine.js         # Core physics solver & ray tracing loop
+│   │   ├── index.html        # UI shell for simulation iframe
+│   │   ├── math_utils.js     # Vector math and normalisation helpers
+│   │   ├── style.css         # UI styles and controls theme
+│   │   └── theme-sync.js     # Observable dark/light theme sync listener
+│   └── tutorial/             # Multi-part architectural tutorial series
+├── tests/
+│   └── math.test.js          # Vitest unit test suite
+├── observablehq.config.js    # Observable Framework configuration
+└── package.json
+```
+
+---
+
+## 💡 Architecture & Design Notes
+
+* **Sandboxed Simulation Engine:** The 60 FPS simulation (`docs/src/`) runs inside an `<iframe>` container. This isolates the CPU-heavy physics loop and 2D canvas rendering from Observable Framework's reactive runtime, preventing main-thread lag and CSS scope leakage.
+* **Unified Local Server:** `preview-server.js` serves documentation pages while routing static asset requests (`/src/index.html`, `/assets/scene.json`) directly from disk without router transformations.
+
+---
+
+## 📜 License
+
+Distributed under the [MIT License](LICENSE).

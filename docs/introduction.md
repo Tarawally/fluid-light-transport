@@ -1,5 +1,5 @@
 ---
-title: "Guided Technical Walkthrough"
+title: Guided Technical Walkthrough
 ---
 
 # Preface
@@ -13,15 +13,16 @@ Rather than focusing on jargon, we explore the underlying architecture. We build
 <div class="tip">
 
 ### Interactive Demo
+
 Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.
 
-[**Open Full Screen Visualisation →**](app){target="_blank"}
+[__Open Full Screen Visualisation →__](app){target="_blank"}
 
 </div>
 
 <iframe 
   id="demo-iframe"
-  src="src/index.html" 
+  src="src/index.html"
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
@@ -30,11 +31,13 @@ Experience the engine in real-time! Move your mouse to control the light source.
 <div class="note">
 
 ### Demo Troubleshooting
+
 If the screen remains black, ensure you are viewing this through a web server (like `npm run docs:preview`). The engine requires `fetch()` to load scene data, which is often blocked on local `file://` access.
 
 </div>
 
 ### Controls
+
 - **WASD**: Move camera
 - **Arrow Keys**: Look around
 - **Left Click + Drag**: Rotate view
@@ -45,8 +48,8 @@ If the screen remains black, ensure you are viewing this through a web server (l
 
 In real-time computer graphics, we typically face a choice:
 
-1.  **Ray Tracing**: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.
-2.  **Rasterisation**: The standard for games; it is incredibly fast but struggles with complex "global illumination" (how light bounces around).
+1. **Ray Tracing**: Offers extreme precision (like real-world light) but is computationally expensive, especially for soft, diffuse effects.
+2. **Rasterisation**: The standard for games; it is incredibly fast but struggles with complex "global illumination" (how light bounces around).
 
 This book explores a "third way": **Hybrid Fluid-Light Transport**. We treat light not merely as rays, but as a **fluid substance** that flows across the scene. This yields beautiful, organic lighting at a fraction of the cost.
 
@@ -74,7 +77,6 @@ const viewChoice = view(Inputs.radio(["Conceptual Journey", "Quick Reference"], 
 
 ```js
 ${viewChoice === "Conceptual Journey" ? md`
-### Conceptual Journey
 
 Learn the architecture and algorithms from first principles:
 
@@ -93,7 +95,6 @@ Learn the architecture and algorithms from first principles:
 8.  [**Troubleshooting**](reference/troubleshooting) — Common issues and solutions
 9.  [**API Reference**](reference/api) — Complete 1:1 code documentation
 ` : md`
-### Quick Reference
 
 Browse by topic or problem:
 
@@ -109,7 +110,8 @@ Browse by topic or problem:
 <div class="note">
 
 ### Documentation Sync
-The [API reference](reference/api) is automatically regenerated from JSDoc comments in [\`src/engine.js\`](./src/engine.js) on every build, ensuring perfect synchronisation with the source code.
+
+The [API reference](reference/api) is automatically regenerated from JSDoc comments in `src/engine.js` on every build, ensuring perfect synchronisation with the source code.
 
 </div>
 
@@ -125,11 +127,11 @@ The Hybrid Fluid-Light Transport engine is under active development. Planned fea
 
 We welcome contributions! This documentation is built with [Observable Framework](https://observablehq.com/framework/). To contribute:
 
-1.  Clone the repository.
-2.  Install dependencies: `npm install`.
-3.  Edit `.md` files or the engine source in `docs/src/`.
-4.  Preview changes: `npm run docs:preview`.
-5.  Open a Pull Request.
+1. Clone the repository.
+2. Install dependencies: `npm install`.
+3. Edit `.md` files or the engine source in `docs/src/`.
+4. Preview changes: `npm run docs:preview`.
+5. Open a Pull Request.
 
 ---
 
@@ -152,4 +154,18 @@ if (iframe) {
   postTheme();
   iframe.addEventListener('load', postTheme);
 }
+```
+
+```js
+import {marked} from "npm:marked";
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+```
+
+```text
+
 ```

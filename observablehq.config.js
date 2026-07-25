@@ -11,6 +11,10 @@ export default {
   // The output directory for static builds.
   output: "dist",
 
+  // Disable clean URLs so static HTML pages in iframes resolve correctly without clean routing redirects
+  preserveExtension: true,
+  preserveIndex: true,
+
   // Pages structure in the sidebar.
   pages: [
     {

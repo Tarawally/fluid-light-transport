@@ -90,7 +90,7 @@ Our engine uses vectors extensively for:
 ```mermaid
 graph LR
     A[Light Source<br/>Position: 5,3] -->|Cast Ray<br/>Direction: 1,0| B[Pixel Grid]
-    B -->|Hit Detection<br/>Distance: √((x₂-x₁)²+(y₂-y₁)²)| C[Sphere]
+    B -->|Hit Detection<br/>Calculate Distance| C[Sphere]
     C -->|Reflect<br/>New Direction| D[Secondary Ray]
 ```
 
@@ -104,3 +104,13 @@ graph LR
 </div>
 
 [→ Next: Ray Tracing](05-raytracing) | [← Previous: Memory](03-memory)
+
+```js
+import {marked} from "npm:marked";
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+```
