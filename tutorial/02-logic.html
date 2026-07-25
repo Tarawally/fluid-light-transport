@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>The Language of Logic | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<script type="module">
+
+import "../_observablehq/client.9f89fa7e.js";
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section class="observablehq-section-active">
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="./03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="./04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="./05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="./06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="./07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section>
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../reference/api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="../reference/performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="../reference/quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="../reference/troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="../reference/references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#variables-the-boxes-of-memory">Variables: The Boxes of Memory</a></li>
+<li class="observablehq-secondary-link"><a href="#functions-the-recipes">Functions: The Recipes</a></li>
+<li class="observablehq-secondary-link"><a href="#loops-repetition">Loops: Repetition</a></li>
+<li class="observablehq-secondary-link"><a href="#conditionals-making-decisions">Conditionals: Making Decisions</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="the-language-of-logic" tabindex="-1"><a class="observablehq-header-anchor" href="#the-language-of-logic">The Language of Logic</a></h1>
+<p>To control pixels, we must speak the computer's language. Here, that language is <strong>JavaScript</strong>.</p>
+<h2 id="variables-the-boxes-of-memory" tabindex="-1"><a class="observablehq-header-anchor" href="#variables-the-boxes-of-memory">Variables: The Boxes of Memory</a></h2>
+<p>Imagine a warehouse of empty boxes. We can label a box and store items inside. In programming, we call this a <strong>Variable</strong>.</p>
+<ul>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/const" target="_blank" rel="noopener noreferrer"><code>const</code></a>: A box whose contents <strong>cannot</strong> be changed (Constant).</li>
+<li><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/let" target="_blank" rel="noopener noreferrer"><code>let</code></a>: A box whose contents <strong>can</strong> be changed.</li>
+</ul>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-meta">"use strict"</span>; <span class="hljs-comment">/* Enforce stricter parsing and error handling */</span>
+
+<span class="hljs-comment">/* Configuration constants for the simulation. */</span>
+<span class="hljs-keyword">const</span> <span class="hljs-variable constant_">CONFIG</span> = {
+  <span class="hljs-attr">TILE_SIZE</span>: <span class="hljs-number">4</span>,      <span class="hljs-comment">// We process pixels in 4x4 blocks</span>
+  <span class="hljs-attr">DISSIPATION</span>: <span class="hljs-number">0.97</span>, <span class="hljs-comment">// Energy lost per tick</span>
+};
+
+<span class="hljs-keyword">let</span> <span class="hljs-variable constant_">TOTAL_PIXELS</span> = <span class="hljs-number">0</span>; <span class="hljs-comment">// This updates when the window resizes</span>
+</code></pre>
+<h2 id="functions-the-recipes" tabindex="-1"><a class="observablehq-header-anchor" href="#functions-the-recipes">Functions: The Recipes</a></h2>
+<p>A <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Statements/function" target="_blank" rel="noopener noreferrer"><code>function</code></a> is a bundle of instructions. Like a recipe, you give it a name and "call" it to execute those instructions.</p>
+<p>Our engine uses <code>bootSystem</code> to initialise the environment.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">/**
+ * Allocates memory and sets grid dimensions based on the current window size.
+ */</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">bootSystem</span>(<span class="hljs-params"></span>) {
+  <span class="hljs-comment">// 1. Calculate internal resolution</span>
+  <span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">W</span> = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">ceil</span>(<span class="hljs-variable language_">window</span>.<span class="hljs-property">innerWidth</span> / <span class="hljs-variable constant_">CONFIG</span>.<span class="hljs-property">DOWNSAMPLE</span>);
+  <span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">H</span> = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">ceil</span>(<span class="hljs-variable language_">window</span>.<span class="hljs-property">innerHeight</span> / <span class="hljs-variable constant_">CONFIG</span>.<span class="hljs-property">DOWNSAMPLE</span>);
+  
+  <span class="hljs-comment">// 2. Initialise buffers</span>
+  <span class="hljs-variable constant_">GRID</span> = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Float32Array</span>(<span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">W</span> * <span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">H</span> * <span class="hljs-variable constant_">TILE_TYPES</span>);
+  
+  <span class="hljs-comment">// 3. Inform the UI</span>
+  <span class="hljs-variable constant_">UI</span>.<span class="hljs-title function_">updateResolutionDisplay</span>(<span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">W</span>, <span class="hljs-variable constant_">RESOLUTION</span>.<span class="hljs-property">H</span>);
+}
+</code></pre>
+<p>In the logic above:</p>
+<ol>
+<li>We calculate grid dimensions by dividing the window size by a downsampling factor.</li>
+<li>We allocate a flat array in memory to hold the pixel data.</li>
+<li>We update the on-screen display with the new coordinates.</li>
+</ol>
+<h2 id="loops-repetition" tabindex="-1"><a class="observablehq-header-anchor" href="#loops-repetition">Loops: Repetition</a></h2>
+<p>Computers excel at repetition. We use a <strong>Loop</strong> to repeat instructions for thousands of pixels at once.</p>
+<p>The common <code>for</code> loop states: "Start here, continue whilst this is true, and perform this action after each step."</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">/**
+ * Zeroes out the entire light transport grid.
+ */</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">ClearGrid</span>(<span class="hljs-params"></span>) {
+  <span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> i = <span class="hljs-number">0</span>; i &lt; <span class="hljs-variable constant_">GRID</span>.<span class="hljs-property">length</span>; i++) {
+    <span class="hljs-variable constant_">GRID</span>[i] = <span class="hljs-number">0.0</span>;
+  }
+}
+</code></pre>
+<p>In this loop:</p>
+<ol>
+<li>We iterate from index <code>0</code> up to the total length of the array (<code>GRID.length</code>).</li>
+<li>We set every single value to zero, effectively "turning off the lights."</li>
+</ol>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-keyword">for</span> (<span class="hljs-keyword">let</span> x = <span class="hljs-number">0</span>; x &lt; width; x++) {
+    <span class="hljs-comment">// Process pixel at 'x'</span>
+}
+</code></pre>
+<h2 id="conditionals-making-decisions" tabindex="-1"><a class="observablehq-header-anchor" href="#conditionals-making-decisions">Conditionals: Making Decisions</a></h2>
+<p>We often adapt behaviour based on the situation using <code>if</code> statements.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-keyword">if</span> (energy &lt; <span class="hljs-number">0.001</span>) {
+    <span class="hljs-comment">// If energy is negligible, stop processing to conserve battery</span>
+    <span class="hljs-keyword">continue</span>;
+}
+</code></pre>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./01-canvas.html"><span>1. The Digital Canvas</span></a><a rel="next" href="./03-memory.html"><span>3. Memory &amp; Data</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

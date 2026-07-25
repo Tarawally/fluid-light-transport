@@ -1,0 +1,406 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Simulating Fluids | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="preload" as="style" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<link rel="modulepreload" href="../_npm/marked@18.0.7/1dbd57f2.js">
+<link rel="modulepreload" href="../_npm/htl@1.0.0/11521f02.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/inputs.8ddbf299.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.cac9edb5.js">
+<link rel="modulepreload" href="../_npm/@observablehq/plot@0.6.17/93ce672e.js">
+<link rel="modulepreload" href="../_npm/isoformat@0.2.1/604cb63b.js">
+<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.03ca039b.js">
+<link rel="modulepreload" href="../_npm/d3@7.9.0/080cf928.js">
+<link rel="modulepreload" href="../_npm/interval-tree-1d@1.0.4/f53f17b2.js">
+<link rel="modulepreload" href="../_npm/d3-array@3.2.4/b8e751b6.js">
+<link rel="modulepreload" href="../_npm/d3-axis@3.0.0/c662ea05.js">
+<link rel="modulepreload" href="../_npm/d3-brush@3.0.0/d162d8c6.js">
+<link rel="modulepreload" href="../_npm/d3-chord@3.0.1/5cedd0be.js">
+<link rel="modulepreload" href="../_npm/d3-color@3.1.0/65d51007.js">
+<link rel="modulepreload" href="../_npm/d3-contour@4.0.2/c576a91a.js">
+<link rel="modulepreload" href="../_npm/d3-delaunay@6.0.4/8b43826d.js">
+<link rel="modulepreload" href="../_npm/d3-dispatch@3.0.1/3fb06f14.js">
+<link rel="modulepreload" href="../_npm/d3-drag@3.0.0/20b76948.js">
+<link rel="modulepreload" href="../_npm/d3-dsv@3.0.1/097745a2.js">
+<link rel="modulepreload" href="../_npm/d3-ease@3.0.1/8683b012.js">
+<link rel="modulepreload" href="../_npm/d3-fetch@3.0.1/5c319046.js">
+<link rel="modulepreload" href="../_npm/d3-force@3.0.0/33924f3e.js">
+<link rel="modulepreload" href="../_npm/d3-format@3.1.2/8d67a1ae.js">
+<link rel="modulepreload" href="../_npm/d3-geo@3.1.1/8037bd0b.js">
+<link rel="modulepreload" href="../_npm/d3-hierarchy@3.1.2/a9ba0229.js">
+<link rel="modulepreload" href="../_npm/d3-interpolate@3.0.1/e0a47f97.js">
+<link rel="modulepreload" href="../_npm/d3-path@3.1.0/f9e9e0ab.js">
+<link rel="modulepreload" href="../_npm/d3-polygon@3.0.1/2da8eb3b.js">
+<link rel="modulepreload" href="../_npm/d3-quadtree@3.0.1/09002e01.js">
+<link rel="modulepreload" href="../_npm/d3-random@3.0.1/5108797c.js">
+<link rel="modulepreload" href="../_npm/d3-scale@4.0.2/c9f2571b.js">
+<link rel="modulepreload" href="../_npm/d3-scale-chromatic@3.1.0/f3c78e0d.js">
+<link rel="modulepreload" href="../_npm/d3-selection@3.0.0/28717d05.js">
+<link rel="modulepreload" href="../_npm/d3-shape@3.2.0/7c6e2a50.js">
+<link rel="modulepreload" href="../_npm/d3-time@3.1.0/3d1d57c6.js">
+<link rel="modulepreload" href="../_npm/d3-time-format@4.1.0/643581a8.js">
+<link rel="modulepreload" href="../_npm/d3-timer@3.0.1/e99232db.js">
+<link rel="modulepreload" href="../_npm/d3-transition@3.0.1/bd07fd9a.js">
+<link rel="modulepreload" href="../_npm/d3-zoom@3.0.0/d09f7cc9.js">
+<link rel="modulepreload" href="../_npm/binary-search-bounds@2.0.5/5f640032.js">
+<link rel="modulepreload" href="../_npm/internmap@2.0.3/af036d7e.js">
+<link rel="modulepreload" href="../_npm/delaunator@5.1.0/7b06abe7.js">
+<link rel="modulepreload" href="../_npm/robust-predicates@3.0.3/b42f30a7.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "7573126d", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`graph TD
+    subgraph "Grid Cell and Neighbours"
+        NW[Cell NW] --- N[Cell N] --- NE[Cell NE]
+        W[Cell W] --- C[Cell CENTRE<br/>Current] --- E[Cell E]
+        SW[Cell SW] --- S[Cell S] --- SE[Cell SE]
+    end
+    
+    style C fill:#ff6b6b,stroke:#333,stroke-width:3px
+    style N fill:#4ecdc4,stroke:#333
+    style S fill:#4ecdc4,stroke:#333
+    style E fill:#4ecdc4,stroke:#333
+    style W fill:#4ecdc4,stroke:#333`
+))
+}});
+
+define({id: "c4f60cb5", inputs: ["view","Inputs"], outputs: ["centerVal","diffusionRate"], body: (view,Inputs) => {
+const centerVal = view(Inputs.range([0, 100], {value: 100, step: 1, label: "Centre Brightness"}));
+const diffusionRate = view(Inputs.range([0, 1], {value: 0.25, step: 0.05, label: "Diffusion Rate"}));
+return {centerVal,diffusionRate};
+}});
+
+define({id: "9d36f309", inputs: ["centerVal","diffusionRate","display","html"], outputs: ["neighborVal","centerRemaining"], body: (centerVal,diffusionRate,display,html) => {
+const neighborVal = (centerVal * diffusionRate) / 4;
+const centerRemaining = centerVal - (centerVal * diffusionRate);
+
+display(html`<div style="display: grid; grid-template-columns: repeat(3, 60px); grid-gap: 5px; font-family: monospace; text-align: center;">
+  <div></div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div></div>
+  
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div style="background: rgba(255, 255, 0, ${centerRemaining/100}); border: 2px solid #333; padding: 10px; font-weight: bold;">${centerRemaining.toFixed(1)}</div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  
+  <div></div>
+  <div style="background: rgba(255, 255, 0, ${neighborVal/100}); border: 1px solid #ccc; padding: 10px;">${neighborVal.toFixed(1)}</div>
+  <div></div>
+</div>`);
+return {neighborVal,centerRemaining};
+}});
+
+define({id: "d66023f6", inputs: ["view","Inputs"], outputs: ["viewAlgoChoice"], body: (view,Inputs) => {
+const viewAlgoChoice = view(Inputs.radio(["Naive", "Efficient", "Tile-Based"], {value: "Tile-Based", label: "Select Algorithm:"}));
+return {viewAlgoChoice};
+}});
+
+define({id: "001b3040", inputs: ["view","Inputs"], outputs: ["dissipation","advection","diffusion"], body: (view,Inputs) => {
+const dissipation = view(Inputs.range([0.8, 0.999], {value: 0.98, step: 0.001, label: "Dissipation (Entropy)"}));
+const advection = view(Inputs.range([0.0, 5.0], {value: 3.0, step: 0.1, label: "Advection Strength"}));
+const diffusion = view(Inputs.range([0.0, 1.0], {value: 0.5, step: 0.05, label: "Diffusion (Spread)"}));
+return {dissipation,advection,diffusion};
+}});
+
+define({id: "f534c40a", inputs: ["display","md","dissipation","advection","diffusion"], body: (display,md,dissipation,advection,diffusion) => {
+display(md`
+**Current Configuration:**
+*   **Energy Conservation:** ${(dissipation * 100).toFixed(1)}% energy retained per tick
+*   **Flow Velocity:** ${advection.toFixed(1)} pixels/tick impact
+*   **Scatter:** ${(diffusion * 100).toFixed(1)}% distribution to neighbours
+`);
+}});
+
+define({id: "cfd82c1c", inputs: ["dissipation","advection","diffusion","view","Inputs"], outputs: ["simulate1D","data","viewChoice"], body: (dissipation,advection,diffusion,view,Inputs) => {
+function simulate1D(steps, disp, adv, diff) {
+  const width = 100;
+  let grid =  new Float32Array(width * 2).fill(0);
+  let nextGrid = new Float32Array(width * 2).fill(0);
+
+  // Initial Impulse
+  grid[20 * 2] = 2.0; 
+  grid[20 * 2 + 1] = 1.0; 
+
+  let history = [];
+
+  for(let t=0; t<steps; t++) {
+    for(let x=0; x<width; x++) {
+      const idx = x * 2;
+      let energy = grid[idx];
+      let velocity = grid[idx+1];
+
+      if(energy < 0.01) continue;
+
+      // 1. Advection (Movement)
+      let thrust = velocity * adv;
+      let targetX = Math.min(width-1, Math.max(0, Math.round(x + thrust)));
+      
+      // 2. Diffusion (Spreading)
+      let remain = energy * (1 - diff);
+      let spread = energy * diff;
+
+      // Update Next State with Dissipation
+      nextGrid[targetX * 2] += remain * disp;
+      if(targetX + 1 < width) nextGrid[(targetX + 1) * 2] += (spread / 2) * disp;
+      if(targetX - 1 >= 0)    nextGrid[(targetX - 1) * 2] += (spread / 2) * disp;
+
+      // Decay Velocity (Viscosity)
+      nextGrid[targetX * 2 + 1] += velocity * 0.9;
+    }
+
+    for(let i=0; i<width*2; i++) { grid[i] = nextGrid[i]; nextGrid[i] = 0; }
+    
+    let row = new Float32Array(width);
+    for(let i=0; i<width; i++) row[i] = grid[i*2];
+    history.push(Array.from(row));
+  }
+  return history;
+}
+
+const data = simulate1D(60, dissipation, advection, diffusion);
+const viewChoice = view(Inputs.radio(["Visualisation", "Raw Data"], {value: "Visualisation", label: "Select View:"}));
+return {simulate1D,data,viewChoice};
+}});
+
+define({id: "7dbc3d7f", inputs: ["viewChoice","display","Plot","data","Inputs"], body: (viewChoice,display,Plot,data,Inputs) => {
+if (viewChoice === "Visualisation") {
+  display(Plot.plot({
+    marks: [
+      Plot.raster(data.flat(), { width: 100, height: 60, fill: d => d, interpolate: "nearest" }),
+      Plot.frame()
+    ],
+    color: { scheme: "magma", domain: [0, 2] },
+    y: { label: "Time (t) ↓", reverse: true },
+    x: { label: "Space (x) →" },
+    height: 300
+  }));
+} else {
+  display(Inputs.table(data, { rows: 15 }));
+}
+}});
+
+define({id: "98c480bc", outputs: ["marked","md"], body: async () => {
+const {marked} = await import("../_npm/marked@18.0.7/1dbd57f2.js");
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+return {marked,md};
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section class="observablehq-section-active">
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="./02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="./03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="./04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="./05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="./07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section>
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../reference/api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="../reference/performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="../reference/quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="../reference/troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="../reference/references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#the-fluid-analogy">The Fluid Analogy</a></li>
+<li class="observablehq-secondary-link"><a href="#cellular-automata">Cellular Automata</a></li>
+<li class="observablehq-secondary-link"><a href="#performance-metrics">Performance Metrics</a></li>
+<li class="observablehq-secondary-link"><a href="#interactive-1-d-simulation">Interactive 1D Simulation</a></li>
+<li class="observablehq-secondary-link"><a href="#surface-continuity-check">Surface Continuity Check</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="simulating-fluids" tabindex="-1"><a class="observablehq-header-anchor" href="#simulating-fluids">Simulating Fluids</a></h1>
+<p>This is the engine's heart. After injecting light energy into the grid, we treat it as a fluid.</p>
+<h2 id="the-fluid-analogy" tabindex="-1"><a class="observablehq-header-anchor" href="#the-fluid-analogy">The Fluid Analogy</a></h2>
+<ul>
+<li><strong>Light Intensity</strong> ≈ <strong>Fluid Pressure</strong> (Quantity)</li>
+<li><strong>Light Direction</strong> ≈ <strong>Fluid Velocity</strong> (Flow direction)</li>
+</ul>
+<p>This analogy allows us to use fluid dynamics algorithms to simulate light transport through 2D space.</p>
+<h2 id="cellular-automata" tabindex="-1"><a class="observablehq-header-anchor" href="#cellular-automata">Cellular Automata</a></h2>
+<p>We use <strong>Cellular Automata</strong> (CA). Imagine a checkerboard where every square observes its neighbours to determine its next state.</p>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:7573126d:--></div>
+<p>Each cell updates based on its 4 or 8 neighbours, creating emergent behaviour from simple rules.</p>
+<h3 id="interactive-diffusion-simulation" tabindex="-1"><a class="observablehq-header-anchor" href="#interactive-diffusion-simulation">Interactive Diffusion Simulation</a></h3>
+<p>Adjust the "Centre Brightness" to see how energy spreads to the 4 adjacent neighbours.</p>
+<div class="observablehq observablehq--block"><!--:c4f60cb5:--></div>
+<div class="observablehq observablehq--block"><!--:9d36f309:--></div>
+<h3 id="1-advection-movement" tabindex="-1"><a class="observablehq-header-anchor" href="#1-advection-movement">1. Advection (Movement)</a></h3>
+<p>If a pixel has velocity pointing Right, it pushes its energy to the Right neighbour.</p>
+<p><strong>Algorithm</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Simplified advection</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">advect</span>(<span class="hljs-params">x, y</span>) {
+    <span class="hljs-keyword">const</span> velocityX = lattice[idx + <span class="hljs-variable constant_">VX</span>];
+    <span class="hljs-keyword">const</span> velocityY = lattice[idx + <span class="hljs-variable constant_">VY</span>];
+    
+    <span class="hljs-comment">// Move energy in direction of velocity</span>
+    <span class="hljs-keyword">const</span> targetX = x + velocityX * dt;
+    <span class="hljs-keyword">const</span> targetY = y + velocityY * dt;
+    
+    <span class="hljs-comment">// Transfer energy to target cell</span>
+    <span class="hljs-title function_">transferEnergy</span>(current, target);
+}
+</code></pre>
+<h3 id="2-diffusion-spreading" tabindex="-1"><a class="observablehq-header-anchor" href="#2-diffusion-spreading">2. Diffusion (Spreading)</a></h3>
+<p>Even without velocity, energy spreads. This creates soft shadows and ambient occlusion.</p>
+<p><strong>Algorithm</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Simplified diffusion</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">diffuse</span>(<span class="hljs-params">x, y</span>) {
+    <span class="hljs-keyword">const</span> centre = lattice[idx];
+    <span class="hljs-keyword">const</span> neighbours = [left, right, top, bottom];
+    
+    <span class="hljs-comment">// Spread to neighbours</span>
+    <span class="hljs-keyword">const</span> spreadAmount = centre * <span class="hljs-variable constant_">DIFFUSION_RATE</span>;
+    <span class="hljs-keyword">for</span> (<span class="hljs-keyword">const</span> neighbour <span class="hljs-keyword">of</span> neighbours) {
+        neighbour += spreadAmount / <span class="hljs-number">4</span>;
+    }
+    centre -= spreadAmount;
+}
+</code></pre>
+<h2 id="performance-metrics" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-metrics">Performance Metrics</a></h2>
+<h3 id="computational-complexity" tabindex="-1"><a class="observablehq-header-anchor" href="#computational-complexity">Computational Complexity</a></h3>
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>Complexity</th>
+<th>Per Frame (160×90 grid)</th>
+<th>Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ray casting</td>
+<td>O(n × s)</td>
+<td>~2ms (64 rays × 50 steps)</td>
+<td>n = rays, s = steps per ray</td>
+</tr>
+<tr>
+<td>Fluid diffusion</td>
+<td>O(w × h)</td>
+<td>~1ms (14,400 pixels)</td>
+<td>Single pass over active tiles</td>
+</tr>
+<tr>
+<td>Advection</td>
+<td>O(w × h)</td>
+<td>~0.8ms (14,400 pixels)</td>
+<td>Backward-mapped lookup</td>
+</tr>
+<tr>
+<td>Rendering</td>
+<td>O(w × h)</td>
+<td>~0.5ms (14,400 pixels)</td>
+<td>Direct pixel buffer write</td>
+</tr>
+<tr>
+<td><strong>Total</strong></td>
+<td><strong>O(w×h + n×s)</strong></td>
+<td><strong>~4.3ms/frame</strong></td>
+<td><strong>~230 FPS theoretical max</strong></td>
+</tr>
+</tbody>
+</table>
+<div class="note">
+<h3 id="real-world-performance" tabindex="-1"><a class="observablehq-header-anchor" href="#real-world-performance">Real-World Performance</a></h3>
+<p>On a typical laptop (Intel i5, integrated graphics):</p>
+<ul>
+<li><strong>160×90 resolution</strong>: 60 FPS (16ms frame budget, ~70% idle time)</li>
+<li><strong>320×180 resolution</strong>: 35 FPS (28ms per frame)</li>
+<li><strong>640×360 resolution</strong>: 12 FPS (83ms per frame)</li>
+</ul>
+<p>The simulation is CPU-bound due to JavaScript single-threaded execution.</p>
+</div>
+<h3 id="optimisation-naive-vs-efficient" tabindex="-1"><a class="observablehq-header-anchor" href="#optimisation-naive-vs-efficient">Optimisation: Naive vs. Efficient</a></h3>
+<p>Select a tab below to compare the algorithm architectures:</p>
+<div class="observablehq observablehq--block"><!--:d66023f6:--></div>
+<div class="observablehq observablehq--block">
+  <div class="observablehq--inspect observablehq--error">SyntaxError: Unexpected token (1:1)</div>
+</div>
+<div class="tip">
+<h3 id="api-reference" tabindex="-1"><a class="observablehq-header-anchor" href="#api-reference">API Reference</a></h3>
+<ul>
+<li><a href="../reference/api.html#evolveSimulation">Complete diffusion implementation</a></li>
+<li><a href="../reference/api.html#activateSpatialRegion">Active region tracking and tiles</a></li>
+</ul>
+</div>
+<h2 id="interactive-1-d-simulation" tabindex="-1"><a class="observablehq-header-anchor" href="#interactive-1-d-simulation">Interactive 1D Simulation</a></h2>
+<p>Below is a live version of the fluid logic running in this book.</p>
+<div class="observablehq observablehq--block"><!--:001b3040:--></div>
+<div class="observablehq observablehq--block"><!--:f534c40a:--></div>
+<div class="observablehq observablehq--block"><!--:cfd82c1c:--></div>
+<div class="observablehq observablehq--block"><!--:7dbc3d7f:--></div>
+<h2 id="surface-continuity-check" tabindex="-1"><a class="observablehq-header-anchor" href="#surface-continuity-check">Surface Continuity Check</a></h2>
+<p>In a 2D grid, light might accidentally "bleed" from a foreground object onto a background one. We prevent this with a <strong>Surface Continuity Check</strong>.</p>
+<p>We examine the <strong>Depth</strong> (distance from the camera) of two pixels. A large difference implies distinct objects, so we block the flow of light between them.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">/* src/engine.js */</span>
+<span class="hljs-keyword">const</span> depthDiff = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">abs</span>(
+  <span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span>[ptr + <span class="hljs-variable constant_">FIELD</span>.<span class="hljs-property">DEPTH</span>] - <span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span>[nPtr + <span class="hljs-variable constant_">FIELD</span>.<span class="hljs-property">DEPTH</span>]
+);
+
+<span class="hljs-keyword">if</span> (depthDiff &lt; <span class="hljs-number">0.5</span>) {
+  <span class="hljs-comment">// Surfaces are connected! Flow energy.</span>
+  <span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span>[nPtr + <span class="hljs-variable constant_">FIELD</span>.<span class="hljs-property">R</span>] += <span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span>[ptr + <span class="hljs-variable constant_">FIELD</span>.<span class="hljs-property">R</span>] * transfer;
+}
+</code></pre>
+<div class="observablehq observablehq--block"><!--:98c480bc:--></div>
+<pre><code></code></pre>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./05-raytracing.html"><span>5. Casting Rays</span></a><a rel="next" href="./07-mainloop.html"><span>7. The Main Loop</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

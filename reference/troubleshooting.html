@@ -1,0 +1,377 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Troubleshooting &amp; FAQ | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="preload" as="style" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<link rel="modulepreload" href="../_npm/marked@18.0.7/1dbd57f2.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/inputs.8ddbf299.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.cac9edb5.js">
+<link rel="modulepreload" href="../_npm/htl@1.0.0/11521f02.js">
+<link rel="modulepreload" href="../_npm/isoformat@0.2.1/604cb63b.js">
+<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.03ca039b.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "b4bc7981", inputs: ["view","Inputs"], outputs: ["viewOpt"], body: (view,Inputs) => {
+const viewOpt = view(Inputs.radio(["Reduce Resolution", "Decrease Ray Count", "Increase Pixel Size", "Optimise Tile Budget"], {value: "Reduce Resolution", label: "Select Action:"}));
+return {viewOpt};
+}});
+
+define({id: "a768d83c", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`graph LR
+    A[Wall<br/>depth=5.0] -.->|❌ No transfer<br/>Δdepth=4.0| B[Background<br/>depth=9.0]
+    C[Surface<br/>depth=5.0] -->|✓ Transfer<br/>Δdepth=0.2| D[Adjacent<br/>depth=5.2]
+    
+    style A fill:#ff6b6b
+    style B fill:#4ecdc4
+    style C fill:#95e1d3
+    style D fill:#95e1d3`
+))
+}});
+
+define({id: "4cd94ff6", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`pie title Frame Time Budget (16.67ms)
+    "Ray Tracing" : 40
+    "Fluid Simulation" : 30
+    "Rendering" : 15
+    "Overhead" : 15`
+))
+}});
+
+define({id: "98c480bc", outputs: ["marked","md"], body: async () => {
+const {marked} = await import("../_npm/marked@18.0.7/1dbd57f2.js");
+const md = (strings, ...values) => {
+  const raw = strings.reduce((acc, str, i) => acc + str + (values[i] !== undefined ? values[i] : ""), "");
+  const div = document.createElement("div");
+  div.innerHTML = marked.parse ? marked.parse(raw) : marked(raw);
+  return div;
+};
+return {marked,md};
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section>
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../tutorial/01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="../tutorial/02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="../tutorial/03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="../tutorial/04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="../tutorial/05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="../tutorial/06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="../tutorial/07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section class="observablehq-section-active">
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="./performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="./quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="./references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#performance-issues">Performance Issues</a></li>
+<li class="observablehq-secondary-link"><a href="#visual-artifacts">Visual Artifacts</a></li>
+<li class="observablehq-secondary-link"><a href="#common-errors">Common Errors</a></li>
+<li class="observablehq-secondary-link"><a href="#frequently-asked-questions">Frequently Asked Questions</a></li>
+<li class="observablehq-secondary-link"><a href="#performance-tuning-guide">Performance Tuning Guide</a></li>
+<li class="observablehq-secondary-link"><a href="#getting-help">Getting Help</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="troubleshooting-and-faq" tabindex="-1"><a class="observablehq-header-anchor" href="#troubleshooting-and-faq">Troubleshooting &amp; FAQ</a></h1>
+<p>This chapter addresses common issues, performance problems, and implementation questions.</p>
+<h2 id="performance-issues" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-issues">Performance Issues</a></h2>
+<h3 id="problem-low-frame-rate-30-fps" tabindex="-1"><a class="observablehq-header-anchor" href="#problem-low-frame-rate-30-fps">Problem: Low Frame Rate (&lt; 30 FPS)</a></h3>
+<p><strong>Symptoms</strong>:</p>
+<ul>
+<li>Stuttering or jerky animation</li>
+<li>High CPU usage in browser profiler</li>
+<li>Slow response to mouse movement</li>
+</ul>
+<p><strong>Diagnosis</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Add to your console</span>
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`FPS: <span class="hljs-subst">${State.profiler.fps}</span>`</span>);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`Frame time: <span class="hljs-subst">${State.profiler.frameTime}</span>ms`</span>);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">`Active tiles: <span class="hljs-subst">${State.profiler.activeTiles}</span>`</span>);
+</code></pre>
+<p><strong>Solutions</strong>:</p>
+<p>Select an optimization option below to view details:</p>
+<div class="observablehq observablehq--block"><!--:b4bc7981:--></div>
+<div class="observablehq observablehq--block">
+  <div class="observablehq--inspect observablehq--error">SyntaxError: Unexpected token (1:1)</div>
+</div>
+<p><strong>Impact</strong>: 64% fewer pixels to process<br>
+<strong>Visual quality</strong>: Slightly more pixelated
+<code> : viewOpt === "Decrease Ray Count" ? md</code></p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// In ray casting function</span>
+<span class="hljs-keyword">const</span> <span class="hljs-variable constant_">RAY_SAMPLES</span> = <span class="hljs-number">32</span>;  <span class="hljs-comment">// Reduce from 64</span>
+</code></pre>
+<p><strong>Impact</strong>: 50% faster ray tracing<br>
+<strong>Visual quality</strong>: Slightly noisier shadows
+<code> : viewOpt === "Increase Pixel Size" ? md</code></p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">CONFIG</span> = {
+    <span class="hljs-attr">TILE_SIZE</span>: <span class="hljs-number">8</span>,  <span class="hljs-comment">// Increase from 4</span>
+    <span class="hljs-comment">// ...</span>
+};
+</code></pre>
+<p><strong>Impact</strong>: Larger simulation blocks, fewer calculations<br>
+<strong>Visual quality</strong>: Blockier light propagation
+<code> : md</code></p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">CONFIG</span> = {
+    <span class="hljs-attr">TIMESTEP_BUDGET_MS</span>: <span class="hljs-number">10</span>,  <span class="hljs-comment">// Reduce from 14</span>
+    <span class="hljs-comment">// ...</span>
+};
+</code></pre>
+<p><strong>Impact</strong>: Frame renders even if simulation incomplete<br>
+<strong>Visual quality</strong>: Potentially incomplete light propagation
+`}</p>
+<pre><code>
+### Problem: Memory Usage Too High
+
+**Symptoms**:
+- Browser tab crashes
+- Slow performance after running for a while
+- Console warnings about memory
+
+**Solution**:
+
+```javascript
+// Reduce memory footprint
+const CONFIG = {
+    WIDTH: 120,   // Reduce from 160
+    HEIGHT: 68,   // Reduce from 90
+    // ...
+};
+</code></pre>
+<p><strong>Memory calculation</strong>:</p>
+<pre><code>bytes = WIDTH × HEIGHT × STRIDE × 4 (Float32Array)
+160×90×12×4 = 691KB (typical)
+120×68×12×4 = 391KB (optimised)
+</code></pre>
+<h2 id="visual-artifacts" tabindex="-1"><a class="observablehq-header-anchor" href="#visual-artifacts">Visual Artifacts</a></h2>
+<h3 id="problem-flickering-shadows" tabindex="-1"><a class="observablehq-header-anchor" href="#problem-flickering-shadows">Problem: Flickering Shadows</a></h3>
+<p><strong>Cause</strong>: Insufficient diffusion iterations or energy dissipation too high</p>
+<p><strong>Fix</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-keyword">const</span> <span class="hljs-variable constant_">CONFIG</span> = {
+    <span class="hljs-attr">DISSIPATION</span>: <span class="hljs-number">0.98</span>,  <span class="hljs-comment">// Increase from 0.95 (retain more energy)</span>
+    <span class="hljs-comment">// ...</span>
+};
+</code></pre>
+<h3 id="problem-light-bleeding-through-walls" tabindex="-1"><a class="observablehq-header-anchor" href="#problem-light-bleeding-through-walls">Problem: Light Bleeding Through Walls</a></h3>
+<p><strong>Cause</strong>: Surface continuity check threshold too lenient</p>
+<p><strong>Fix</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// In surface continuity check</span>
+<span class="hljs-keyword">const</span> depthThreshold = <span class="hljs-number">0.3</span>;  <span class="hljs-comment">// Reduce from 0.5</span>
+<span class="hljs-keyword">if</span> (<span class="hljs-title class_">Math</span>.<span class="hljs-title function_">abs</span>(depth1 - depth2) &lt; depthThreshold) {
+    <span class="hljs-comment">// Allow light transfer</span>
+}
+</code></pre>
+<p><strong>Visual example</strong>:</p>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:a768d83c:--></div>
+<h3 id="problem-overly-bright-or-dark-rendering" tabindex="-1"><a class="observablehq-header-anchor" href="#problem-overly-bright-or-dark-rendering">Problem: Overly Bright or Dark Rendering</a></h3>
+<p><strong>Cause</strong>: Exposure/tone mapping incorrect</p>
+<p><strong>Fix</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Adjust exposure in rendering</span>
+<span class="hljs-keyword">const</span> exposure = <span class="hljs-number">1.2</span>;  <span class="hljs-comment">// Increase to brighten</span>
+<span class="hljs-keyword">const</span> colour = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">pow</span>(rawColour * exposure, <span class="hljs-number">1.0</span> / <span class="hljs-number">2.2</span>);  <span class="hljs-comment">// Gamma correction</span>
+</code></pre>
+<h2 id="common-errors" tabindex="-1"><a class="observablehq-header-anchor" href="#common-errors">Common Errors</a></h2>
+<h3 id="error-cannot-read-property-lattice-of-undefined" tabindex="-1"><a class="observablehq-header-anchor" href="#error-cannot-read-property-lattice-of-undefined">Error: "Cannot read property 'lattice' of undefined"</a></h3>
+<p><strong>Cause</strong>: Attempting to access <code>State.lattice</code> before initialisation</p>
+<p><strong>Fix</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Ensure bootSystem() is called first</span>
+<span class="hljs-variable language_">window</span>.<span class="hljs-title function_">addEventListener</span>(<span class="hljs-string">'load'</span>, <span class="hljs-function">() =&gt;</span> {
+    <span class="hljs-title function_">bootSystem</span>();  <span class="hljs-comment">// Allocates State.lattice</span>
+    <span class="hljs-title function_">requestAnimationFrame</span>(mainLoop);
+});
+</code></pre>
+<h3 id="error-maximum-call-stack-size-exceeded" tabindex="-1"><a class="observablehq-header-anchor" href="#error-maximum-call-stack-size-exceeded">Error: "Maximum call stack size exceeded"</a></h3>
+<p><strong>Cause</strong>: Infinite recursion in ray tracing or fluid propagation</p>
+<p><strong>Fix</strong>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Add depth limit to recursive functions</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">trace</span>(<span class="hljs-params">ro, rd, depth = <span class="hljs-number">0</span></span>) {
+    <span class="hljs-keyword">if</span> (depth &gt; <span class="hljs-number">5</span>) <span class="hljs-keyword">return</span> <span class="hljs-variable constant_">BLACK</span>;  <span class="hljs-comment">// Max 5 bounces</span>
+    <span class="hljs-comment">// ...</span>
+}
+</code></pre>
+<h3 id="error-canvas-appears-black" tabindex="-1"><a class="observablehq-header-anchor" href="#error-canvas-appears-black">Error: Canvas appears black</a></h3>
+<p><strong>Diagnostic checklist</strong>:</p>
+<ol>
+<li>✓ Canvas element exists in HTML</li>
+<li>✓ Context acquired: <code>ctx !== null</code></li>
+<li>✓ <code>State.lattice</code> allocated</li>
+<li>✓ Scene loaded: <code>Scene.objects.length &gt; 0</code></li>
+<li>✓ Light source positioned correctly</li>
+<li>✓ Rendering loop active</li>
+</ol>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Debug check</span>
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'Canvas:'</span>, canvas);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'Context:'</span>, ctx);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'Lattice:'</span>, <span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span> ? <span class="hljs-string">'allocated'</span> : <span class="hljs-string">'null'</span>);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'Scene objects:'</span>, <span class="hljs-title class_">Scene</span>.<span class="hljs-property">objects</span>.<span class="hljs-property">length</span>);
+<span class="hljs-variable language_">console</span>.<span class="hljs-title function_">log</span>(<span class="hljs-string">'Main loop running:'</span>, <span class="hljs-title class_">State</span>.<span class="hljs-property">profiler</span>.<span class="hljs-property">frameCount</span> &gt; <span class="hljs-number">0</span>);
+</code></pre>
+<h2 id="frequently-asked-questions" tabindex="-1"><a class="observablehq-header-anchor" href="#frequently-asked-questions">Frequently Asked Questions</a></h2>
+<h3 id="why-fluid-simulation-instead-of-traditional-ray-tracing" tabindex="-1"><a class="observablehq-header-anchor" href="#why-fluid-simulation-instead-of-traditional-ray-tracing">Why fluid simulation instead of traditional ray tracing?</a></h3>
+<p><strong>Traditional ray tracing</strong>:</p>
+<ul>
+<li>✅ Physically accurate</li>
+<li>❌ O(rays × bounces × samples) = expensive for soft shadows</li>
+<li>❌ Difficult to implement global illumination in real-time</li>
+</ul>
+<p><strong>Fluid-based approach</strong>:</p>
+<ul>
+<li>✅ O(pixels) = constant cost per frame</li>
+<li>✅ Natural soft shadows and colour bleeding</li>
+<li>✅ Emergent ambient occlusion</li>
+<li>❌ Less physically accurate (approximation)</li>
+</ul>
+<h3 id="can-this-be-gpu-accelerated" tabindex="-1"><a class="observablehq-header-anchor" href="#can-this-be-gpu-accelerated">Can this be GPU-accelerated?</a></h3>
+<p>Yes! The cellular automata structure maps naturally to compute shaders:</p>
+<pre data-language="glsl"><code class="language-glsl"><span class="hljs-comment">// WebGL compute shader pseudocode</span>
+<span class="hljs-meta">#version 310 es</span>
+<span class="hljs-keyword">layout</span>(<span class="hljs-keyword">local_size_x</span> = <span class="hljs-number">16</span>, <span class="hljs-keyword">local_size_y</span> = <span class="hljs-number">16</span>) <span class="hljs-keyword">in</span>;
+
+<span class="hljs-keyword">uniform</span> <span class="hljs-type">sampler2D</span> currentState;
+<span class="hljs-keyword">layout</span>(<span class="hljs-keyword">rgba32f</span>) <span class="hljs-keyword">uniform</span> <span class="hljs-type">image2D</span> nextState;
+
+<span class="hljs-type">void</span> main() {
+    <span class="hljs-type">ivec2</span> pos = <span class="hljs-type">ivec2</span>(<span class="hljs-built_in">gl_GlobalInvocationID</span>.xy);
+    <span class="hljs-type">vec4</span> centre = <span class="hljs-built_in">texelFetch</span>(currentState, pos, <span class="hljs-number">0</span>);
+    <span class="hljs-type">vec4</span> left = <span class="hljs-built_in">texelFetch</span>(currentState, pos + <span class="hljs-type">ivec2</span>(<span class="hljs-number">-1</span>, <span class="hljs-number">0</span>), <span class="hljs-number">0</span>);
+    <span class="hljs-type">vec4</span> right = <span class="hljs-built_in">texelFetch</span>(currentState, pos + <span class="hljs-type">ivec2</span>(<span class="hljs-number">1</span>, <span class="hljs-number">0</span>), <span class="hljs-number">0</span>);
+    <span class="hljs-comment">// ... diffusion/advection logic</span>
+    <span class="hljs-built_in">imageStore</span>(nextState, pos, result);
+}
+</code></pre>
+<p><strong>Performance gain</strong>: 10-100× faster (depending on GPU)</p>
+<h3 id="how-do-i-add-more-light-sources" tabindex="-1"><a class="observablehq-header-anchor" href="#how-do-i-add-more-light-sources">How do I add more light sources?</a></h3>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// In Scene.objects array</span>
+<span class="hljs-title class_">Scene</span>.<span class="hljs-property">objects</span> = [
+    {<span class="hljs-attr">type</span>: <span class="hljs-string">'sphere'</span>, <span class="hljs-attr">pos</span>: {<span class="hljs-attr">x</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">y</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">z</span>: <span class="hljs-number">0</span>}, <span class="hljs-attr">r</span>: <span class="hljs-number">1.0</span>, <span class="hljs-attr">emit</span>: {<span class="hljs-attr">r</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">g</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">b</span>: <span class="hljs-number">1</span>}},
+    {<span class="hljs-attr">type</span>: <span class="hljs-string">'sphere'</span>, <span class="hljs-attr">pos</span>: {<span class="hljs-attr">x</span>: <span class="hljs-number">2</span>, <span class="hljs-attr">y</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">z</span>: <span class="hljs-number">0</span>}, <span class="hljs-attr">r</span>: <span class="hljs-number">0.5</span>, <span class="hljs-attr">emit</span>: {<span class="hljs-attr">r</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">g</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">b</span>: <span class="hljs-number">0</span>}},  <span class="hljs-comment">// Red light</span>
+    {<span class="hljs-attr">type</span>: <span class="hljs-string">'sphere'</span>, <span class="hljs-attr">pos</span>: {<span class="hljs-attr">x</span>: -<span class="hljs-number">2</span>, <span class="hljs-attr">y</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">z</span>: <span class="hljs-number">0</span>}, <span class="hljs-attr">r</span>: <span class="hljs-number">0.5</span>, <span class="hljs-attr">emit</span>: {<span class="hljs-attr">r</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">g</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">b</span>: <span class="hljs-number">1</span>}}, <span class="hljs-comment">// Blue light</span>
+];
+</code></pre>
+<h3 id="can-i-use-this-for-3-d-scenes" tabindex="-1"><a class="observablehq-header-anchor" href="#can-i-use-this-for-3-d-scenes">Can I use this for 3D scenes?</a></h3>
+<p>The current implementation is 2D (screen-space simulation). For true 3D:</p>
+<ol>
+<li>Use 3D lattice: <code>State.lattice = new Float32Array(WIDTH × HEIGHT × DEPTH × STRIDE)</code></li>
+<li>Extend ray marching to 3D space</li>
+<li>Add 6-directional (instead of 4) fluid propagation</li>
+<li><strong>Warning</strong>: Memory and computation cost increases cubically!</li>
+</ol>
+<h2 id="performance-tuning-guide" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-tuning-guide">Performance Tuning Guide</a></h2>
+<h3 id="target-60-fps-16-67ms-frame-budget" tabindex="-1"><a class="observablehq-header-anchor" href="#target-60-fps-16-67ms-frame-budget">Target: 60 FPS (16.67ms frame budget)</a></h3>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:4cd94ff6:--></div>
+<h3 id="recommended-settings-by-hardware" tabindex="-1"><a class="observablehq-header-anchor" href="#recommended-settings-by-hardware">Recommended Settings by Hardware</a></h3>
+<table>
+<thead>
+<tr>
+<th>Hardware</th>
+<th>Resolution</th>
+<th>Ray Samples</th>
+<th>Tile Size</th>
+<th>Expected FPS</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>High-end desktop</td>
+<td>320×180</td>
+<td>128</td>
+<td>4</td>
+<td>60</td>
+</tr>
+<tr>
+<td>Mid-range laptop</td>
+<td>160×90</td>
+<td>64</td>
+<td>4</td>
+<td>60</td>
+</tr>
+<tr>
+<td>Low-end/older</td>
+<td>120×68</td>
+<td>32</td>
+<td>8</td>
+<td>30</td>
+</tr>
+<tr>
+<td>Mobile</td>
+<td>80×45</td>
+<td>16</td>
+<td>8</td>
+<td>30</td>
+</tr>
+</tbody>
+</table>
+<h2 id="getting-help" tabindex="-1"><a class="observablehq-header-anchor" href="#getting-help">Getting Help</a></h2>
+<div class="tip">
+<h3 id="resources" tabindex="-1"><a class="observablehq-header-anchor" href="#resources">Resources</a></h3>
+<ul>
+<li><strong>API Reference</strong>: <a href="./api.html">Chapter 9</a></li>
+<li><strong>GitHub Issues</strong>: <a href="https://github.com/Tarawally/fluid-light-transport/issues" target="_blank" rel="noopener noreferrer">Report bugs</a></li>
+<li><strong>Source Code</strong>: <code>src/engine.js</code></li>
+</ul>
+</div>
+<h3 id="before-asking-for-help" tabindex="-1"><a class="observablehq-header-anchor" href="#before-asking-for-help">Before Asking for Help</a></h3>
+<ol>
+<li>✓ Check browser console for errors</li>
+<li>✓ Verify you're using a modern browser (Chrome, Firefox, Edge)</li>
+<li>✓ Try reducing resolution/complexity</li>
+<li>✓ Review this troubleshooting guide</li>
+<li>✓ Search <a href="https://github.com/Tarawally/fluid-light-transport/issues" target="_blank" rel="noopener noreferrer">existing issues</a></li>
+</ol>
+<p><a href="./api.html">→ Next: API Reference</a> | <a href="../tutorial/07-mainloop.html">← Previous: Main Loop</a></p>
+<div class="observablehq observablehq--block"><!--:98c480bc:--></div>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./quality.html"><span>Engineering Quality</span></a><a rel="next" href="./references.html"><span>References</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

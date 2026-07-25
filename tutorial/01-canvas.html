@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>The Digital Canvas | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<link rel="modulepreload" href="../_npm/htl@1.0.0/11521f02.js">
+<link rel="modulepreload" href="../_npm/@observablehq/plot@0.6.17/93ce672e.js">
+<link rel="modulepreload" href="../_npm/d3@7.9.0/080cf928.js">
+<link rel="modulepreload" href="../_npm/isoformat@0.2.1/604cb63b.js">
+<link rel="modulepreload" href="../_npm/interval-tree-1d@1.0.4/f53f17b2.js">
+<link rel="modulepreload" href="../_npm/d3-array@3.2.4/b8e751b6.js">
+<link rel="modulepreload" href="../_npm/d3-axis@3.0.0/c662ea05.js">
+<link rel="modulepreload" href="../_npm/d3-brush@3.0.0/d162d8c6.js">
+<link rel="modulepreload" href="../_npm/d3-chord@3.0.1/5cedd0be.js">
+<link rel="modulepreload" href="../_npm/d3-color@3.1.0/65d51007.js">
+<link rel="modulepreload" href="../_npm/d3-contour@4.0.2/c576a91a.js">
+<link rel="modulepreload" href="../_npm/d3-delaunay@6.0.4/8b43826d.js">
+<link rel="modulepreload" href="../_npm/d3-dispatch@3.0.1/3fb06f14.js">
+<link rel="modulepreload" href="../_npm/d3-drag@3.0.0/20b76948.js">
+<link rel="modulepreload" href="../_npm/d3-dsv@3.0.1/097745a2.js">
+<link rel="modulepreload" href="../_npm/d3-ease@3.0.1/8683b012.js">
+<link rel="modulepreload" href="../_npm/d3-fetch@3.0.1/5c319046.js">
+<link rel="modulepreload" href="../_npm/d3-force@3.0.0/33924f3e.js">
+<link rel="modulepreload" href="../_npm/d3-format@3.1.2/8d67a1ae.js">
+<link rel="modulepreload" href="../_npm/d3-geo@3.1.1/8037bd0b.js">
+<link rel="modulepreload" href="../_npm/d3-hierarchy@3.1.2/a9ba0229.js">
+<link rel="modulepreload" href="../_npm/d3-interpolate@3.0.1/e0a47f97.js">
+<link rel="modulepreload" href="../_npm/d3-path@3.1.0/f9e9e0ab.js">
+<link rel="modulepreload" href="../_npm/d3-polygon@3.0.1/2da8eb3b.js">
+<link rel="modulepreload" href="../_npm/d3-quadtree@3.0.1/09002e01.js">
+<link rel="modulepreload" href="../_npm/d3-random@3.0.1/5108797c.js">
+<link rel="modulepreload" href="../_npm/d3-scale@4.0.2/c9f2571b.js">
+<link rel="modulepreload" href="../_npm/d3-scale-chromatic@3.1.0/f3c78e0d.js">
+<link rel="modulepreload" href="../_npm/d3-selection@3.0.0/28717d05.js">
+<link rel="modulepreload" href="../_npm/d3-shape@3.2.0/7c6e2a50.js">
+<link rel="modulepreload" href="../_npm/d3-time@3.1.0/3d1d57c6.js">
+<link rel="modulepreload" href="../_npm/d3-time-format@4.1.0/643581a8.js">
+<link rel="modulepreload" href="../_npm/d3-timer@3.0.1/e99232db.js">
+<link rel="modulepreload" href="../_npm/d3-transition@3.0.1/bd07fd9a.js">
+<link rel="modulepreload" href="../_npm/d3-zoom@3.0.0/d09f7cc9.js">
+<link rel="modulepreload" href="../_npm/binary-search-bounds@2.0.5/5f640032.js">
+<link rel="modulepreload" href="../_npm/internmap@2.0.3/af036d7e.js">
+<link rel="modulepreload" href="../_npm/delaunator@5.1.0/7b06abe7.js">
+<link rel="modulepreload" href="../_npm/robust-predicates@3.0.3/b42f30a7.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "654203d7", inputs: ["Plot","display"], body: async (Plot,display) => {
+display(await(
+Plot.plot({
+  grid: true,
+  x: {axis: "top", label: "X Axis →"},
+  y: {axis: "left", label: "↓ Y Axis"},
+  domain: [0, 10],
+  marks: [
+    Plot.frame(),
+    Plot.text([{x: 1, y: 1}], {text: "(1, 1)", x: "x", y: "y", dx: 15, dy: 15}),
+    Plot.dot([{x: 1, y: 1}], {x: "x", y: "y", fill: "red", r: 5}),
+    Plot.text([{x: 5, y: 5}], {text: "(5, 5)", x: "x", y: "y", dx: 15, dy: 15}),
+    Plot.dot([{x: 5, y: 5}], {x: "x", y: "y", fill: "blue", r: 5})
+  ]
+})
+))
+}});
+
+define({id: "a1df13dd", inputs: ["html","display"], body: async (html,display) => {
+display(await(
+html.fragment`<!-- MAIN RENDERING SURFACE -->
+<canvas id="canvas" tabindex="0"></canvas>`
+))
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section class="observablehq-section-active">
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link observablehq-link-active"><a href="./01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="./02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="./03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="./04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="./05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="./06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="./07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section>
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../reference/api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="../reference/performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="../reference/quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="../reference/troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="../reference/references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#the-pixel">The Pixel</a></li>
+<li class="observablehq-secondary-link"><a href="#the-cartesian-grid">The Cartesian Grid</a></li>
+<li class="observablehq-secondary-link"><a href="#the-canvas-element">The Canvas Element</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="the-digital-canvas" tabindex="-1"><a class="observablehq-header-anchor" href="#the-digital-canvas">The Digital Canvas</a></h1>
+<p>Before painting with light, we must understand our canvas.</p>
+<h2 id="the-pixel" tabindex="-1"><a class="observablehq-header-anchor" href="#the-pixel">The Pixel</a></h2>
+<p>Screens comprise millions of tiny squares called <strong>Pixels</strong> (Picture Elements). Each pixel is not a single colour but a blend of three primary lights: <strong>Red</strong>, <strong>Green</strong>, and <strong>Blue</strong> (RGB).</p>
+<div class="note">
+<h3 id="deep-dive-additive-colour" tabindex="-1"><a class="observablehq-header-anchor" href="#deep-dive-additive-colour">Deep Dive: Additive Colour</a></h3>
+<p>Unlike mixing paint (where red + blue = purple), mixing light is <strong>additive</strong>.</p>
+<ul>
+<li>Red + Green = Yellow</li>
+<li>Red + Blue = Magenta</li>
+<li>Green + Blue = Cyan</li>
+<li>Red + Green + Blue = White</li>
+</ul>
+</div>
+<h2 id="the-cartesian-grid" tabindex="-1"><a class="observablehq-header-anchor" href="#the-cartesian-grid">The Cartesian Grid</a></h2>
+<p>In mathematics, graphs typically place $(0,0)$ in the centre with $Y$ increasing <em>upwards</em>. Computer graphics differ:</p>
+<ul>
+<li>The <strong>Origin</strong> $(0,0)$ sits at the <strong>Top-Left</strong> corner.</li>
+<li><strong>X</strong> increases to the <strong>Right</strong>.</li>
+<li><strong>Y</strong> increases <strong>Downwards</strong>.</li>
+</ul>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:654203d7:--></div>
+<h2 id="the-canvas-element" tabindex="-1"><a class="observablehq-header-anchor" href="#the-canvas-element">The Canvas Element</a></h2>
+<p>We access this grid via the HTML5 <a href="https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API" target="_blank" rel="noopener noreferrer">Canvas API</a> using the <code>&lt;canvas&gt;</code> element.</p>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:a1df13dd:--></div>
+<p>In <code>src/engine.js</code>, we establish a connection to this element to draw upon it.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Canvas Context configuration</span>
+<span class="hljs-keyword">const</span> canvas = <span class="hljs-variable language_">document</span>.<span class="hljs-title function_">getElementById</span>(<span class="hljs-string">'canvas'</span>);
+<span class="hljs-keyword">const</span> ctx = canvas.<span class="hljs-title function_">getContext</span>(<span class="hljs-string">'2d'</span>, {
+  <span class="hljs-attr">alpha</span>: <span class="hljs-literal">false</span>,
+  <span class="hljs-attr">willReadFrequently</span>: <span class="hljs-literal">true</span>,
+});
+</code></pre>
+<p>The <a href="https://developer.mozilla.org/en-US/docs/Web/API/HTMLCanvasElement/getContext" target="_blank" rel="noopener noreferrer">context</a> (<code>ctx</code>) is our tool for modifying the canvas.</p>
+<div class="tip">
+<h3 id="performance-resizing" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-resizing">Performance: Resizing</a></h3>
+<p>Resizing the browser window is computationally expensive. Our engine employs a <strong>debounce</strong> function to ensure the grid is only recalculated once the user stops adjusting the window, preventing the simulation from freezing.</p>
+</div>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="../introduction.html"><span>Documentation</span></a><a rel="next" href="./02-logic.html"><span>2. The Language of Logic</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

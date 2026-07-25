@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Performance Benchmarking | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="preload" as="style" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/inputs.8ddbf299.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.cac9edb5.js">
+<link rel="modulepreload" href="../_npm/htl@1.0.0/11521f02.js">
+<link rel="modulepreload" href="../_npm/isoformat@0.2.1/604cb63b.js">
+<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.03ca039b.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "fd5e4466", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`graph TD
+    A[Input Handling] --> B[Ray Tracing]
+    B --> C[Advection Stage]
+    C --> D[Diffusion Stage]
+    D --> E[Rendering Stage]
+    
+    style B fill:#f9f,stroke:#333
+    style C fill:#bbf,stroke:#333
+    style D fill:#bbf,stroke:#333`
+))
+}});
+
+define({id: "eb75a25a", inputs: ["view","Inputs"], outputs: ["res","rays"], body: (view,Inputs) => {
+const res = view(Inputs.select([
+  {label: "Low (160x90)", value: 14400},
+  {label: "Medium (320x180)", value: 57600},
+  {label: "High (640x360)", value: 230400}
+], {label: "Grid Resolution"}));
+
+const rays = view(Inputs.range([8, 128], {value: 64, step: 8, label: "Rays per Frame"}));
+return {res,rays};
+}});
+
+define({id: "5b353712", inputs: ["res","rays","display","md"], outputs: ["msPerPixel","msPerRay","totalTime","fps"], body: (res,rays,display,md) => {
+const msPerPixel = 0.00007; // Estimated CPU time per pixel advection/diffusion
+const msPerRay = 0.05;      // Estimated CPU time per ray cast
+
+const totalTime = (res * msPerPixel) + (rays * msPerRay);
+const fps = Math.min(60, 1000 / totalTime);
+
+display(md`
+### Predicted Frame Time: **${totalTime.toFixed(2)}ms**
+### Predicted FPS: **${fps.toFixed(1)}**
+
+${totalTime > 16.6 ? 
+    "⚠️ **Performance Warning**: This configuration exceeds the 16.6ms budget. Expect stuttering." : 
+    "✅ **Optimal**: This should run smoothly at 60 FPS."}
+`);
+return {msPerPixel,msPerRay,totalTime,fps};
+}});
+
+define({id: "e113ff95", inputs: ["dark"], outputs: ["iframe"], body: (dark) => {
+// Sync theme to the embedded performance iframe reactively when the page theme changes
+const iframe = document.getElementById("perf-iframe");
+if (iframe) {
+  const postTheme = () => {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'themechange',
+        theme: dark ? 'dark' : 'light'
+      }, '*');
+    }
+  };
+  postTheme();
+  iframe.addEventListener('load', postTheme);
+}
+return {iframe};
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section>
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../tutorial/01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="../tutorial/02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="../tutorial/03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="../tutorial/04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="../tutorial/05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="../tutorial/06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="../tutorial/07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section class="observablehq-section-active">
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./api.html">API Reference</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="./quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="./troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="./references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#real-time-metrics">Real-time Metrics</a></li>
+<li class="observablehq-secondary-link"><a href="#understanding-the-bottlenecks">Understanding the Bottlenecks</a></li>
+<li class="observablehq-secondary-link"><a href="#interactive-performance-sandbox">Interactive Performance Sandbox</a></li>
+<li class="observablehq-secondary-link"><a href="#potential-optimisations">Potential Optimisations</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="performance-benchmarking" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-benchmarking">Performance Benchmarking</a></h1>
+<p>This page allows you to evaluate how the Hybrid Fluid-Light Transport engine performs on your specific hardware.</p>
+<h2 id="real-time-metrics" tabindex="-1"><a class="observablehq-header-anchor" href="#real-time-metrics">Real-time Metrics</a></h2>
+<p>The simulation below runs a standardised "Stress Test" to measure the limits of the Cellular Automata (CA) and Ray Tracing stages.</p>
+<iframe id="perf-iframe" src="../src/index.html" style="width: 100%; height: 60vh; border: 1px solid #eee; border-radius: 8px;" title="Performance Benchmark">
+</iframe>
+<h2 id="understanding-the-bottlenecks" tabindex="-1"><a class="observablehq-header-anchor" href="#understanding-the-bottlenecks">Understanding the Bottlenecks</a></h2>
+<p>Treatment of light as a fluid is computationally demanding. Unlike standard GPU-based shaders, our engine currently runs entirely on the <strong>CPU</strong> within the JavaScript main thread.</p>
+<h3 id="the-stages-of-execution" tabindex="-1"><a class="observablehq-header-anchor" href="#the-stages-of-execution">The Stages of Execution</a></h3>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:fd5e4466:--></div>
+<ol>
+<li><strong>Ray Tracing</strong>: Calculates where light enters the system. Scaling is $O(\text{Ray Count} \times \text{Resolution})$.</li>
+<li><strong>Fluid Stages</strong>: Moves energy across the grid. Scaling is $O(\text{Grid Width} \times \text{Grid Height})$.</li>
+</ol>
+<h2 id="interactive-performance-sandbox" tabindex="-1"><a class="observablehq-header-anchor" href="#interactive-performance-sandbox">Interactive Performance Sandbox</a></h2>
+<p>Adjust the parameters below to see their theoretical impact on your frame budget (16.6ms for 60 FPS).</p>
+<div class="observablehq observablehq--block"><!--:eb75a25a:--></div>
+<div class="observablehq observablehq--block"><!--:5b353712:--></div>
+<h2 id="potential-optimisations" tabindex="-1"><a class="observablehq-header-anchor" href="#potential-optimisations">Potential Optimisations</a></h2>
+<p>To improve performance in future versions, we are exploring:</p>
+<ul>
+<li><strong>Web Workers</strong>: Moving the Diffusion and Advection loops to background threads.</li>
+<li><strong>SIMD (Single Instruction, Multiple Data)</strong>: Using <code>Float32Array</code> with vectorized operations via WebAssembly.</li>
+<li><strong>GPU Acceleration</strong>: Ports of the CA logic to WebGL/WebGPU compute shaders.</li>
+</ul>
+<div class="observablehq observablehq--block"><!--:e113ff95:--></div>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./api.html"><span>API Reference</span></a><a rel="next" href="./quality.html"><span>Engineering Quality</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

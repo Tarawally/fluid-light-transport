@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Engineering Quality | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<script type="module">
+
+import "../_observablehq/client.9f89fa7e.js";
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section>
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../tutorial/01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="../tutorial/02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="../tutorial/03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="../tutorial/04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="../tutorial/05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="../tutorial/06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="../tutorial/07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section class="observablehq-section-active">
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="./performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="./troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="./references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#automated-testing">Automated Testing</a></li>
+<li class="observablehq-secondary-link"><a href="#continuous-integration-ci">Continuous Integration (CI)</a></li>
+<li class="observablehq-secondary-link"><a href="#link-integrity">Link Integrity</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="engineering-quality" tabindex="-1"><a class="observablehq-header-anchor" href="#engineering-quality">Engineering Quality</a></h1>
+<p>To ensure the reliability of the light simulation, we employ automated testing and documentation-as-code principles.</p>
+<h2 id="automated-testing" tabindex="-1"><a class="observablehq-header-anchor" href="#automated-testing">Automated Testing</a></h2>
+<p>We use <a href="https://vitest.dev/" target="_blank" rel="noopener noreferrer">Vitest</a> for unit testing our core mathematical utilities. This ensures that fundamental operations like vector normalisation and light fall-off calculations remain accurate across changes.</p>
+<h3 id="running-tests" tabindex="-1"><a class="observablehq-header-anchor" href="#running-tests">Running Tests</a></h3>
+<p>To execute the test suite locally:</p>
+<pre data-language="bash"><code class="language-bash">npm install
+npm <span class="hljs-built_in">test</span>
+</code></pre>
+<h3 id="current-test-suite" tabindex="-1"><a class="observablehq-header-anchor" href="#current-test-suite">Current Test Suite</a></h3>
+<p>Our tests focus on the <code>src/math_utils.js</code> module, which contains the pure mathematical functions used by the engine.</p>
+<table>
+<thead>
+<tr>
+<th>Module</th>
+<th>Purpose</th>
+<th>Status</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>math_utils.js</code></td>
+<td>Vector math and clamping</td>
+<td>✅ Passing</td>
+</tr>
+<tr>
+<td><code>engine.js</code></td>
+<td>Simulation loop</td>
+<td>🔄 In Progress</td>
+</tr>
+</tbody>
+</table>
+<h2 id="continuous-integration-ci" tabindex="-1"><a class="observablehq-header-anchor" href="#continuous-integration-ci">Continuous Integration (CI)</a></h2>
+<p>On every push to the repository, a GitHub Action:</p>
+<ol>
+<li>Installs dependencies.</li>
+<li>Runs the Vitest suite.</li>
+<li>Renders the documentation.</li>
+<li>Deploys the bundled site to GitHub Pages.</li>
+</ol>
+<h2 id="link-integrity" tabindex="-1"><a class="observablehq-header-anchor" href="#link-integrity">Link Integrity</a></h2>
+<p>We maintain link integrity between the documentation and the source code using <code>jsdoc-to-markdown</code>. The <a href="./api.html">API Reference</a> is always 1:1 with the code in <code>src/engine.js</code>.</p>
+<div class="tip">
+<h3 id="contributing-tests" tabindex="-1"><a class="observablehq-header-anchor" href="#contributing-tests">Contributing Tests</a></h3>
+<p>If you add new features to the engine, please include a corresponding test file in the <code>tests/</code> directory to help maintain the long-term stability of the project.</p>
+</div>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./performance.html"><span>Performance Benchmarking</span></a><a rel="next" href="./troubleshooting.html"><span>Troubleshooting &amp; FAQ</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

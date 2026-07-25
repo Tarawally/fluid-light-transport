@@ -1,0 +1,859 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>API Reference | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "eeb8a65b", inputs: ["MathLib","width","height"], outputs: ["x","y"], body: (MathLib,width,height) => {
+// Generate random positions
+const x = MathLib.nextFloat() * width;
+const y = MathLib.nextFloat() * height;
+return {x,y};
+}});
+
+define({id: "84bfbceb", inputs: ["MathLib"], outputs: ["hdrColour","ldrColour"], body: (MathLib) => {
+// Tone map HDR pixel values
+const hdrColour = 5.2;  // Bright light source
+const ldrColour = MathLib.aces(hdrColour);  // ~0.95
+return {hdrColour,ldrColour};
+}});
+
+define({id: "a99cb064", inputs: ["Scene"], outputs: ["ray","hit"], body: (Scene) => {
+const ray = {origin: [0, 0, -5], direction: [0, 0, 1]};
+const hit = Scene.trace(ray.origin, ray.direction);
+if (hit.obj) {
+  console.log(`Hit sphere at distance ${hit.t}`);
+}
+return {ray,hit};
+}});
+
+define({id: "b8382ab1", inputs: ["Scene","ro","rd"], outputs: ["hit","shading"], body: (Scene,ro,rd) => {
+const hit = Scene.trace(ro, rd);
+const shading = Scene.shade(hit, ro, rd);
+if (shading) {
+  // Use shading.albedo, shading.emission, etc.
+  const finalColour = shading.albedo.map((c, i) => 
+    c * shading.diffuse * shading.falloff + shading.emission[i]
+  );
+}
+return {hit,shading};
+}});
+
+define({id: "8f55188d", inputs: ["bootSystem"], body: (bootSystem) => {
+// Called automatically on page load
+window.addEventListener('load', bootSystem);
+}});
+
+define({id: "0214f607", inputs: ["CONFIG","bootSystem"], body: (CONFIG,bootSystem) => {
+// Manually reinitialise after config change
+CONFIG.DOWNSAMPLE = 8;
+bootSystem();
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section>
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../tutorial/01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="../tutorial/02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="../tutorial/03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="../tutorial/04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="../tutorial/05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="../tutorial/06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="../tutorial/07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section class="observablehq-section-active">
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link observablehq-link-active"><a href="./api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="./performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="./quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="./troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="./references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#members">Members</a></li>
+<li class="observablehq-secondary-link"><a href="#constants">Constants</a></li>
+<li class="observablehq-secondary-link"><a href="#functions">Functions</a></li>
+<li class="observablehq-secondary-link"><a href="#resolution-object">RESOLUTION : Object</a></li>
+<li class="observablehq-secondary-link"><a href="#total-pixels-number">TOTAL_PIXELS : number</a></li>
+<li class="observablehq-secondary-link"><a href="#tiles-x-number">TILES_X : number</a></li>
+<li class="observablehq-secondary-link"><a href="#tiles-y-number">TILES_Y : number</a></li>
+<li class="observablehq-secondary-link"><a href="#mask-size-number">MASK_SIZE : number</a></li>
+<li class="observablehq-secondary-link"><a href="#field-enum">FIELD : enum</a></li>
+<li class="observablehq-secondary-link"><a href="#config">CONFIG</a></li>
+<li class="observablehq-secondary-link"><a href="#stride-number">STRIDE : number</a></li>
+<li class="observablehq-secondary-link"><a href="#state">State</a></li>
+<li class="observablehq-secondary-link"><a href="#math-lib">MathLib</a></li>
+<li class="observablehq-secondary-link"><a href="#scene">Scene</a></li>
+<li class="observablehq-secondary-link"><a href="#boot-system">bootSystem()</a></li>
+<li class="observablehq-secondary-link"><a href="#debounce-func-wait-function">debounce(func, wait) ⇒ function</a></li>
+<li class="observablehq-secondary-link"><a href="#activate-spatial-region-tx-ty">activateSpatialRegion(tx, ty)</a></li>
+<li class="observablehq-secondary-link"><a href="#evolve-simulation">evolveSimulation()</a></li>
+<li class="observablehq-secondary-link"><a href="#main-simulation-loop">mainSimulationLoop()</a></li>
+<li class="observablehq-secondary-link"><a href="#handle-input-boolean">handleInput() ⇒ boolean</a></li>
+<li class="observablehq-secondary-link"><a href="#update-telemetry">updateTelemetry()</a></li>
+<li class="observablehq-secondary-link"><a href="#initialise-engine">initialiseEngine()</a></li>
+<li class="observablehq-secondary-link"><a href="#setup-ui-control-listeners">setupUIControlListeners()</a></li>
+<li class="observablehq-secondary-link"><a href="#normalize2-d-x-y-array-number">normalize2D(x, y) ⇒ Array.&lt;number&gt;</a></li>
+<li class="observablehq-secondary-link"><a href="#dot2-d-x1-y1-x2-y2-number">dot2D(x1, y1, x2, y2) ⇒ number</a></li>
+<li class="observablehq-secondary-link"><a href="#clamp-val-min-max-number">clamp(val, min, max) ⇒ number</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="api-reference" tabindex="-1"><a class="observablehq-header-anchor" href="#api-reference">API Reference</a></h1>
+<p>This documentation is automatically generated from source code JSDoc comments.</p>
+<div class="note">
+<h3 id="source-code" tabindex="-1"><a class="observablehq-header-anchor" href="#source-code">Source Code</a></h3>
+<p>The primary simulation logic resides in <code>docs/src/engine.js</code>.</p>
+</div>
+<h2 id="members" tabindex="-1"><a class="observablehq-header-anchor" href="#members">Members</a></h2>
+<dl>
+<dt><a href="#RESOLUTION">RESOLUTION</a> : <code>Object</code></dt>
+<dd><p>Internal resolution dimensions.</p>
+</dd>
+<dt><a href="#TOTAL_PIXELS">TOTAL_PIXELS</a> : <code>number</code></dt>
+<dd><p>Total number of pixels in the simulation grid.</p>
+</dd>
+<dt><a href="#TILES_X">TILES_X</a> : <code>number</code></dt>
+<dd><p>Number of tiles horizontally.</p>
+</dd>
+<dt><a href="#TILES_Y">TILES_Y</a> : <code>number</code></dt>
+<dd><p>Number of tiles vertically.</p>
+</dd>
+<dt><a href="#MASK_SIZE">MASK_SIZE</a> : <code>number</code></dt>
+<dd><p>Size of the bitmask array.</p>
+</dd>
+</dl>
+<h2 id="constants" tabindex="-1"><a class="observablehq-header-anchor" href="#constants">Constants</a></h2>
+<dl>
+<dt><a href="#CONFIG">CONFIG</a></dt>
+<dd><p>Configuration constants for the simulation.</p>
+</dd>
+<dt><a href="#STRIDE">STRIDE</a> : <code>number</code></dt>
+<dd><p>Total number of floats per pixel in the lattice.</p>
+</dd>
+<dt><a href="#State">State</a></dt>
+<dd><p>The global state object containing simulation data and metadata.</p>
+</dd>
+<dt><a href="#MathLib">MathLib</a></dt>
+<dd><p>Mathematical utility functions.</p>
+</dd>
+<dt><a href="#Scene">Scene</a></dt>
+<dd><p>Scene definition and ray tracing logic.
+Populated via asynchronous fetch.</p>
+</dd>
+</dl>
+<h2 id="functions" tabindex="-1"><a class="observablehq-header-anchor" href="#functions">Functions</a></h2>
+<dl>
+<dt><a href="#bootSystem">bootSystem()</a></dt>
+<dd><p>Initialises the simulation by allocating memory and computing grid dimensions.
+This function performs critical setup:</p>
+<ol>
+<li>Calculates internal resolution based on window size and downsampling</li>
+<li>Resizes canvas to match resolution</li>
+<li>Computes tile grid dimensions for spatial optimisation</li>
+<li>Allocates typed arrays for state storage</li>
+<li>Creates image buffer for rendering</li>
+</ol>
+</dd>
+<dt><a href="#debounce">debounce(func, wait)</a> ⇒ <code>function</code></dt>
+<dd><p>Debounce utility to limit function execution rate.</p>
+</dd>
+<dt><a href="#activateSpatialRegion">activateSpatialRegion(tx, ty)</a></dt>
+<dd><p>Marks a specific spatial region (tile) as active.
+This ensures the physics solver will process this region in the next frame.</p>
+</dd>
+<dt><a href="#evolveSimulation">evolveSimulation()</a></dt>
+<dd><p>Evolves the simulation state by one timestep.
+Uses Cellular Automata to flow light energy from pixel to pixel.</p>
+</dd>
+<dt><a href="#mainSimulationLoop">mainSimulationLoop()</a></dt>
+<dd><p>The main game loop. Handles input, physics, and rendering.</p>
+</dd>
+<dt><a href="#handleInput">handleInput()</a> ⇒ <code>boolean</code></dt>
+<dd><p>Handles user input to update the camera position.</p>
+</dd>
+<dt><a href="#updateTelemetry">updateTelemetry()</a></dt>
+<dd><p>Updates the on-screen telemetry display.</p>
+</dd>
+<dt><a href="#initialiseEngine">initialiseEngine()</a></dt>
+<dd><p>Bootstraps the engine by fetching configuration data.</p>
+</dd>
+<dt><a href="#setupUIControlListeners">setupUIControlListeners()</a></dt>
+<dd><p>Connects HTML sliders to the engine configuration.</p>
+</dd>
+<dt><a href="#normalize2D">normalize2D(x, y)</a> ⇒ <code>Array.&lt;number&gt;</code></dt>
+<dd><p>Returns a normalised 2D vector (new array).</p>
+</dd>
+<dt><a href="#dot2D">dot2D(x1, y1, x2, y2)</a> ⇒ <code>number</code></dt>
+<dd><p>Calculates the dot product of two 2D vectors.</p>
+</dd>
+<dt><a href="#clamp">clamp(val, min, max)</a> ⇒ <code>number</code></dt>
+<dd><p>Returns a value clamped between min and max.</p>
+</dd>
+</dl>
+<p><a name="RESOLUTION"></a></p>
+<h2 id="resolution-object" tabindex="-1"><a class="observablehq-header-anchor" href="#resolution-object">RESOLUTION : <code>Object</code></a></h2>
+<p>Internal resolution dimensions.</p>
+<p><strong>Kind</strong>: global variable<br>
+<a name="TOTAL_PIXELS"></a></p>
+<h2 id="total-pixels-number" tabindex="-1"><a class="observablehq-header-anchor" href="#total-pixels-number">TOTAL_PIXELS : <code>number</code></a></h2>
+<p>Total number of pixels in the simulation grid.</p>
+<p><strong>Kind</strong>: global variable<br>
+<a name="TILES_X"></a></p>
+<h2 id="tiles-x-number" tabindex="-1"><a class="observablehq-header-anchor" href="#tiles-x-number">TILES_X : <code>number</code></a></h2>
+<p>Number of tiles horizontally.</p>
+<p><strong>Kind</strong>: global variable<br>
+<a name="TILES_Y"></a></p>
+<h2 id="tiles-y-number" tabindex="-1"><a class="observablehq-header-anchor" href="#tiles-y-number">TILES_Y : <code>number</code></a></h2>
+<p>Number of tiles vertically.</p>
+<p><strong>Kind</strong>: global variable<br>
+<a name="MASK_SIZE"></a></p>
+<h2 id="mask-size-number" tabindex="-1"><a class="observablehq-header-anchor" href="#mask-size-number">MASK_SIZE : <code>number</code></a></h2>
+<p>Size of the bitmask array.</p>
+<p><strong>Kind</strong>: global variable<br>
+<a name="FIELD"></a></p>
+<h2 id="field-enum" tabindex="-1"><a class="observablehq-header-anchor" href="#field-enum">FIELD : <code>enum</code></a></h2>
+<p>Memory layout offsets for the Structure of Arrays (SoA).
+Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.</p>
+<p><strong>Kind</strong>: global enum<br>
+<strong>Properties</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Default</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>R</td>
+<td><code>number</code></td>
+<td><code>0</code></td>
+</tr>
+<tr>
+<td>G</td>
+<td><code>number</code></td>
+<td><code>1</code></td>
+</tr>
+<tr>
+<td>B</td>
+<td><code>number</code></td>
+<td><code>2</code></td>
+</tr>
+<tr>
+<td>VEL_X</td>
+<td><code>number</code></td>
+<td><code>4</code></td>
+</tr>
+<tr>
+<td>VEL_Y</td>
+<td><code>number</code></td>
+<td><code>5</code></td>
+</tr>
+<tr>
+<td>ROUGHNESS</td>
+<td><code>number</code></td>
+<td><code>6</code></td>
+</tr>
+<tr>
+<td>DEPTH</td>
+<td><code>number</code></td>
+<td><code>7</code></td>
+</tr>
+<tr>
+<td>OBJECT_ID</td>
+<td><code>number</code></td>
+<td><code>11</code></td>
+</tr>
+<tr>
+<td>SLEEP_TIMER</td>
+<td><code>number</code></td>
+<td><code>12</code></td>
+</tr>
+</tbody>
+</table>
+<p><a name="CONFIG"></a></p>
+<h2 id="config" tabindex="-1"><a class="observablehq-header-anchor" href="#config">CONFIG</a></h2>
+<p>Configuration constants for the simulation.</p>
+<p><strong>Kind</strong>: global constant</p>
+<ul>
+<li><a href="#CONFIG">CONFIG</a>
+<ul>
+<li><a href="#CONFIG.DOWNSAMPLE">.DOWNSAMPLE</a> : <code>number</code></li>
+<li><a href="#CONFIG.TILE_SIZE">.TILE_SIZE</a> : <code>number</code></li>
+<li><a href="#CONFIG.TIMESTEP_BUDGET_MS">.TIMESTEP_BUDGET_MS</a> : <code>number</code></li>
+<li><a href="#CONFIG.DISSIPATION">.DISSIPATION</a> : <code>number</code></li>
+<li><a href="#CONFIG.MOMENTUM_DECAY">.MOMENTUM_DECAY</a> : <code>number</code></li>
+<li><a href="#CONFIG.ADVECTION_STRENGTH">.ADVECTION_STRENGTH</a> : <code>number</code></li>
+<li><a href="#CONFIG.EXPOSURE">.EXPOSURE</a> : <code>number</code></li>
+<li><a href="#CONFIG.GAMMA">.GAMMA</a> : <code>number</code></li>
+</ul>
+</li>
+</ul>
+<p><a name="CONFIG.DOWNSAMPLE"></a></p>
+<h3 id="config-downsample-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-downsample-number">CONFIG.DOWNSAMPLE : <code>number</code></a></h3>
+<p>Resolution downsampling factor.
+To maintain 60 FPS, we downsample the window resolution.
+A 1920px width becomes a ~384px width simulation grid.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.TILE_SIZE"></a></p>
+<h3 id="config-tile-size-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-tile-size-number">CONFIG.TILE_SIZE : <code>number</code></a></h3>
+<p>Size of a tile in pixels (width and height).
+Physics is activated in 4x4 "Blocks" (Tiles).</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.TIMESTEP_BUDGET_MS"></a></p>
+<h3 id="config-timestep-budget-ms-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-timestep-budget-ms-number">CONFIG.TIMESTEP_BUDGET_MS : <code>number</code></a></h3>
+<p>Maximum time allowed for physics calculations per frame (in milliseconds).
+If calculations exceed this, the loop aborts to ensure the frame renders.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.DISSIPATION"></a></p>
+<h3 id="config-dissipation-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-dissipation-number">CONFIG.DISSIPATION : <code>number</code></a></h3>
+<p>Energy lost to entropy per tick.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.MOMENTUM_DECAY"></a></p>
+<h3 id="config-momentum-decay-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-momentum-decay-number">CONFIG.MOMENTUM_DECAY : <code>number</code></a></h3>
+<p>Momentum decay factor (viscosity).
+How quickly light stops "flowing".</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.ADVECTION_STRENGTH"></a></p>
+<h3 id="config-advection-strength-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-advection-strength-number">CONFIG.ADVECTION_STRENGTH : <code>number</code></a></h3>
+<p>Magnitude of flow per tick.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.EXPOSURE"></a></p>
+<h3 id="config-exposure-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-exposure-number">CONFIG.EXPOSURE : <code>number</code></a></h3>
+<p>Virtual camera aperture.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="CONFIG.GAMMA"></a></p>
+<h3 id="config-gamma-number" tabindex="-1"><a class="observablehq-header-anchor" href="#config-gamma-number">CONFIG.GAMMA : <code>number</code></a></h3>
+<p>Monitor gamma correction.</p>
+<p><strong>Kind</strong>: static property of <a href="#CONFIG"><code>CONFIG</code></a><br>
+<a name="STRIDE"></a></p>
+<h2 id="stride-number" tabindex="-1"><a class="observablehq-header-anchor" href="#stride-number">STRIDE : <code>number</code></a></h2>
+<p>Total number of floats per pixel in the lattice.</p>
+<p><strong>Kind</strong>: global constant<br>
+<a name="State"></a></p>
+<h2 id="state" tabindex="-1"><a class="observablehq-header-anchor" href="#state">State</a></h2>
+<p>The global state object containing simulation data and metadata.</p>
+<p><strong>Kind</strong>: global constant</p>
+<ul>
+<li><a href="#State">State</a>
+<ul>
+<li><a href="#State.lattice">.lattice</a> : <code>Float32Array</code> | <code>null</code></li>
+<li><a href="#State.displayImage">.displayImage</a> : <code>ImageData</code> | <code>null</code></li>
+<li><a href="#State.maskRead">.maskRead</a> : <code>Uint32Array</code> | <code>null</code></li>
+<li><a href="#State.maskWrite">.maskWrite</a> : <code>Uint32Array</code> | <code>null</code></li>
+<li><a href="#State.cam">.cam</a> : <code>Object</code></li>
+<li><a href="#State.input">.input</a></li>
+<li><a href="#State.viewMode">.viewMode</a> : <code>number</code></li>
+<li><a href="#State.profiler">.profiler</a></li>
+</ul>
+</li>
+</ul>
+<p><a name="State.lattice"></a></p>
+<h3 id="state-lattice-float32-array-null" tabindex="-1"><a class="observablehq-header-anchor" href="#state-lattice-float32-array-null">State.lattice : <code>Float32Array</code> | <code>null</code></a></h3>
+<p>The single buffer containing the entire universe's state.
+Allocated in bootSystem().</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.displayImage"></a></p>
+<h3 id="state-display-image-image-data-null" tabindex="-1"><a class="observablehq-header-anchor" href="#state-display-image-image-data-null">State.displayImage : <code>ImageData</code> | <code>null</code></a></h3>
+<p>Persistent display buffer to avoid expensive read-backs.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.maskRead"></a></p>
+<h3 id="state-mask-read-uint32-array-null" tabindex="-1"><a class="observablehq-header-anchor" href="#state-mask-read-uint32-array-null">State.maskRead : <code>Uint32Array</code> | <code>null</code></a></h3>
+<p>Bitmask tracking active regions for the current frame.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.maskWrite"></a></p>
+<h3 id="state-mask-write-uint32-array-null" tabindex="-1"><a class="observablehq-header-anchor" href="#state-mask-write-uint32-array-null">State.maskWrite : <code>Uint32Array</code> | <code>null</code></a></h3>
+<p>Bitmask tracking active regions for the next frame.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.cam"></a></p>
+<h3 id="state-cam-object" tabindex="-1"><a class="observablehq-header-anchor" href="#state-cam-object">State.cam : <code>Object</code></a></h3>
+<p>Camera position and orientation.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.input"></a></p>
+<h3 id="state-input" tabindex="-1"><a class="observablehq-header-anchor" href="#state-input">State.input</a></h3>
+<p>User input state.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.viewMode"></a></p>
+<h3 id="state-view-mode-number" tabindex="-1"><a class="observablehq-header-anchor" href="#state-view-mode-number">State.viewMode : <code>number</code></a></h3>
+<p>Current view mode.
+0: Composite Output
+1: Active Tile Map
+2: Velocity Vector Field</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="State.profiler"></a></p>
+<h3 id="state-profiler" tabindex="-1"><a class="observablehq-header-anchor" href="#state-profiler">State.profiler</a></h3>
+<p>Performance profiling data.</p>
+<p><strong>Kind</strong>: static property of <a href="#State"><code>State</code></a><br>
+<a name="MathLib"></a></p>
+<h2 id="math-lib" tabindex="-1"><a class="observablehq-header-anchor" href="#math-lib">MathLib</a></h2>
+<p>Mathematical utility functions.</p>
+<p><strong>Kind</strong>: global constant</p>
+<ul>
+<li><a href="#MathLib">MathLib</a>
+<ul>
+<li><a href="#MathLib.nextFloat">.nextFloat()</a> ⇒ <code>number</code></li>
+<li><a href="#MathLib.toHyperbolic">.toHyperbolic(x, y, z)</a> ⇒ <code>Array.&lt;number&gt;</code></li>
+<li><a href="#MathLib.aces">.aces(x)</a> ⇒ <code>number</code></li>
+</ul>
+</li>
+</ul>
+<p><a name="MathLib.nextFloat"></a></p>
+<h3 id="math-lib-next-float-number" tabindex="-1"><a class="observablehq-header-anchor" href="#math-lib-next-float-number">MathLib.nextFloat() ⇒ <code>number</code></a></h3>
+<p>Fast pseudo-random number generator using Linear Congruential Generator (LCG).
+Provides deterministic random values based on internal seed state.
+Uses the same parameters as the POSIX rand48 family.</p>
+<p><strong>Kind</strong>: static method of <a href="#MathLib"><code>MathLib</code></a><br>
+<strong>Returns</strong>: <code>number</code> - Pseudo-random float in range [0, 1)<br>
+<strong>Algorithm</strong>: LCG formula: seed = (a × seed + c) mod m
+Where: a = 1664525, c = 1013904223, m = 2³²
+Output: seed / 2³² to normalise to [0, 1)<br>
+<strong>Performance</strong>: O(1) - Single multiply-add operation<br>
+<strong>Deterministic</strong>: true - Same seed produces same sequence<br>
+<strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:eeb8a65b:--></div>
+<p><a name="MathLib.toHyperbolic"></a></p>
+<h3 id="math-lib-to-hyperbolic-x-y-z-array-number" tabindex="-1"><a class="observablehq-header-anchor" href="#math-lib-to-hyperbolic-x-y-z-array-number">MathLib.toHyperbolic(x, y, z) ⇒ <code>Array.&lt;number&gt;</code></a></h3>
+<p>Poincaré Ball Projection.
+Compresses infinite Euclidean distance into a 0.0-1.0 range.</p>
+<p><strong>Kind</strong>: static method of <a href="#MathLib"><code>MathLib</code></a><br>
+<strong>Returns</strong>: <code>Array.&lt;number&gt;</code> - [x, y, z] projected coordinates.</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>y</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>z</td>
+<td><code>number</code></td>
+</tr>
+</tbody>
+</table>
+<p><a name="MathLib.aces"></a></p>
+<h3 id="math-lib-aces-x-number" tabindex="-1"><a class="observablehq-header-anchor" href="#math-lib-aces-x-number">MathLib.aces(x) ⇒ <code>number</code></a></h3>
+<p>ACES (Academy Colour Encoding System) tone mapping curve.
+Maps High Dynamic Range (HDR) values to Low Dynamic Range (LDR)
+for display on standard monitors. Preserves colour relationships
+and provides smooth highlight rolloff.</p>
+<p><strong>Kind</strong>: static method of <a href="#MathLib"><code>MathLib</code></a><br>
+<strong>Returns</strong>: <code>number</code> - Tone-mapped LDR value (typically [0, 1])<br>
+<strong>Algorithm</strong>: Rational function approximation:
+f(x) = (x(ax + b)) / (x(cx + d) + e)
+Constants tuned for perceptually pleasing results<br>
+<strong>See</strong>: <a href="https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/" target="_blank" rel="noopener noreferrer">https://knarkowicz.wordpress.com/2016/01/06/aces-filmic-tone-mapping-curve/</a></p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x</td>
+<td><code>number</code></td>
+<td>Input HDR colour value (unbounded range)</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:84bfbceb:--></div>
+<p><a name="Scene"></a></p>
+<h2 id="scene" tabindex="-1"><a class="observablehq-header-anchor" href="#scene">Scene</a></h2>
+<p>Scene definition and ray tracing logic.
+Populated via asynchronous fetch.</p>
+<p><strong>Kind</strong>: global constant</p>
+<ul>
+<li><a href="#Scene">Scene</a>
+<ul>
+<li><a href="#Scene.cacheLightSource">.cacheLightSource()</a></li>
+<li><a href="#Scene.trace">.trace(ro, rd)</a> ⇒ <code>Object</code></li>
+<li><a href="#Scene.shade">.shade(hit, ro, rd)</a> ⇒ <code>Object</code> | <code>null</code></li>
+</ul>
+</li>
+</ul>
+<p><a name="Scene.cacheLightSource"></a></p>
+<h3 id="scene-cache-light-source" tabindex="-1"><a class="observablehq-header-anchor" href="#scene-cache-light-source">Scene.cacheLightSource()</a></h3>
+<p>Updates the cached active light source.
+Should be called when the scene loads or changes.</p>
+<p><strong>Kind</strong>: static method of <a href="#Scene"><code>Scene</code></a><br>
+<a name="Scene.trace"></a></p>
+<h3 id="scene-trace-ro-rd-object" tabindex="-1"><a class="observablehq-header-anchor" href="#scene-trace-ro-rd-object">Scene.trace(ro, rd) ⇒ <code>Object</code></a></h3>
+<p>Performs ray-sphere intersection using geometric algebra.
+Uses the discriminant method to solve the quadratic equation
+formed by substituting the ray equation into the sphere equation.</p>
+<p><strong>Kind</strong>: static method of <a href="#Scene"><code>Scene</code></a><br>
+<strong>Returns</strong>: <code>Object</code> - Intersection result<br>
+<strong>Algorithm</strong>: Solves: |P(t) - C|² = r²
+Where: P(t) = O + tD (ray equation)
+Expands to: at² + bt + c = 0
+Discriminant: Δ = b² - 4ac
+If Δ &gt; 0: two intersections (entry and exit)
+Takes nearest positive t value</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>ro</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Ray origin [x, y, z]</td>
+</tr>
+<tr>
+<td>rd</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Ray direction [x, y, z], should be normalised</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Properties</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>t</td>
+<td><code>number</code></td>
+<td>Distance along ray to intersection (1e9 if no hit)</td>
+</tr>
+<tr>
+<td>obj</td>
+<td><code>Object</code> | <code>null</code></td>
+<td>The sphere object that was hit, or null</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:a99cb064:--></div>
+<p><a name="Scene.shade"></a></p>
+<h3 id="scene-shade-hit-ro-rd-object-null" tabindex="-1"><a class="observablehq-header-anchor" href="#scene-shade-hit-ro-rd-object-null">Scene.shade(hit, ro, rd) ⇒ <code>Object</code> | <code>null</code></a></h3>
+<p>Computes lighting and material properties at a ray intersection point.
+Implements basic Lambertian diffuse shading with distance attenuation.</p>
+<p><strong>Kind</strong>: static method of <a href="#Scene"><code>Scene</code></a><br>
+<strong>Returns</strong>: <code>Object</code> | <code>null</code> - Shading information or null if no hit</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hit</td>
+<td><code>Object</code></td>
+<td>Intersection data from trace()</td>
+</tr>
+<tr>
+<td>ro</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Ray origin [x, y, z]</td>
+</tr>
+<tr>
+<td>rd</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Ray direction [x, y, z]</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Properties</strong></p>
+<table>
+<thead>
+<tr>
+<th>Name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>albedo</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Surface colour [r, g, b]</td>
+</tr>
+<tr>
+<td>emission</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Emitted light [r, g, b]</td>
+</tr>
+<tr>
+<td>normal</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>Surface normal [x, y, z]</td>
+</tr>
+<tr>
+<td>position</td>
+<td><code>Array.&lt;number&gt;</code></td>
+<td>World-space position [x, y, z]</td>
+</tr>
+<tr>
+<td>depth</td>
+<td><code>number</code></td>
+<td>Distance from camera</td>
+</tr>
+<tr>
+<td>diffuse</td>
+<td><code>number</code></td>
+<td>Lambertian diffuse term (N·L)</td>
+</tr>
+<tr>
+<td>falloff</td>
+<td><code>number</code></td>
+<td>Distance-based attenuation</td>
+</tr>
+</tbody>
+</table>
+<p><strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:b8382ab1:--></div>
+<p><a name="bootSystem"></a></p>
+<h2 id="boot-system" tabindex="-1"><a class="observablehq-header-anchor" href="#boot-system">bootSystem()</a></h2>
+<p>Initialises the simulation by allocating memory and computing grid dimensions.
+This function performs critical setup:</p>
+<ol>
+<li>Calculates internal resolution based on window size and downsampling</li>
+<li>Resizes canvas to match resolution</li>
+<li>Computes tile grid dimensions for spatial optimisation</li>
+<li>Allocates typed arrays for state storage</li>
+<li>Creates image buffer for rendering</li>
+</ol>
+<p><strong>Kind</strong>: global function<br>
+<strong>Emits</strong>: <code>window#resize - Automatically called when window is resized (debounced)</code><br>
+<strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:8f55188d:--></div>
+<p><strong>Example</strong></p>
+<div class="observablehq observablehq--block"><!--:0214f607:--></div>
+<p><a name="debounce"></a></p>
+<h2 id="debounce-func-wait-function" tabindex="-1"><a class="observablehq-header-anchor" href="#debounce-func-wait-function">debounce(func, wait) ⇒ <code>function</code></a></h2>
+<p>Debounce utility to limit function execution rate.</p>
+<p><strong>Kind</strong>: global function<br>
+<strong>Returns</strong>: <code>function</code> - The debounced function.</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>func</td>
+<td><code>function</code></td>
+<td>The function to debounce.</td>
+</tr>
+<tr>
+<td>wait</td>
+<td><code>number</code></td>
+<td>The delay in milliseconds.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="activateSpatialRegion"></a></p>
+<h2 id="activate-spatial-region-tx-ty" tabindex="-1"><a class="observablehq-header-anchor" href="#activate-spatial-region-tx-ty">activateSpatialRegion(tx, ty)</a></h2>
+<p>Marks a specific spatial region (tile) as active.
+This ensures the physics solver will process this region in the next frame.</p>
+<p><strong>Kind</strong>: global function</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>tx</td>
+<td><code>number</code></td>
+<td>Tile X index.</td>
+</tr>
+<tr>
+<td>ty</td>
+<td><code>number</code></td>
+<td>Tile Y index.</td>
+</tr>
+</tbody>
+</table>
+<p><a name="evolveSimulation"></a></p>
+<h2 id="evolve-simulation" tabindex="-1"><a class="observablehq-header-anchor" href="#evolve-simulation">evolveSimulation()</a></h2>
+<p>Evolves the simulation state by one timestep.
+Uses Cellular Automata to flow light energy from pixel to pixel.</p>
+<p><strong>Kind</strong>: global function<br>
+<a name="mainSimulationLoop"></a></p>
+<h2 id="main-simulation-loop" tabindex="-1"><a class="observablehq-header-anchor" href="#main-simulation-loop">mainSimulationLoop()</a></h2>
+<p>The main game loop. Handles input, physics, and rendering.</p>
+<p><strong>Kind</strong>: global function<br>
+<a name="handleInput"></a></p>
+<h2 id="handle-input-boolean" tabindex="-1"><a class="observablehq-header-anchor" href="#handle-input-boolean">handleInput() ⇒ <code>boolean</code></a></h2>
+<p>Handles user input to update the camera position.</p>
+<p><strong>Kind</strong>: global function<br>
+<strong>Returns</strong>: <code>boolean</code> - True if the camera moved, false otherwise.<br>
+<a name="updateTelemetry"></a></p>
+<h2 id="update-telemetry" tabindex="-1"><a class="observablehq-header-anchor" href="#update-telemetry">updateTelemetry()</a></h2>
+<p>Updates the on-screen telemetry display.</p>
+<p><strong>Kind</strong>: global function<br>
+<a name="initialiseEngine"></a></p>
+<h2 id="initialise-engine" tabindex="-1"><a class="observablehq-header-anchor" href="#initialise-engine">initialiseEngine()</a></h2>
+<p>Bootstraps the engine by fetching configuration data.</p>
+<p><strong>Kind</strong>: global function<br>
+<a name="setupUIControlListeners"></a></p>
+<h2 id="setup-ui-control-listeners" tabindex="-1"><a class="observablehq-header-anchor" href="#setup-ui-control-listeners">setupUIControlListeners()</a></h2>
+<p>Connects HTML sliders to the engine configuration.</p>
+<p><strong>Kind</strong>: global function<br>
+<a name="normalize2D"></a></p>
+<h2 id="normalize2-d-x-y-array-number" tabindex="-1"><a class="observablehq-header-anchor" href="#normalize2-d-x-y-array-number">normalize2D(x, y) ⇒ <code>Array.&lt;number&gt;</code></a></h2>
+<p>Returns a normalised 2D vector (new array).</p>
+<p><strong>Kind</strong>: global function<br>
+<strong>Returns</strong>: <code>Array.&lt;number&gt;</code> - The normalised vector [x, y]</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>y</td>
+<td><code>number</code></td>
+</tr>
+</tbody>
+</table>
+<p><a name="dot2D"></a></p>
+<h2 id="dot2-d-x1-y1-x2-y2-number" tabindex="-1"><a class="observablehq-header-anchor" href="#dot2-d-x1-y1-x2-y2-number">dot2D(x1, y1, x2, y2) ⇒ <code>number</code></a></h2>
+<p>Calculates the dot product of two 2D vectors.</p>
+<p><strong>Kind</strong>: global function<br>
+<strong>Returns</strong>: <code>number</code> - The dot product.</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>x1</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>y1</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>x2</td>
+<td><code>number</code></td>
+</tr>
+<tr>
+<td>y2</td>
+<td><code>number</code></td>
+</tr>
+</tbody>
+</table>
+<p><a name="clamp"></a></p>
+<h2 id="clamp-val-min-max-number" tabindex="-1"><a class="observablehq-header-anchor" href="#clamp-val-min-max-number">clamp(val, min, max) ⇒ <code>number</code></a></h2>
+<p>Returns a value clamped between min and max.</p>
+<p><strong>Kind</strong>: global function<br>
+<strong>Returns</strong>: <code>number</code> - The clamped value.</p>
+<table>
+<thead>
+<tr>
+<th>Param</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>val</td>
+<td><code>number</code></td>
+<td>Input value.</td>
+</tr>
+<tr>
+<td>min</td>
+<td><code>number</code></td>
+<td>Lower bound.</td>
+</tr>
+<tr>
+<td>max</td>
+<td><code>number</code></td>
+<td>Upper bound.</td>
+</tr>
+</tbody>
+</table>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="../tutorial/07-mainloop.html"><span>7. The Main Loop</span></a><a rel="next" href="./performance.html"><span>Performance Benchmarking</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

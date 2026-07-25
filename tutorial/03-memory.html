@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Memory &amp; Data | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<script type="module">
+
+import "../_observablehq/client.9f89fa7e.js";
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section class="observablehq-section-active">
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="./02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="./04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="./05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="./06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="./07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section>
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../reference/api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="../reference/performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="../reference/quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="../reference/troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="../reference/references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#the-state">The State</a></li>
+<li class="observablehq-secondary-link"><a href="#arrays-the-shelf">Arrays: The Shelf</a></li>
+<li class="observablehq-secondary-link"><a href="#structure-of-arrays-so-a">Structure of Arrays (SoA)</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="memory-and-data" tabindex="-1"><a class="observablehq-header-anchor" href="#memory-and-data">Memory &amp; Data</a></h1>
+<p>Simulating reality requires storing vast amounts of information. Every pixel must know its colour, light velocity, and whether it represents a wall or empty air.</p>
+<h2 id="the-state" tabindex="-1"><a class="observablehq-header-anchor" href="#the-state">The State</a></h2>
+<p>We call the sum of this information the <strong>State</strong>. In our engine, state resides in <code>RAM</code> (Random Access Memory).</p>
+<h2 id="arrays-the-shelf" tabindex="-1"><a class="observablehq-header-anchor" href="#arrays-the-shelf">Arrays: The Shelf</a></h2>
+<p>The most efficient way to store a list in a computer is an <strong>Array</strong>. Picture an array as a long shelf where every item has a specific number (an index).</p>
+<h2 id="structure-of-arrays-so-a" tabindex="-1"><a class="observablehq-header-anchor" href="#structure-of-arrays-so-a">Structure of Arrays (SoA)</a></h2>
+<p>Programmers might typically create an Object for every pixel:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Array of Structures (AoS) - SLOW</span>
+<span class="hljs-keyword">let</span> pixel = { <span class="hljs-attr">red</span>: <span class="hljs-number">1.0</span>, <span class="hljs-attr">green</span>: <span class="hljs-number">0.5</span>, <span class="hljs-attr">velocityX</span>: <span class="hljs-number">0.1</span> };
+</code></pre>
+<p>However, managing 200,000 objects is slow. Every time the computer seeks a new object, it may look in a completely different memory location. This is a <strong>Cache Miss</strong>, a primary cause of software sluggishness.</p>
+<p>Instead, we use a single massive array of numbers and use <strong>Offsets</strong> to locate data. This <strong>Structure of Arrays (SoA)</strong> layout keeps related data tightly packed, which the CPU prefers.</p>
+<div class="note">
+<h3 id="analogy-the-library-shelf" tabindex="-1"><a class="observablehq-header-anchor" href="#analogy-the-library-shelf">Analogy: The Library Shelf</a></h3>
+<p>Imagine a library.</p>
+<ul>
+<li><strong>AoS</strong>: Books are organised by Author. To find all red books, you must check every aisle.</li>
+<li><strong>SoA</strong>: Books are organised by Colour. All red books sit on one shelf, allowing you to grab them instantly.</li>
+</ul>
+</div>
+<p>In <code>src/engine.js</code>, we define these "shelves" using the <code>FIELD</code> constant.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">/**
+ * Memory layout offsets.
+ * Access a pixel's property by: index = (y * width + x) * STRIDE + OFFSET.
+ */</span>
+<span class="hljs-keyword">const</span> <span class="hljs-variable constant_">FIELD</span> = {
+  <span class="hljs-attr">R</span>: <span class="hljs-number">0</span>,
+  <span class="hljs-attr">G</span>: <span class="hljs-number">1</span>,
+  <span class="hljs-attr">B</span>: <span class="hljs-number">2</span>, <span class="hljs-comment">// Spectral Energy (Colour)</span>
+  <span class="hljs-attr">VEL_X</span>: <span class="hljs-number">4</span>,
+  <span class="hljs-attr">VEL_Y</span>: <span class="hljs-number">5</span>, <span class="hljs-comment">// Momentum Vector (Flow direction)</span>
+  <span class="hljs-attr">DEPTH</span>: <span class="hljs-number">7</span>, <span class="hljs-comment">// Distance from camera (Topology)</span>
+};
+
+<span class="hljs-keyword">const</span> <span class="hljs-variable constant_">STRIDE</span> = <span class="hljs-number">14</span>; <span class="hljs-comment">// Total slots per pixel</span>
+</code></pre>
+<p>We allocate one giant block of memory for the entire universe:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-title class_">State</span>.<span class="hljs-property">lattice</span> = <span class="hljs-keyword">new</span> <span class="hljs-title class_">Float32Array</span>(<span class="hljs-variable constant_">TOTAL_PIXELS</span> * <span class="hljs-variable constant_">STRIDE</span>);
+</code></pre>
+<p><a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Float32Array" target="_blank" rel="noopener noreferrer"><code>Float32Array</code></a> is a <a href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Guide/Typed_arrays" target="_blank" rel="noopener noreferrer">TypedArray</a> that stores only decimal numbers. It is extremely fast.</p>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./02-logic.html"><span>2. The Language of Logic</span></a><a rel="next" href="./04-math.html"><span>4. The Maths of Space</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>

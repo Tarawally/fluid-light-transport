@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<meta name="generator" content="Observable Framework v1.13.4">
+<title>Casting Rays | Fluid Light Transport</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="preload" as="style" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="preload" as="style" href="../_npm/katex@0.18.1/dist/katex.min.css">
+<link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
+<link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
+<link rel="stylesheet" type="text/css" href="../_npm/katex@0.18.1/dist/katex.min.css">
+<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
+<link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.cac9edb5.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/tex.a9d58b73.js">
+<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.03ca039b.js">
+<link rel="modulepreload" href="../_npm/katex@0.18.1/5e01ab25.js">
+<script type="module">
+
+import {define} from "../_observablehq/client.9f89fa7e.js";
+
+define({id: "63ddd850", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`flowchart LR
+    A[Eye/Camera] -->|1. Cast Ray| B[Screen Pixel]
+    B -->|2. Trace Through Scene| C{Hit Object?}
+    C -->|Yes| D[Calculate Colour<br/>& Lighting]
+    C -->|No| E[Return Background<br/>Colour]
+    D --> F[Display Result]
+    E --> F`
+))
+}});
+
+define({id: "cf335225", mode: "inline", inputs: ["tex","display"], body: async (tex,display) => {
+display(await(
+tex`\mathbf{P}(t) = \mathbf{O} + t\mathbf{D}`
+))
+}});
+
+define({id: "103a2334", mode: "inline", inputs: ["tex","display"], body: async (tex,display) => {
+display(await(
+tex`|\mathbf{P} - \mathbf{C}|^2 = r^2`
+))
+}});
+
+define({id: "0c7c6211", mode: "inline", inputs: ["tex","display"], body: async (tex,display) => {
+display(await(
+tex`|\mathbf{O} + t\mathbf{D} - \mathbf{C}|^2 = r^2`
+))
+}});
+
+define({id: "f12621c3", mode: "inline", inputs: ["tex","display"], body: async (tex,display) => {
+display(await(
+tex`at^2 + bt + c = 0`
+))
+}});
+
+define({id: "e7f4b8f5", inputs: ["mermaid","display"], body: async (mermaid,display) => {
+display(await(
+await mermaid`sequenceDiagram
+    participant O as Ray Origin
+    participant R as Ray
+    participant S as Sphere
+    participant G as Grid
+    
+    O->>R: Cast ray with direction
+    loop Every step distance t
+        R->>S: Check intersection
+        alt Hit detected (d > 0)
+            S-->>G: Inject light energy
+            Note over S,G: Energy = f(distance, angle)
+        else No hit
+            R->>R: Advance ray (t += step)
+        end
+    end`
+))
+}});
+
+</script>
+</head>
+<body>
+<input id="observablehq-sidebar-toggle" type="checkbox" title="Toggle sidebar">
+<label id="observablehq-sidebar-backdrop" for="observablehq-sidebar-toggle"></label>
+<nav id="observablehq-sidebar">
+  <ol>
+    <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
+    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+  </ol>
+  <div id="observablehq-search"><input type="search" placeholder="Search"></div>
+  <div id="observablehq-search-results"></div>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.bcd2cbbf.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <ol>
+    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+  </ol>
+  <section class="observablehq-section-active">
+    <summary>Tutorial</summary>
+    <ol>
+    <li class="observablehq-link"><a href="./01-canvas.html">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="./02-logic.html">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="./03-memory.html">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="./04-math.html">4. The Maths of Space</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./05-raytracing.html">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="./06-fluids.html">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="./07-mainloop.html">7. The Main Loop</a></li>
+    </ol>
+  </section>
+  <section>
+    <summary>Reference</summary>
+    <ol>
+    <li class="observablehq-link"><a href="../reference/api.html">API Reference</a></li>
+    <li class="observablehq-link"><a href="../reference/performance.html">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="../reference/quality.html">Engineering Quality</a></li>
+    <li class="observablehq-link"><a href="../reference/troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="../reference/references.html">References</a></li>
+    </ol>
+  </section>
+</nav>
+<script>{const e=document.querySelector("#observablehq-sidebar"),o=document.querySelector("#observablehq-sidebar-toggle"),r=sessionStorage.getItem("observablehq-sidebar");r?o.checked=r==="true":o.indeterminate=!0;for(const t of document.querySelectorAll("#observablehq-sidebar summary")){const s=t.parentElement;switch(sessionStorage.getItem(`observablehq-sidebar:${t.textContent}`)){case"true":s.open=!0;break;case"false":s.classList.contains("observablehq-section-active")||(s.open=!1);break}}addEventListener("beforeunload",()=>sessionStorage.setItem("observablehq-sidebar-scrolly",`${e.scrollTop}`));const a=sessionStorage.getItem("observablehq-sidebar-scrolly");a!=null&&(e.style.cssText="overflow: hidden;",e.scrollTop=+a,e.style.cssText="");}</script>
+<div id="observablehq-center">
+<aside id="observablehq-toc" data-selector="h1:not(:first-of-type)[id], h2:first-child[id], :not(h1) + h2[id]">
+<nav>
+<div>Contents</div>
+<ol>
+<li class="observablehq-secondary-link"><a href="#reverse-ray-tracing">Reverse Ray Tracing</a></li>
+<li class="observablehq-secondary-link"><a href="#the-ray-equation">The Ray Equation</a></li>
+<li class="observablehq-secondary-link"><a href="#intersection-the-sphere">Intersection: The Sphere</a></li>
+<li class="observablehq-secondary-link"><a href="#ray-marching-visualization">Ray Marching Visualization</a></li>
+<li class="observablehq-secondary-link"><a href="#injection">Injection</a></li>
+</ol>
+</nav>
+</aside>
+<main id="observablehq-main" class="observablehq">
+<h1 id="casting-rays" tabindex="-1"><a class="observablehq-header-anchor" href="#casting-rays">Casting Rays</a></h1>
+<p>With our grid (Canvas) and maths (Vectors) established, simulation begins. The first step is locating the light.</p>
+<h2 id="reverse-ray-tracing" tabindex="-1"><a class="observablehq-header-anchor" href="#reverse-ray-tracing">Reverse Ray Tracing</a></h2>
+<p>In reality, light travels from a bulb to your eye. In computer graphics, we work in reverse. We shoot a ray from the "Camera" (your eye) through every screen pixel to see what it strikes.</p>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:63ddd850:--></div>
+<div class="tip">
+<h3 id="why-reverse" tabindex="-1"><a class="observablehq-header-anchor" href="#why-reverse">Why Reverse?</a></h3>
+<p>Forward ray tracing (light → eye) is inefficient because most rays miss the camera. Reverse tracing (eye → scene) ensures every ray contributes to the image.</p>
+</div>
+<h2 id="the-ray-equation" tabindex="-1"><a class="observablehq-header-anchor" href="#the-ray-equation">The Ray Equation</a></h2>
+<p>A ray is defined mathematically as:</p>
+<p><observablehq-loading></observablehq-loading><!--:cf335225:--></p>
+<p>Where:</p>
+<ul>
+<li>$\mathbf{O}$ = <strong>Origin</strong> (ray start position)</li>
+<li>$\mathbf{D}$ = <strong>Direction</strong> (normalised vector)</li>
+<li>$t$ = <strong>Distance</strong> along the ray</li>
+<li>$\mathbf{P}(t)$ = <strong>Point</strong> on the ray at distance $t$</li>
+</ul>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Ray representation in code</span>
+<span class="hljs-keyword">const</span> ray = {
+    <span class="hljs-attr">origin</span>: {<span class="hljs-attr">x</span>: <span class="hljs-number">0</span>, <span class="hljs-attr">y</span>: <span class="hljs-number">0</span>},
+    <span class="hljs-attr">direction</span>: {<span class="hljs-attr">x</span>: <span class="hljs-number">1</span>, <span class="hljs-attr">y</span>: <span class="hljs-number">0</span>}  <span class="hljs-comment">// Must be normalised!</span>
+};
+
+<span class="hljs-comment">// Point at distance t</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">rayPoint</span>(<span class="hljs-params">ray, t</span>) {
+    <span class="hljs-keyword">return</span> {
+        <span class="hljs-attr">x</span>: ray.<span class="hljs-property">origin</span>.<span class="hljs-property">x</span> + t * ray.<span class="hljs-property">direction</span>.<span class="hljs-property">x</span>,
+        <span class="hljs-attr">y</span>: ray.<span class="hljs-property">origin</span>.<span class="hljs-property">y</span> + t * ray.<span class="hljs-property">direction</span>.<span class="hljs-property">y</span>
+    };
+}
+</code></pre>
+<h2 id="intersection-the-sphere" tabindex="-1"><a class="observablehq-header-anchor" href="#intersection-the-sphere">Intersection: The Sphere</a></h2>
+<p>Our scene comprises spheres. To check if a ray hits a sphere, we use algebra. A sphere is defined as all points at a distance $r$ from a centre point $C$.</p>
+<h3 id="the-math" tabindex="-1"><a class="observablehq-header-anchor" href="#the-math">The Math</a></h3>
+<p>A sphere centred at $\mathbf{C}$ with radius $r$ satisfies:</p>
+<p><observablehq-loading></observablehq-loading><!--:103a2334:--></p>
+<p>Substituting the ray equation $\mathbf{P}(t) = \mathbf{O} + t\mathbf{D}$:</p>
+<p><observablehq-loading></observablehq-loading><!--:0c7c6211:--></p>
+<p>This becomes a quadratic equation:</p>
+<p><observablehq-loading></observablehq-loading><!--:f12621c3:--></p>
+<p>Where:</p>
+<ul>
+<li>$a = \mathbf{D} \cdot \mathbf{D}$ (usually 1 if direction is normalised)</li>
+<li>$b = 2\mathbf{D} \cdot (\mathbf{O} - \mathbf{C})$</li>
+<li>$c = |\mathbf{O} - \mathbf{C}|^2 - r^2$</li>
+</ul>
+<p>The <strong>discriminant</strong> $\Delta = b^2 - 4ac$ determines if we hit:</p>
+<table>
+<thead>
+<tr>
+<th>Discriminant</th>
+<th>Result</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$\Delta &lt; 0$</td>
+<td>No intersection (ray misses sphere)</td>
+</tr>
+<tr>
+<td>$\Delta = 0$</td>
+<td>Tangent (ray grazes sphere)</td>
+</tr>
+<tr>
+<td>$\Delta &gt; 0$</td>
+<td>Two intersections (ray enters and exits)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="implementation" tabindex="-1"><a class="observablehq-header-anchor" href="#implementation">Implementation</a></h3>
+<p>This is implemented in <code>Scene.trace</code> within <code>src/engine.js</code>:</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">/* src/engine.js */</span>
+<span class="hljs-attr">trace</span>: <span class="hljs-keyword">function</span>(<span class="hljs-params">ro, rd</span>) {
+    <span class="hljs-comment">// ...</span>
+    <span class="hljs-keyword">const</span> oc = {<span class="hljs-attr">x</span>: ro.<span class="hljs-property">x</span> - sphere.<span class="hljs-property">x</span>, <span class="hljs-attr">y</span>: ro.<span class="hljs-property">y</span> - sphere.<span class="hljs-property">y</span>};
+    <span class="hljs-keyword">const</span> b = <span class="hljs-number">2</span> * (rd.<span class="hljs-property">x</span> * oc.<span class="hljs-property">x</span> + rd.<span class="hljs-property">y</span> * oc.<span class="hljs-property">y</span>);
+    <span class="hljs-keyword">const</span> c = (oc.<span class="hljs-property">x</span> * oc.<span class="hljs-property">x</span> + oc.<span class="hljs-property">y</span> * oc.<span class="hljs-property">y</span>) - r * r;
+    
+    <span class="hljs-keyword">const</span> d = b * b - c;
+    <span class="hljs-keyword">if</span> (d &gt; <span class="hljs-number">0</span>) {
+        <span class="hljs-keyword">const</span> t = (-b - <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">sqrt</span>(d)) / <span class="hljs-number">2</span>;
+        <span class="hljs-comment">// We hit the sphere at distance t!</span>
+    }
+}
+</code></pre>
+<p>In the implementation details above:</p>
+<ol>
+<li>We calculate coefficient $b = 2\mathbf{D} \cdot (\mathbf{O} - \mathbf{C})$</li>
+<li>We calculate coefficient $c = |\mathbf{O} - \mathbf{C}|^2 - r^2$</li>
+<li>We compute discriminant $\Delta = b^2 - 4ac$ (simplified since $a=1$)</li>
+<li>A positive discriminant means intersection occurs</li>
+<li>We solve for $t$ using the quadratic formula (taking the nearest hit)</li>
+</ol>
+<div class="tip">
+<h3 id="api-reference" tabindex="-1"><a class="observablehq-header-anchor" href="#api-reference">API Reference</a></h3>
+<p>See the complete implementation in <a href="../reference/api.html#Scene.trace">API Reference → Scene.trace</a>.</p>
+</div>
+<h2 id="ray-marching-visualization" tabindex="-1"><a class="observablehq-header-anchor" href="#ray-marching-visualization">Ray Marching Visualization</a></h2>
+<div class="observablehq observablehq--block"><observablehq-loading></observablehq-loading><!--:e7f4b8f5:--></div>
+<h2 id="injection" tabindex="-1"><a class="observablehq-header-anchor" href="#injection">Injection</a></h2>
+<p>When a ray strikes a light source, we "inject" that energy into our fluid grid (<code>State.lattice</code>). This initiates our fluid simulation.</p>
+<pre data-language="javascript"><code class="language-javascript"><span class="hljs-comment">// Simplified light injection</span>
+<span class="hljs-keyword">function</span> <span class="hljs-title function_">injectLight</span>(<span class="hljs-params">hitPoint, energy</span>) {
+    <span class="hljs-keyword">const</span> pixelX = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">floor</span>(hitPoint.<span class="hljs-property">x</span>);
+    <span class="hljs-keyword">const</span> pixelY = <span class="hljs-title class_">Math</span>.<span class="hljs-title function_">floor</span>(hitPoint.<span class="hljs-property">y</span>);
+    <span class="hljs-keyword">const</span> index = pixelY * <span class="hljs-variable constant_">WIDTH</span> + pixelX;
+    
+    lattice[index * <span class="hljs-variable constant_">STRIDE</span> + <span class="hljs-variable constant_">INTENSITY</span>] += energy;
+}
+</code></pre>
+<p>The injected energy then propagates via fluid dynamics (see <a href="./06-fluids.html">Chapter 6: Fluids</a>).</p>
+<div class="note">
+<h3 id="performance-considerations" tabindex="-1"><a class="observablehq-header-anchor" href="#performance-considerations">Performance Considerations</a></h3>
+<ul>
+<li><strong>Ray count</strong>: More rays = better quality but slower</li>
+<li><strong>Step size</strong>: Smaller steps = more accurate but more expensive</li>
+<li><strong>Early termination</strong>: Stop after first hit to save computation</li>
+</ul>
+</div>
+<p><a href="./06-fluids.html">→ Next: Fluid Simulation</a> | <a href="./04-math.html">← Previous: Mathematics</a></p>
+</main>
+<footer id="observablehq-footer">
+<nav><a rel="prev" href="./04-math.html"><span>4. The Maths of Space</span></a><a rel="next" href="./06-fluids.html"><span>6. Simulating Fluids</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-25T22:29:11">Jul 25, 2026</a>.</div>
+</footer>
+</div>
+</body>
+</html>
