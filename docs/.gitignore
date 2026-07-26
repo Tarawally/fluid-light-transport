@@ -1,8 +1,0 @@
-/_site/
-/.quarto/
-*_cache/
-*_files/
-*.log
-reference/api.md
-
-**/*.quarto_ipynb
