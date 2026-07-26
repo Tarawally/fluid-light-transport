@@ -73,10 +73,10 @@ function handleRequest(req, res) {
       pathname = '/src/index.html';
     }
 
-    const filePath = path.join(DOCS_DIR, pathname);
+    const filePath = path.join(PROJECT_ROOT, pathname);
     
     // Safety check to prevent directory traversal
-    if (!filePath.startsWith(DOCS_DIR)) {
+    if (!filePath.startsWith(PROJECT_ROOT)) {
       res.statusCode = 403;
       res.end('Forbidden');
       return;

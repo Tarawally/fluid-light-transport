@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { normalize2D, dot2D, clamp } from '../docs/src/math_utils.js';
+import { normalize2D, dot2D, clamp } from '../src/math_utils.js';
 
 describe('Math Utilities', () => {
   it('should normalize a 2D vector', () => {

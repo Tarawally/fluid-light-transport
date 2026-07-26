@@ -129,7 +129,7 @@ We welcome contributions! This documentation is built with [Observable Framework
 
 1. Clone the repository.
 2. Install dependencies: `npm install`.
-3. Edit `.md` files or the engine source in `docs/src/`.
+3. Edit `.md` files or the engine source in `src/`.
 4. Preview changes: `npm run docs:preview`.
 5. Open a Pull Request.
 

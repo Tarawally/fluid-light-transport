@@ -7,8 +7,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "docs:api": "node docs/scripts/build-api.js",
-    "docs:build": "observable build && cp -r docs/src dist/src && cp -r docs/assets dist/assets",
-    "docs:preview": "node docs/scripts/preview-server.js"
+    "docs:build": "observable build && cp -r src dist/src && cp -r assets dist/assets",
+    "docs:preview": "node docs/scripts/preview-server.js",
+    "build": "npm run test && npm run docs:api && npm run docs:build"
   },
   "repository": {
     "type": "git",
