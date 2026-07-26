@@ -18,7 +18,13 @@
   "license": "MIT",
   "devDependencies": {
     "@observablehq/framework": "^1.13.4",
-    "jsdoc-to-markdown": "^8.0.3",
+    "jsdoc-to-markdown": "^9.1.3",
     "vitest": "^4.0.17"
+  },
+  "overrides": {
+    "minimatch": "^10.2.5",
+    "esbuild": "^0.28.1"
   }
 }
+
+
