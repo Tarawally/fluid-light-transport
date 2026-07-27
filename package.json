@@ -5,8 +5,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "observable preview",
-    "build": "observable build"
+    "dev": "bun x @observablehq/framework preview",
+    "build": "bun x @observablehq/framework build"
   },
   "repository": {
     "type": "git",
