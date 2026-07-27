@@ -144,6 +144,8 @@
 }
 
 /* Dark theme overrides for simulation HUD overlay */
+.dark #ui,
+.theme-dark #ui,
 .quarto-dark #ui {
   background: rgba(20, 20, 20, 0.85);
   border: 1px solid rgba(255, 255, 255, 0.15);
@@ -151,33 +153,47 @@
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
 }
 
+.dark #ui .header,
+.theme-dark #ui .header,
 .quarto-dark #ui .header {
   color: #ffffff;
   border-bottom: 2px solid #0056b3;
 }
 
+.dark #ui .label,
+.theme-dark #ui .label,
 .quarto-dark #ui .label {
   color: #aaa;
 }
 
+.dark #ui .value,
+.theme-dark #ui .value,
 .quarto-dark #ui .value {
   color: #ffffff;
 }
 
+.dark #ui .section-divider,
+.theme-dark #ui .section-divider,
 .quarto-dark #ui .section-divider {
   border-top: 1px solid #444;
   color: #3b9eff;
 }
 
+.dark #ui .perf-track,
+.theme-dark #ui .perf-track,
 .quarto-dark #ui .perf-track {
   background: #333;
 }
 
+.dark #ui .controls-hint,
+.theme-dark #ui .controls-hint,
 .quarto-dark #ui .controls-hint {
   border-top: 1px solid #444;
   color: #999;
 }
 
+.dark #ui .key,
+.theme-dark #ui .key,
 .quarto-dark #ui .key {
   background: #2b2b2b;
   border: 1px solid #444;
