@@ -32,50 +32,14 @@ node_bin/
 jspm_packages/
 web_modules/
 
-# --- Languages & Frameworks ---
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-.pytest_cache/
-.venv
-venv/
-ENV/
-.python-version
-
-# R
-.Rproj.user
-.Rhistory
-.RData
-.Ruserdata
-
-# --- Documentation & Quarto ---
-.quarto/
-_site/
-docs/_site/
-docs/site_libs/
-docs/.quarto/
-*_files/
-*_cache/
-*.log
-.quarto-web
-.ipynb_checkpoints/
-*.bak
-*.tmp
-
-# --- Build Artifacts ---
+# --- Build Artifacts & Observable Framework ---
 dist/
 build/
 out/
 bin/
-node_bin/
 obj/
-
-/.quarto/
-**/*.quarto_ipynb
-
-# --- Observable Framework ---
 .observablehq/
-
-
+docs/.observablehq/
+*.log
+*.bak
+*.tmp
