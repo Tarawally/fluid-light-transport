@@ -1,47 +1,28 @@
 ---
-title: "Hybrid Light Transport Engine"
+title: Visualisation
+toc: false
 ---
 
-# Fluid Light Transport Engine
+<iframe 
+  id="sim-frame"
+  src="/_file/../src/index.html"
+  style="width: 100%; height: calc(100vh - 70px); border: none; display: block; margin: 0; padding: 0; border-radius: 8px;"
+  title="Fluid Light Transport Scene">
+</iframe>
 
-**A hybrid Ray-Tracing and Cellular Automata rendering engine.**
-
-This project explores a novel approach to real-time global illumination by treating light as a fluid substance. It combines the geometric precision of stochastic ray tracing with the organic flow of fluid dynamics algorithms.
-
-<div class="note">
-
-[**Launch Scene**](app)  
-Click here to open the interactive scene in a dedicated view.
-
-</div>
-
-## Hybrid Engine Architecture
-
-The engine pipeline consists of two distinct phases: **Injection** (Ray Tracing) and **Propagation** (Fluid Dynamics).
-
-```mermaid
-graph TD
-    A[Scene Data] -->|Inject| B[Ray Tracing Phase]
-    B -->|Photons| C[Screen-Space Grid]
-    C -->|Advection| D[Fluid Solver Phase]
-    D -->|Flow| E[Cellular Automata]
-    E -->|Render| F[Final Composite]
-    
-    style A fill:#f9f,stroke:#333
-    style B fill:#bbf,stroke:#333
-    style D fill:#bfb,stroke:#333
-    style F fill:#f96,stroke:#333
+```js
+// Sync theme to the embedded simulation iframe reactively when the page theme changes
+const iframe = document.getElementById("sim-frame");
+if (iframe) {
+  const postTheme = () => {
+    if (iframe.contentWindow) {
+      iframe.contentWindow.postMessage({
+        type: 'themechange',
+        theme: dark ? 'dark' : 'light'
+      }, '*');
+    }
+  };
+  postTheme();
+  iframe.addEventListener('load', postTheme);
+}
 ```
-
-## Key Concepts
-
-### 1. Ray Injection
-We use stochastic ray tracing to probe the scene geometry. Instead of fully resolving the path, rays simply "inject" energy (light) into the screen-space grid at the first hit point.
-
-### 2. Fluid Propagation
-Once light is in the grid, it behaves like a fluid. 
-*   **Advection**: Light carried by its momentum (direction).
-*   **Diffusion**: Light spreading into neighbouring pixels (soft shadows).
-
-### 3. Surface Continuity
-To prevent light bleeding between disconnected objects (e.g., a foreground sphere and a background wall), we check the **Depth Buffer**. If the depth difference between pixels is too large, the "fluid" considers it a wall and bounces off.

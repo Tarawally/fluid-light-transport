@@ -16,7 +16,7 @@ Rather than focusing on jargon, we explore the underlying architecture. We build
 
 Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.
 
-<a href="app" target="_blank"><strong>Open Full Screen Visualisation →</strong></a>
+<a href="/" target="_blank"><strong>Open Full Screen Visualisation →</strong></a>
 
 </div>
 

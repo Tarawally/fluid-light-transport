@@ -17,11 +17,7 @@ export default {
   // Pages structure in the sidebar.
   pages: [
     {
-      name: "Visualisation",
-      path: "/app"
-    },
-    {
-      name: "Documentation",
+      name: "Guided Walkthrough",
       path: "/introduction"
     },
     {
