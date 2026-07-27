@@ -12,18 +12,18 @@
 <link rel="stylesheet" type="text/css" href="https://fonts.googleapis.com/css2?family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&amp;display=swap" crossorigin>
 <link rel="stylesheet" type="text/css" href="../_observablehq/theme-air,near-midnight,alt,wide.9b64840a.css">
 <link rel="stylesheet" type="text/css" href="../_observablehq/stdlib/inputs.f7bf0e12.css">
-<link rel="modulepreload" href="../_observablehq/client.9f89fa7e.js">
+<link rel="modulepreload" href="../_observablehq/client.d86619f0.js">
 <link rel="modulepreload" href="../_observablehq/runtime.607a8173.js">
 <link rel="modulepreload" href="../_observablehq/stdlib.81cd90e3.js">
 <link rel="modulepreload" href="../_npm/marked@18.0.7/1dbd57f2.js">
 <link rel="modulepreload" href="../_observablehq/stdlib/inputs.8ddbf299.js">
-<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.cac9edb5.js">
+<link rel="modulepreload" href="../_observablehq/stdlib/mermaid.995aac75.js">
 <link rel="modulepreload" href="../_npm/htl@1.0.0/11521f02.js">
 <link rel="modulepreload" href="../_npm/isoformat@0.2.1/604cb63b.js">
-<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.03ca039b.js">
+<link rel="modulepreload" href="../_npm/mermaid@11.16.0/dist/mermaid.esm.min.mjs.fd3d407a.js">
 <script type="module">
 
-import {define} from "../_observablehq/client.9f89fa7e.js";
+import {define} from "../_observablehq/client.d86619f0.js";
 
 define({id: "b4bc7981", inputs: ["view","Inputs"], outputs: ["viewOpt"], body: (view,Inputs) => {
 const viewOpt = view(Inputs.radio(["Reduce Resolution", "Decrease Ray Count", "Increase Pixel Size", "Optimise Tile Budget"], {value: "Reduce Resolution", label: "Select Action:"}));
@@ -72,35 +72,35 @@ return {marked,md};
 <nav id="observablehq-sidebar">
   <ol>
     <label id="observablehq-sidebar-close" for="observablehq-sidebar-toggle"></label>
-    <li class="observablehq-link"><a href="../index.html">Fluid Light Transport</a></li>
+    <li class="observablehq-link"><a href="../">Fluid Light Transport</a></li>
   </ol>
   <div id="observablehq-search"><input type="search" placeholder="Search"></div>
   <div id="observablehq-search-results"></div>
-  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.74311708.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
+  <script>{const o=document.querySelector("#observablehq-search");o.setAttribute("data-shortcut",`${/Mac|iPhone/.test(navigator.platform)?"\u2318":"Alt-"}K`);const t=o.querySelector("input"),r=()=>import("../_observablehq/search.a40589d6.js");t.addEventListener("focus",r,{once:!0}),t.addEventListener("keydown",r,{once:!0});const c=document.querySelector("#observablehq-sidebar-toggle");addEventListener("keydown",e=>{(e.code==="KeyK"&&e.metaKey&&!e.altKey&&!e.ctrlKey||e.key==="/"&&!e.metaKey&&!e.altKey&&!e.ctrlKey&&e.target===document.body)&&(c.checked?t.focus():(c.click(),t.focus(),c.click()),t.select(),e.preventDefault())});}</script>
   <ol>
-    <li class="observablehq-link"><a href="../app.html">Visualisation</a></li>
-    <li class="observablehq-link"><a href="../introduction.html">Documentation</a></li>
+    <li class="observablehq-link"><a href="../app">Visualisation</a></li>
+    <li class="observablehq-link"><a href="../introduction">Documentation</a></li>
   </ol>
   <section>
     <summary>Tutorial</summary>
     <ol>
-    <li class="observablehq-link"><a href="../tutorial/01-canvas.html">1. The Digital Canvas</a></li>
-    <li class="observablehq-link"><a href="../tutorial/02-logic.html">2. The Language of Logic</a></li>
-    <li class="observablehq-link"><a href="../tutorial/03-memory.html">3. Memory &amp; Data</a></li>
-    <li class="observablehq-link"><a href="../tutorial/04-math.html">4. The Maths of Space</a></li>
-    <li class="observablehq-link"><a href="../tutorial/05-raytracing.html">5. Casting Rays</a></li>
-    <li class="observablehq-link"><a href="../tutorial/06-fluids.html">6. Simulating Fluids</a></li>
-    <li class="observablehq-link"><a href="../tutorial/07-mainloop.html">7. The Main Loop</a></li>
+    <li class="observablehq-link"><a href="../tutorial/01-canvas">1. The Digital Canvas</a></li>
+    <li class="observablehq-link"><a href="../tutorial/02-logic">2. The Language of Logic</a></li>
+    <li class="observablehq-link"><a href="../tutorial/03-memory">3. Memory &amp; Data</a></li>
+    <li class="observablehq-link"><a href="../tutorial/04-math">4. The Maths of Space</a></li>
+    <li class="observablehq-link"><a href="../tutorial/05-raytracing">5. Casting Rays</a></li>
+    <li class="observablehq-link"><a href="../tutorial/06-fluids">6. Simulating Fluids</a></li>
+    <li class="observablehq-link"><a href="../tutorial/07-mainloop">7. The Main Loop</a></li>
     </ol>
   </section>
   <section class="observablehq-section-active">
     <summary>Reference</summary>
     <ol>
-    <li class="observablehq-link"><a href="./api.html">API Reference</a></li>
-    <li class="observablehq-link"><a href="./performance.html">Performance Benchmarking</a></li>
-    <li class="observablehq-link"><a href="./quality.html">Engineering Quality</a></li>
-    <li class="observablehq-link observablehq-link-active"><a href="./troubleshooting.html">Troubleshooting &amp; FAQ</a></li>
-    <li class="observablehq-link"><a href="./references.html">References</a></li>
+    <li class="observablehq-link"><a href="./api">API Reference</a></li>
+    <li class="observablehq-link"><a href="./performance">Performance Benchmarking</a></li>
+    <li class="observablehq-link"><a href="./quality">Engineering Quality</a></li>
+    <li class="observablehq-link observablehq-link-active"><a href="./troubleshooting">Troubleshooting &amp; FAQ</a></li>
+    <li class="observablehq-link"><a href="./references">References</a></li>
     </ol>
   </section>
 </nav>
@@ -352,9 +352,9 @@ const CONFIG = {
 <div class="tip">
 <h3 id="resources" tabindex="-1"><a class="observablehq-header-anchor" href="#resources">Resources</a></h3>
 <ul>
-<li><strong>API Reference</strong>: <a href="./api.html">Chapter 9</a></li>
+<li><strong>API Reference</strong>: <a href="./api">Chapter 9</a></li>
 <li><strong>GitHub Issues</strong>: <a href="https://github.com/Tarawally/fluid-light-transport/issues" target="_blank" rel="noopener noreferrer">Report bugs</a></li>
-<li><strong>Source Code</strong>: <code>src/engine.js</code></li>
+<li><strong>Source Code</strong>: <code>src/sim/engine.js</code></li>
 </ul>
 </div>
 <h3 id="before-asking-for-help" tabindex="-1"><a class="observablehq-header-anchor" href="#before-asking-for-help">Before Asking for Help</a></h3>
@@ -365,12 +365,12 @@ const CONFIG = {
 <li>✓ Review this troubleshooting guide</li>
 <li>✓ Search <a href="https://github.com/Tarawally/fluid-light-transport/issues" target="_blank" rel="noopener noreferrer">existing issues</a></li>
 </ol>
-<p><a href="./api.html">→ Next: API Reference</a> | <a href="../tutorial/07-mainloop.html">← Previous: Main Loop</a></p>
+<p><a href="./api">→ Next: API Reference</a> | <a href="../tutorial/07-mainloop">← Previous: Main Loop</a></p>
 <div class="observablehq observablehq--block"><!--:98c480bc:--></div>
 </main>
 <footer id="observablehq-footer">
-<nav><a rel="prev" href="./quality.html"><span>Engineering Quality</span></a><a rel="next" href="./references.html"><span>References</span></a></nav>
-<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-26T21:47:52">Jul 26, 2026</a>.</div>
+<nav><a rel="prev" href="./quality"><span>Engineering Quality</span></a><a rel="next" href="./references"><span>References</span></a></nav>
+<div>Built with <a href="https://observablehq.com/" target="_blank" rel="noopener noreferrer">Observable</a> on <a title="2026-07-27T09:52:39">Jul 27, 2026</a>.</div>
 </footer>
 </div>
 </body>
