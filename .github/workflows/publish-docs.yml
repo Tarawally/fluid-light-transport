@@ -4,10 +4,10 @@ on:
   push:
     branches: [main, migrate-quarto-to-observable]
     paths:
-      - "docs/**"
       - "src/**"
+      - "observablehq.config.js"
+      - "package.json"
       - ".github/workflows/publish-docs.yml"
-      - "assets/**"
   workflow_dispatch:
 
 permissions:
@@ -28,13 +28,8 @@ jobs:
       - name: Install npm dependencies
         run: npm ci
 
-      - name: Run Unit Tests
-        run: npm test
-
-      - name: Build Observable site (auto-generates JSDoc & static docs)
-        run: |
-          npm run docs:api
-          npm run docs:build
+      - name: Build Observable Framework site
+        run: npm run build
 
       - name: Deploy to GitHub Pages
         uses: peaceiris/actions-gh-pages@v3

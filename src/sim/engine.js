@@ -73,21 +73,13 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
-  SCENE_URL: '../assets/scene.json',
+  SCENE_URL: '/_file/assets/scene.json',
 };
 
 // Expose CONFIG to window for OJS interaction
 if (typeof window !== 'undefined') {
-  // Determine the default scene URL based on current path
-  const isSubfolder = window.location.pathname.includes('/src/');
-  const computedPath = isSubfolder ? '../assets/scene.json' : 'assets/scene.json';
-  
-  // Logic: 
-  // 1. window.CONFIG (manual override) takes highest precedence
-  // 2. computedPath (environment aware) takes next
-  // 3. CONFIG.SCENE_URL (base default) is fallback
   const userConfig = window.CONFIG || {};
-  const finalSceneUrl = userConfig.SCENE_URL || computedPath;
+  const finalSceneUrl = userConfig.SCENE_URL || '/_file/assets/scene.json';
 
   window.CONFIG = Object.assign({}, CONFIG, userConfig);
   window.CONFIG.SCENE_URL = finalSceneUrl;

@@ -16,13 +16,13 @@ Rather than focusing on jargon, we explore the underlying architecture. We build
 
 Experience the engine in real-time! Move your mouse to control the light source. Notice the soft shadows, colour bleeding, and ambient occlusion computed entirely through fluid simulation.
 
-[__Open Full Screen Visualisation →__](app){target="_blank"}
+<a href="app" target="_blank"><strong>Open Full Screen Visualisation →</strong></a>
 
 </div>
 
 <iframe 
   id="demo-iframe"
-  src="src/index.html"
+  src="/_file/sim/index.html"
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
@@ -111,7 +111,7 @@ Browse by topic or problem:
 
 ### Documentation Sync
 
-The [API reference](reference/api) is automatically regenerated from JSDoc comments in `src/engine.js` on every build, ensuring perfect synchronisation with the source code.
+The [API reference](reference/api) is documentation for the simulation logic in `src/sim/engine.js`.
 
 </div>
 
@@ -130,7 +130,7 @@ We welcome contributions! This documentation is built with [Observable Framework
 1. Clone the repository.
 2. Install dependencies: `npm install`.
 3. Edit `.md` files or the engine source in `src/`.
-4. Preview changes: `npm run docs:preview`.
+4. Preview changes: `npm run dev`.
 5. Open a Pull Request.
 
 ---

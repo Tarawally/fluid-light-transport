@@ -38,7 +38,7 @@ On every push to the repository, a GitHub Action:
 
 ## Link Integrity
 
-We maintain link integrity between the documentation and the source code using `jsdoc-to-markdown`. The [API Reference](api) is always 1:1 with the code in `src/engine.js`.
+We maintain link integrity between the documentation and the source code. The [API Reference](api) documents the core solver in `src/sim/engine.js`.
 
 <div class="tip">
 

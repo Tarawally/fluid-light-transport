@@ -4,7 +4,7 @@ title: Visualisation
 
 <iframe 
   id="sim-frame"
-  src="src/index.html"
+  src="/_file/sim/index.html"
   style="width: 100%; height: calc(100vh - 60px); border: none; display: block; margin: 0; padding: 0; border-radius: 8px;"
   title="Fluid Light Transport Scene">
 </iframe>
