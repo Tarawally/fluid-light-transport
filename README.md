@@ -1,6 +1,6 @@
 # Fluid Light Transport Engine
 
-A hybrid rendering engine that treats light as a fluid substance. It combines stochastic ray tracing with 2D fluid dynamics (cellular automata advection and diffusion) to simulate organic global illumination, soft shadows, and color bleeding in real-time at 60 FPS.
+A hybrid rendering engine that treats light as a fluid substance. It combines stochastic ray tracing with 2D fluid dynamics (cellular automata advection and diffusion) to simulate organic global illumination, soft shadows, and colour bleeding in real-time at 60 FPS.
 
 This repository unifies the core simulation engine with an interactive documentation platform built using [Observable Framework](https://observablehq.com/framework/).
 
@@ -9,8 +9,8 @@ This repository unifies the core simulation engine with an interactive documenta
 ## 🚀 Quick Start
 
 ### Prerequisites
-* [Node.js](https://nodejs.org/) (v20 or higher)
-* `npm` (v10 or higher)
+* **[Bun](https://bun.sh/)** (v1.1 or higher, recommended) or **[Node.js](https://nodejs.org/)** (v20 or higher)
+* `npm` (v10 or higher, if using Node.js)
 
 ### Installation & Local Development
 
@@ -19,10 +19,12 @@ This repository unifies the core simulation engine with an interactive documenta
 git clone https://github.com/Tarawally/fluid-light-transport.git
 cd fluid-light-transport
 
-# Install dependencies
-npm install
+# Using Bun (Recommended)
+bun install
+bun run dev
 
-# Start the local development server
+# Or using NPM
+npm install
 npm run dev
 ```
 
@@ -30,12 +32,12 @@ Once started, open your browser to the URL printed by Observable Framework (typi
 
 ---
 
-## 🛠 NPM Scripts
+## 🛠 Project Scripts
 
-| Script | Command | Description |
-| :--- | :--- | :--- |
-| `npm run dev` | `observable preview` | Starts the local live-reloading dev preview server. |
-| `npm run build` | `observable build` | Builds the production static site into `dist/`. |
+| Script | Command (Bun) | Command (NPM) | Description |
+| :--- | :--- | :--- | :--- |
+| `dev` | `bun run dev` | `npm run dev` | Starts the local live-reloading preview server. |
+| `build` | `bun run build` | `npm run build` | Builds the static production documentation site into `dist/`. |
 
 ---
 
@@ -45,7 +47,7 @@ The engine pipeline operates in two distinct phases:
 
 1. **Ray Tracing Phase (Injection):** Stochastic ray casting probes scene geometry and injects energy (photons) into a screen-space grid at the first surface hit point.
 2. **Fluid Dynamics Phase (Propagation):**
-   * **Advection:** Light momentum moves energy across neighboring cells.
+   * **Advection:** Light momentum moves energy across neighbouring cells.
    * **Diffusion:** Light spreads softly into adjacent pixels to create soft shadows.
    * **Depth Discontinuity Protection:** Checks scene depth buffers to prevent light bleeding across disconnected surfaces.
 
@@ -73,6 +75,7 @@ fluid-light-transport/
 │   ├── reference/            # API reference, performance, and quality docs
 │   └── tutorial/             # Architectural tutorial series
 ├── observablehq.config.js    # Observable Framework configuration (root: "docs")
+├── bun.lock                  # Bun lockfile
 ├── package.json
 └── README.md
 ```
