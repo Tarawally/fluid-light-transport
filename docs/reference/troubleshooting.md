@@ -282,7 +282,7 @@ pie title Frame Time Budget (16.67ms)
 
 - **API Reference**: [Chapter 9](api)
 - **GitHub Issues**: [Report bugs](https://github.com/Tarawally/fluid-light-transport/issues)
-- **Source Code**: `src/sim/engine.js`
+- **Source Code**: `src/engine.js`
 
 </div>
 

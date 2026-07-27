@@ -9,7 +9,7 @@ This documentation is automatically generated from source code JSDoc comments.
 <div class="note">
 
 ### Source Code
-The primary simulation logic resides in `src/sim/engine.js`.
+The primary simulation logic resides in `src/engine.js`.
 
 </div>
 

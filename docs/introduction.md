@@ -22,7 +22,7 @@ Experience the engine in real-time! Move your mouse to control the light source.
 
 <iframe 
   id="demo-iframe"
-  src="/_file/sim/index.html"
+  src="/_file/../src/index.html"
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
@@ -111,7 +111,7 @@ Browse by topic or problem:
 
 ### Documentation Sync
 
-The [API reference](reference/api) is documentation for the simulation logic in `src/sim/engine.js`.
+The [API reference](reference/api) is documentation for the simulation logic in `src/engine.js`.
 
 </div>
 

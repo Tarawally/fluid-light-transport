@@ -58,21 +58,21 @@ fluid-light-transport/
 ├── .github/
 │   └── workflows/
 │       └── publish-docs.yml  # GitHub Actions deployment workflow
-├── src/                      # Source root for Observable Framework
+├── src/                      # Core Simulation Engine Source Code
+│   ├── engine.js             # Core physics solver & ray tracing loop
+│   ├── math_utils.js         # Vector math and normalisation helpers
+│   ├── index.html            # Canvas shell & HUD overlay
+│   ├── style.css             # UI styles and controls theme
+│   ├── theme-sync.js         # Dark/light theme sync listener
+│   └── assets/
+│       └── scene.json        # Scene configuration JSON
+├── docs/                     # Observable Framework Documentation Root
 │   ├── index.md              # Documentation home page
 │   ├── app.md                # Full-screen interactive simulation view
 │   ├── introduction.md       # Guided overview & interactive demo
-│   ├── assets/
-│   │   └── scene.json        # Scene configuration JSON
-│   ├── sim/                  # 60 FPS Standalone Simulation App
-│   │   ├── index.html        # App entry point & canvas shell
-│   │   ├── engine.js         # Core physics solver & ray tracing loop
-│   │   ├── math_utils.js     # Vector math and normalisation helpers
-│   │   ├── style.css         # UI styles and controls theme
-│   │   └── theme-sync.js     # Dark/light theme sync listener
 │   ├── reference/            # API reference, performance, and quality docs
 │   └── tutorial/             # Architectural tutorial series
-├── observablehq.config.js    # Observable Framework configuration (root: "src")
+├── observablehq.config.js    # Observable Framework configuration (root: "docs")
 ├── package.json
 └── README.md
 ```
@@ -81,8 +81,8 @@ fluid-light-transport/
 
 ## 💡 Architecture & Design Notes
 
-* **Sandboxed Simulation Engine:** The 60 FPS simulation (`src/sim/`) runs inside an `<iframe>` container. This isolates the CPU-heavy physics loop and 2D canvas rendering from Observable Framework's reactive runtime, preventing main-thread lag and CSS scope leakage.
-* **Native Observable Integration:** All pages, tutorials, and benchmarks are compiled using standard Observable Framework conventions with zero custom build wrappers.
+* **Sandboxed Simulation Engine:** The 60 FPS simulation (`src/`) runs inside an `<iframe>` container embedded in Observable pages. This isolates the CPU-heavy physics loop and 2D canvas rendering from Observable Framework's reactive runtime, preventing main-thread lag and CSS scope leakage.
+* **Native Observable Integration:** All documentation pages, tutorials, and benchmarks in `docs/` are compiled using standard Observable Framework conventions.
 
 ---
 
