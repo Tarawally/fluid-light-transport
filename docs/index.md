@@ -3,12 +3,16 @@ title: Visualisation
 toc: false
 ---
 
-<iframe 
+```js
+const simUrl = await FileAttachment("../src/index.html").url();
+
+display(html`<iframe 
   id="sim-frame"
-  src="/_file/../src/index.html"
+  src="${simUrl}"
   style="width: 100%; height: calc(100vh - 70px); border: none; display: block; margin: 0; padding: 0; border-radius: 8px;"
   title="Fluid Light Transport Scene">
-</iframe>
+</iframe>`);
+```
 
 ```js
 // Sync theme to the embedded simulation iframe reactively when the page theme changes

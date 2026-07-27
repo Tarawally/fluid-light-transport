@@ -20,13 +20,17 @@ Experience the engine in real-time! Move your mouse to control the light source.
 
 </div>
 
-<iframe 
+```js
+const demoSimUrl = await FileAttachment("../src/index.html").url();
+
+display(html`<iframe 
   id="demo-iframe"
-  src="/_file/../src/index.html"
+  src="${demoSimUrl}"
   style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
   title="Fluid-Light Transport Demo"
   allowfullscreen>
-</iframe>
+</iframe>`);
+```
 
 <div class="note">
 
