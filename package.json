@@ -15,9 +15,14 @@
   "author": "Samuel Tarawally",
   "license": "MIT",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=18.0.0",
+    "bun": ">=1.0.0"
   },
   "devDependencies": {
-    "@observablehq/framework": "^1.13.3"
+    "@observablehq/framework": "observablehq/framework",
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5"
   }
 }
