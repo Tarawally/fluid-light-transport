@@ -135,7 +135,7 @@ const viewAlgoChoice = view(Inputs.radio(["Naive", "Efficient", "Tile-Based"], {
 ```
 
 ```js
-${viewAlgoChoice === "Naive" ? md`
+viewAlgoChoice === "Naive" ? md`
 #### Naive Approach
 
 \`\`\`javascript
@@ -190,7 +190,7 @@ function tileDiffusion() {
 \`\`\`
 
 **Performance**: 5× faster than full-grid approach.
-`}
+`
 ```
 
 <div class="tip">

@@ -20,17 +20,22 @@ Experience the engine in real-time! Move your mouse to control the light source.
 
 </div>
 
-```js
-const demoSimUrl = await FileAttachment("../src/index.html").url();
+<link rel="stylesheet" href="./style.css">
 
-display(html`<iframe 
-  id="demo-iframe"
-  src="${demoSimUrl}"
-  style="width: 100%; height: 75vh; border: 2px solid #333; border-radius: 8px; background: #000;"
-  title="Fluid-Light Transport Demo"
-  allowfullscreen>
-</iframe>`);
+```js
+const sceneData = await FileAttachment("./assets/scene.json").json();
+if (typeof window !== "undefined") {
+  window.CONFIG = window.CONFIG || {};
+  window.CONFIG.SCENE_DATA = sceneData;
+}
+await import("./engine.js");
 ```
+
+<div class="simulation-root" style="position: relative; width: 100%; height: 60vh; border-radius: 8px; overflow: hidden; background: #000; margin-bottom: 20px;">
+  <div class="simulation-wrapper" style="position: relative; width: 100%; height: 100%;">
+    <canvas id="canvas" tabindex="0" role="img" aria-label="Fluid Light Transport Visualisation"></canvas>
+  </div>
+</div>
 
 <div class="note">
 
@@ -80,7 +85,7 @@ const viewChoice = view(Inputs.radio(["Conceptual Journey", "Quick Reference"], 
 ```
 
 ```js
-${viewChoice === "Conceptual Journey" ? md`
+viewChoice === "Conceptual Journey" ? md`
 
 Learn the architecture and algorithms from first principles:
 
@@ -108,7 +113,7 @@ Browse by topic or problem:
 - **Fluid Mechanics**: [Chapter 6: Fluids](tutorial/06-fluids#the-fluid-analogy)
 - **Performance Issues**: [Chapter 8: Troubleshooting](reference/troubleshooting)
 - **Complete API**: [Chapter 9: API Reference](reference/api)
-`}
+`
 ```
 
 <div class="note">

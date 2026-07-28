@@ -978,17 +978,19 @@ function updateTelemetry() {
         ((1.0 - (avgTiles / totalTiles)) * 100).toFixed(1) :
         0;
 
-    State.profiler.dom.fps.innerText = `${State.profiler.frameCount} FPS`;
-    State.profiler.dom.activeBlocks.innerText = avgTiles;
-    State.profiler.dom.physTime.innerText = `${avgTime}ms`;
-    if (State.profiler.dom.budget) {
-      State.profiler.dom.budget.innerText = `${sparsity}%`;
-    }
+    if (State.profiler.dom.fps) {
+      State.profiler.dom.fps.innerText = `${State.profiler.frameCount} FPS`;
+      State.profiler.dom.activeBlocks.innerText = avgTiles;
+      State.profiler.dom.physTime.innerText = `${avgTime}ms`;
+      if (State.profiler.dom.budget) {
+        State.profiler.dom.budget.innerText = `${sparsity}%`;
+      }
 
-    const loadPct = (avgTime / CONFIG.TIMESTEP_BUDGET_MS) * 100;
-    State.profiler.dom.loadBar.style.width = Math.min(loadPct, 100) + '%';
-    State.profiler.dom.loadBar.style.background =
-        loadPct < 80 ? '#28a745' : loadPct < 100 ? '#ffc107' : '#dc3545';
+      const loadPct = (avgTime / CONFIG.TIMESTEP_BUDGET_MS) * 100;
+      State.profiler.dom.loadBar.style.width = Math.min(loadPct, 100) + '%';
+      State.profiler.dom.loadBar.style.background =
+          loadPct < 80 ? '#28a745' : loadPct < 100 ? '#ffc107' : '#dc3545';
+    }
 
     State.profiler.frameCount = 0;
     State.profiler.accumulatedTime = 0;
@@ -1042,7 +1044,9 @@ window.addEventListener('keydown', (e) => {
       'Active Tile Map',
       'Velocity Vector Field',
     ];
-    State.profiler.dom.viewMode.innerText = modes[State.viewMode];
+    if (State.profiler.dom.viewMode) {
+      State.profiler.dom.viewMode.innerText = modes[State.viewMode];
+    }
   }
 });
 

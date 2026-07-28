@@ -6,7 +6,7 @@ export default {
   title: "Fluid Light Transport",
 
   // The directory where source markdown pages reside.
-  root: "docs",
+  root: "src",
 
   // The output directory for static builds.
   output: "dist",
