@@ -1,56 +1,37 @@
 # Fluid Light Transport Engine
 
-A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata (advection and diffusion) to simulate global illumination, soft shadows, and colour bleeding at 60 FPS.
+A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata to simulate global illumination, soft shadows, and colour bleeding.
 
-Built with [Observable Framework](https://observablehq.com/framework/) and [Bun](https://bun.sh/).
+## Quick Start
 
----
+You can serve the static application using any of the following tools:
 
-## 🚀 Quick Start
-
-### Prerequisites
-* **[Bun](https://bun.sh/)** (v1.1 or higher)
-
-### Local Development
-
+### Bun
 ```bash
-bun install
-bun run dev
+bunx serve .
 ```
 
-Open `http://localhost:3000/` in your browser.
+### npm / Node.js
+```bash
+npx serve .
+```
 
----
+### Python
+```bash
+python3 -m http.server 3000
+```
 
-## 🛠 Project Commands
+Open the URL printed in your terminal (e.g. `http://localhost:3000`).
 
-| Command | Description |
-| :--- | :--- |
-| `bun run dev` | Start the local preview server |
-| `bun run build` | Build the static production site into `dist/` |
-| `bun run clean` | Clear the local build cache |
-| `bun run deploy` | Deploy the static site |
-
----
-
-## 📁 Project Layout
+## Structure
 
 ```text
-fluid-light-transport/
-├── src/
-│   ├── index.md        # Interactive documentation page
-│   └── app/            # Standalone simulation engine & web application
-│       ├── engine.js   # Physics solver & ray tracing loop
-│       ├── index.html  # Canvas shell & HUD overlay
-│       ├── style.css   # Styles & UI controls
-│       └── assets/     # Scene configuration files
-├── observablehq.config.js
-├── package.json
-└── README.md
+├── engine.js   # Physics solver & ray tracing loop
+├── index.html  # Canvas shell & HUD overlay
+├── style.css   # Styles & UI controls
+└── assets/     # Scene configuration files
 ```
 
----
-
-## 📜 Licence
+## Licence
 
 Distributed under the [MIT Licence](LICENSE).
