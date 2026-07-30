@@ -1,8 +1,0 @@
-{
-  "name": "fluid-light-transport",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "dev": "bunx serve ."
-  }
-}
