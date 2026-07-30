@@ -14,7 +14,7 @@ A high-performance **vanilla JavaScript physics engine** that treats light as a 
 
 ---
 
-## ⚡ Live Visualisation
+## Live Visualisation
 
 ```js
 const standaloneUrl = await FileAttachment("./engine/index.html").url();
@@ -58,7 +58,7 @@ if (iframe && iframe.contentWindow) {
 
 ---
 
-## 🔬 How It Works: The 2-Phase Pipeline
+## How It Works: The 2-Phase Pipeline
 
 Traditional ray tracing casts hundreds of bounces per pixel to simulate diffuse global illumination—making it computationally expensive. This engine uses a **hybrid approach**:
 
@@ -81,7 +81,7 @@ graph LR
 
 ---
 
-## 🧪 Interactive Cellular Automata Toy Simulation
+## Interactive Cellular Automata Toy Simulation
 
 Below is a 1D heat-map simulation showing how energy spreads and decays across neighbouring cells according to the fluid equations:
 
@@ -145,7 +145,7 @@ display(Plot.plot({
 
 ---
 
-## 🛠 Project & Engine Integration
+## Project & Engine Integration
 
 The physics solver (`src/engine/engine.js`) is completely standalone and dependency-free:
 
