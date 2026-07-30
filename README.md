@@ -1,6 +1,6 @@
 # Fluid Light Transport Engine
 
-A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata to simulate global illumination, soft shadows, and colour bleeding at 60 FPS.
+A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata to simulate global illumination, soft shadows, and colour bleeding.
 
 ## Quick Start
 
