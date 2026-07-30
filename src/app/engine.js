@@ -73,13 +73,13 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
-  SCENE_URL: '/_file/assets/scene.json',
+  SCENE_URL: './assets/scene.json',
 };
 
 // Expose CONFIG to window for OJS interaction
 if (typeof window !== 'undefined') {
   const userConfig = window.CONFIG || {};
-  const finalSceneUrl = userConfig.SCENE_URL || '/_file/assets/scene.json';
+  const finalSceneUrl = userConfig.SCENE_URL || './assets/scene.json';
 
   window.CONFIG = Object.assign({}, CONFIG, userConfig);
   window.CONFIG.SCENE_URL = finalSceneUrl;
@@ -1086,22 +1086,6 @@ async function initialiseEngine() {
     } else {
       if (sourceDisplay) sourceDisplay.textContent = window.CONFIG.SCENE_URL;
       let response = await fetch(window.CONFIG.SCENE_URL);
-      if (!response.ok) {
-        const fallbacks = ['/_file/assets/scene.json', '/assets/scene.json', '../assets/scene.json'];
-        for (const url of fallbacks) {
-          if (url === window.CONFIG.SCENE_URL) continue;
-          try {
-            const fbRes = await fetch(url);
-            if (fbRes.ok) {
-              response = fbRes;
-              if (sourceDisplay) sourceDisplay.textContent = url;
-              break;
-            }
-          } catch (e) {
-            // Continue trying remaining fallbacks
-          }
-        }
-      }
       if (!response.ok) {
         throw new Error(`HTTP Error: ${response.status}`);
       }

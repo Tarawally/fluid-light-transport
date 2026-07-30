@@ -5,19 +5,16 @@ toc: true
 
 # Fluid Light Transport Engine
 
-<div class="tip" style="margin-bottom: 24px;">
+## Real-Time Hybrid Rendering
 
-### Real-Time Hybrid Rendering
-A high-performance **vanilla JavaScript physics engine** that treats light as a fluid substance. It combines stochastic ray tracing for photon injection with 2D cellular automata (advection and diffusion) to compute organic soft shadows, ambient occlusion, and colour bleeding at 60 FPS.
-
-</div>
+A high-performance **vanilla JavaScript physics engine** that treats light as a fluid substance. It combines stochastic ray tracing for photon injection with 2D cellular automata (advection and diffusion) to compute organic soft shadows, ambient occlusion, and colour bleeding.
 
 ---
 
 ## Live Visualisation
 
 ```js
-const standaloneUrl = await FileAttachment("./engine/index.html").url();
+const standaloneUrl = await FileAttachment("./app/index.html").url();
 
 display(html`
   <div style="position: relative; width: 100%; border-radius: 12px; overflow: hidden; box-shadow: 0 8px 32px rgba(0,0,0,0.4); background: #000;">
