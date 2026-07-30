@@ -16,6 +16,7 @@ This chapter addresses common issues, performance problems, and implementation q
 - Slow response to mouse movement
 
 **Diagnosis**:
+
 ```javascript
 // Add to your console
 console.log(`FPS: ${State.profiler.fps}`);
@@ -33,38 +34,38 @@ const viewOpt = view(Inputs.radio(["Reduce Resolution", "Decrease Ray Count", "I
 
 ```js
 ${viewOpt === "Reduce Resolution" ? md`
-```javascript
+\`\`\`javascript
 // In CONFIG object
 const CONFIG = {
     DOWNSAMPLE: 8,  // Increase from 5 (lower resolution)
     // ...
 };
-```
+\`\`\`
 **Impact**: 64% fewer pixels to process  
 **Visual quality**: Slightly more pixelated
 ` : viewOpt === "Decrease Ray Count" ? md`
-```javascript
+\`\`\`javascript
 // In ray casting function
 const RAY_SAMPLES = 32;  // Reduce from 64
-```
+\`\`\`
 **Impact**: 50% faster ray tracing  
 **Visual quality**: Slightly noisier shadows
 ` : viewOpt === "Increase Pixel Size" ? md`
-```javascript
+\`\`\`javascript
 const CONFIG = {
     TILE_SIZE: 8,  // Increase from 4
     // ...
 };
-```
+\`\`\`
 **Impact**: Larger simulation blocks, fewer calculations  
 **Visual quality**: Blockier light propagation
 ` : md`
-```javascript
+\`\`\`javascript
 const CONFIG = {
     TIMESTEP_BUDGET_MS: 10,  // Reduce from 14
     // ...
 };
-```
+\`\`\`
 **Impact**: Frame renders even if simulation incomplete  
 **Visual quality**: Potentially incomplete light propagation
 `}
