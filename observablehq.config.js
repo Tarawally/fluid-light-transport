@@ -11,9 +11,6 @@ export default {
   // The output directory for static builds.
   output: "dist",
 
-
-
-
   // Pages structure in the sidebar.
   pages: [
     {
