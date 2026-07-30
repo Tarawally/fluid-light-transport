@@ -83,6 +83,24 @@ if (typeof window !== 'undefined') {
 
   window.CONFIG = Object.assign({}, CONFIG, userConfig);
   window.CONFIG.SCENE_URL = finalSceneUrl;
+
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'UPDATE_CONFIG' && event.data.config) {
+      Object.assign(CONFIG, event.data.config);
+      Object.assign(window.CONFIG, event.data.config);
+
+      const sliders = {
+        DISSIPATION: document.getElementById('dissipationSlider'),
+        ADVECTION_STRENGTH: document.getElementById('advectionSlider'),
+        MOMENTUM_DECAY: document.getElementById('decaySlider'),
+      };
+      for (const [key, el] of Object.entries(sliders)) {
+        if (el && event.data.config[key] !== undefined) {
+          el.value = event.data.config[key];
+        }
+      }
+    }
+  });
 }
 
 /**
