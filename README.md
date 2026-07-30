@@ -2,23 +2,22 @@
 
 A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata (advection and diffusion) to simulate global illumination, soft shadows, and colour bleeding at 60 FPS.
 
-Built with [Observable Framework](https://observablehq.com/framework/) and [Bun](https://bun.sh/).
+Built with Vanilla JS and served via [Bun](https://bun.sh/).
 
 ---
 
 ## 🚀 Quick Start
 
 ### Prerequisites
-* **[Bun](https://bun.sh/)** (v1.1 or higher)
+* **[Bun](https://bun.sh/)** (v1.1 or higher) or **Node.js**
 
 ### Local Development
 
 ```bash
-bun install
 bun run dev
 ```
 
-Open `http://localhost:3000/` in your browser.
+Open the printed localhost URL in your browser (usually `http://localhost:3000/`).
 
 ---
 
@@ -26,10 +25,7 @@ Open `http://localhost:3000/` in your browser.
 
 | Command | Description |
 | :--- | :--- |
-| `bun run dev` | Start the local preview server |
-| `bun run build` | Build the static production site into `dist/` |
-| `bun run clean` | Clear the local build cache |
-| `bun run deploy` | Deploy the static site |
+| `bun run dev` | Start the local development server |
 
 ---
 
@@ -37,14 +33,10 @@ Open `http://localhost:3000/` in your browser.
 
 ```text
 fluid-light-transport/
-├── src/
-│   ├── index.md        # Interactive documentation page
-│   └── app/            # Standalone simulation engine & web application
-│       ├── engine.js   # Physics solver & ray tracing loop
-│       ├── index.html  # Canvas shell & HUD overlay
-│       ├── style.css   # Styles & UI controls
-│       └── assets/     # Scene configuration files
-├── observablehq.config.js
+├── engine.js   # Physics solver & ray tracing loop
+├── index.html  # Canvas shell & HUD overlay
+├── style.css   # Styles & UI controls
+├── assets/     # Scene configuration files
 ├── package.json
 └── README.md
 ```
