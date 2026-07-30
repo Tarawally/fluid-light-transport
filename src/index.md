@@ -144,11 +144,11 @@ display(Plot.plot({
 
 ## Project & Engine Integration
 
-The physics solver (`src/engine/engine.js`) is completely standalone and dependency-free:
+The physics solver (`src/app/engine.js`) is completely standalone and dependency-free:
 
 ```javascript
 // Standalone usage (Zero Observable dependencies required)
-import { initialiseEngine } from "./engine/engine.js";
+import { initialiseEngine } from "./app/engine.js";
 
 // Initialise the simulation on an HTML5 canvas element
 window.CONFIG = {
