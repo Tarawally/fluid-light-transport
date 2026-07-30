@@ -1,11 +1,11 @@
 (function() {
   function applyTheme(theme) {
     if (theme === 'dark') {
-      document.body.classList.add('quarto-dark');
-      document.body.classList.remove('quarto-light');
+      document.body.classList.add('dark', 'theme-dark', 'quarto-dark');
+      document.body.classList.remove('light', 'theme-light', 'quarto-light');
     } else {
-      document.body.classList.add('quarto-light');
-      document.body.classList.remove('quarto-dark');
+      document.body.classList.add('light', 'theme-light', 'quarto-light');
+      document.body.classList.remove('dark', 'theme-dark', 'quarto-dark');
     }
   }
 
@@ -15,7 +15,7 @@
   }
 
   window.addEventListener('message', function(event) {
-    if (event.data && event.data.type === 'themechange') {
+    if (event.data && (event.data.type === 'themechange' || event.data.type === 'set-theme')) {
       applyTheme(event.data.theme);
     }
   });

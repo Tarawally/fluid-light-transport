@@ -1,35 +1,56 @@
-# Fluid Light Transport
+# Fluid Light Transport Engine
 
-A hybrid simulation engine that treats light as a fluid. It uses stochastic ray tracing to inject photons into a grid, then propagates energy using cellular automata to create soft shadows and organic colour bleeding in real-time.
+A real-time hybrid rendering engine combining stochastic ray tracing with 2D cellular automata (advection and diffusion) to simulate global illumination, soft shadows, and colour bleeding at 60 FPS.
 
-This repository unifies the application with its technical documentation.
+Built with [Observable Framework](https://observablehq.com/framework/) and [Bun](https://bun.sh/).
 
-## Quick Start
+---
 
-Ensure you have [Node.js](https://nodejs.org/) and the [Quarto CLI](https://quarto.org/) installed.
+## 🚀 Quick Start
+
+### Prerequisites
+* **[Bun](https://bun.sh/)** (v1.1 or higher)
+
+### Local Development
 
 ```bash
-# Clone and install
-git clone https://github.com/Tarawally/fluid-light-transport.git
-cd fluid-light-transport
-npm install
-
-# Launch the interactive walkthrough & simulation
-quarto preview
+bun install
+bun run dev
 ```
 
-## Highlights
+Open `http://localhost:3000/` in your browser.
 
-- **Hybrid Engine**: Combines ray tracing with fluid dynamics for efficient global illumination.
-- **Interactive Documentation**: A "docs-as-code" walkthrough built with Quarto, featuring live simulation widgets and annotated source code.
-- **Tested Core**: Fundamental mathematics validated with Vitest.
+---
 
-## Navigation
+## 🛠 Project Commands
 
-- [**Simulation**](app.html): The standalone full-screen engine.
-- [**Tutorial**](docs/tutorial/01_canvas.qmd): A guided tour of the architecture.
-- [**API Reference**](docs/reference/api.qmd): Auto-generated documentation from `src/engine.js`.
+| Command | Description |
+| :--- | :--- |
+| `bun run dev` | Start the local preview server |
+| `bun run build` | Build the static production site into `dist/` |
+| `bun run clean` | Clear the local build cache |
+| `bun run deploy` | Deploy the static site |
 
-## License
+---
 
-MIT
+## 📁 Project Layout
+
+```text
+fluid-light-transport/
+├── src/
+│   ├── index.md        # Interactive documentation page
+│   └── app/            # Standalone simulation engine & web application
+│       ├── engine.js   # Physics solver & ray tracing loop
+│       ├── index.html  # Canvas shell & HUD overlay
+│       ├── style.css   # Styles & UI controls
+│       └── assets/     # Scene configuration files
+├── observablehq.config.js
+├── package.json
+└── README.md
+```
+
+---
+
+## 📜 Licence
+
+Distributed under the [MIT Licence](LICENSE).

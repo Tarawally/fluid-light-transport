@@ -73,24 +73,34 @@ const CONFIG = {
    * @type {number}
    */
   GAMMA: 2.2,
-  SCENE_URL: 'assets/scene.json',
+  SCENE_URL: './assets/scene.json',
 };
 
 // Expose CONFIG to window for OJS interaction
 if (typeof window !== 'undefined') {
-  // Determine the default scene URL based on current path
-  const isSubfolder = window.location.pathname.includes('/src/');
-  const computedPath = isSubfolder ? '../assets/scene.json' : 'assets/scene.json';
-  
-  // Logic: 
-  // 1. window.CONFIG (manual override) takes highest precedence
-  // 2. computedPath (environment aware) takes next
-  // 3. CONFIG.SCENE_URL (base default) is fallback
   const userConfig = window.CONFIG || {};
-  const finalSceneUrl = userConfig.SCENE_URL || computedPath;
+  const finalSceneUrl = userConfig.SCENE_URL || './assets/scene.json';
 
   window.CONFIG = Object.assign({}, CONFIG, userConfig);
   window.CONFIG.SCENE_URL = finalSceneUrl;
+
+  window.addEventListener('message', (event) => {
+    if (event.data && event.data.type === 'UPDATE_CONFIG' && event.data.config) {
+      Object.assign(CONFIG, event.data.config);
+      Object.assign(window.CONFIG, event.data.config);
+
+      const sliders = {
+        DISSIPATION: document.getElementById('dissipationSlider'),
+        ADVECTION_STRENGTH: document.getElementById('advectionSlider'),
+        MOMENTUM_DECAY: document.getElementById('decaySlider'),
+      };
+      for (const [key, el] of Object.entries(sliders)) {
+        if (el && event.data.config[key] !== undefined) {
+          el.value = event.data.config[key];
+        }
+      }
+    }
+  });
 }
 
 /**
@@ -986,17 +996,19 @@ function updateTelemetry() {
         ((1.0 - (avgTiles / totalTiles)) * 100).toFixed(1) :
         0;
 
-    State.profiler.dom.fps.innerText = `${State.profiler.frameCount} FPS`;
-    State.profiler.dom.activeBlocks.innerText = avgTiles;
-    State.profiler.dom.physTime.innerText = `${avgTime}ms`;
-    if (State.profiler.dom.budget) {
-      State.profiler.dom.budget.innerText = `${sparsity}%`;
-    }
+    if (State.profiler.dom.fps) {
+      State.profiler.dom.fps.innerText = `${State.profiler.frameCount} FPS`;
+      State.profiler.dom.activeBlocks.innerText = avgTiles;
+      State.profiler.dom.physTime.innerText = `${avgTime}ms`;
+      if (State.profiler.dom.budget) {
+        State.profiler.dom.budget.innerText = `${sparsity}%`;
+      }
 
-    const loadPct = (avgTime / CONFIG.TIMESTEP_BUDGET_MS) * 100;
-    State.profiler.dom.loadBar.style.width = Math.min(loadPct, 100) + '%';
-    State.profiler.dom.loadBar.style.background =
-        loadPct < 80 ? '#28a745' : loadPct < 100 ? '#ffc107' : '#dc3545';
+      const loadPct = (avgTime / CONFIG.TIMESTEP_BUDGET_MS) * 100;
+      State.profiler.dom.loadBar.style.width = Math.min(loadPct, 100) + '%';
+      State.profiler.dom.loadBar.style.background =
+          loadPct < 80 ? '#28a745' : loadPct < 100 ? '#ffc107' : '#dc3545';
+    }
 
     State.profiler.frameCount = 0;
     State.profiler.accumulatedTime = 0;
@@ -1050,7 +1062,9 @@ window.addEventListener('keydown', (e) => {
       'Active Tile Map',
       'Velocity Vector Field',
     ];
-    State.profiler.dom.viewMode.innerText = modes[State.viewMode];
+    if (State.profiler.dom.viewMode) {
+      State.profiler.dom.viewMode.innerText = modes[State.viewMode];
+    }
   }
 });
 
@@ -1064,26 +1078,19 @@ window.addEventListener('keydown', (e) => {
 async function initialiseEngine() {
   const uiStatus = document.getElementById('statusIndicator');
   const sourceDisplay = document.getElementById('sceneSource');
-  if (sourceDisplay) {
-    sourceDisplay.textContent = window.CONFIG.SCENE_URL;
-  }
-
   try {
-    // 1. FETCH: Get the raw data (The "Source")
-    if (uiStatus) {
-      uiStatus.innerText = '● LOADING SCENE...';
-      uiStatus.style.color = '#ffc107'; // Yellow
+    let sceneData;
+    if (window.CONFIG && window.CONFIG.SCENE_DATA) {
+      sceneData = window.CONFIG.SCENE_DATA;
+      if (sourceDisplay) sourceDisplay.textContent = 'Inline Scene Data';
+    } else {
+      if (sourceDisplay) sourceDisplay.textContent = window.CONFIG.SCENE_URL;
+      let response = await fetch(window.CONFIG.SCENE_URL);
+      if (!response.ok) {
+        throw new Error(`HTTP Error: ${response.status}`);
+      }
+      sceneData = await response.json();
     }
-
-    // UPDATED: fetching from assets folder
-    const response = await fetch(window.CONFIG.SCENE_URL);
-
-    if (!response.ok) {
-      throw new Error(`HTTP Error: ${response.status}`);
-    }
-
-    // 2. PARSE: Convert JSON to JavaScript Objects
-    const sceneData = await response.json();
 
     // 3. HYDRATE: Populate the Engine State
     Scene.spheres = sceneData || [];
