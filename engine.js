@@ -606,7 +606,6 @@ window.addEventListener('keyup', (e) => {
 });
 
 async function initialiseEngine() {
-  const uiStatus = document.getElementById('statusIndicator');
   const sourceDisplay = document.getElementById('sceneSource');
   try {
     if (sourceDisplay) sourceDisplay.textContent = CONFIG.SCENE_URL;
@@ -617,11 +616,6 @@ async function initialiseEngine() {
     Scene.spheres = sceneData || [];
     Scene.cacheLightSource();
 
-    if (uiStatus) {
-      uiStatus.innerText = '● Active';
-      uiStatus.style.color = '#28a745';
-    }
-
     setTimeout(() => {
       bootSystem();
       requestAnimationFrame(mainSimulationLoop);
@@ -630,10 +624,6 @@ async function initialiseEngine() {
     setupUIControlListeners();
   } catch (error) {
     console.error('Data flow interruption:', error);
-    if (uiStatus) {
-      uiStatus.innerText = '● Data error (see console)';
-      uiStatus.style.color = '#dc3545';
-    }
   }
 }
 
