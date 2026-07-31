@@ -1,5 +1,5 @@
 /* 
- * PRESENTATION LAYER
+ * Presentation layer
  * ==================
  * Minimal scientific UI viewport overlay and canvas styling.
  * The application is strictly forced to run full-screen across all viewports.
@@ -88,7 +88,7 @@ html, body {
   font-weight: 600;
   color: #007bff;
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
 }
 

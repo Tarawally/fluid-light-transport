@@ -1,4 +1,4 @@
-# Fluid Light Transport Engine
+# Fluid light transport engine
 
 An approach to real-time rendering that combines stochastic ray tracing with 2D cellular automata.
 
