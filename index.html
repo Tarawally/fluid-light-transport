@@ -1,39 +1,39 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fluid Light Transport - Visualisation</title>
+    <title>Fluid light transport - Visualisation</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
     <!-- USER INTERFACE OVERLAY -->
     <div id="ui">
       <div class="header">
-        <span>VISUALISATION STATUS</span>
-        <span id="statusIndicator">● INITIALISING</span>
+        <span>Visualisation status</span>
+        <span id="statusIndicator">● Initialising</span>
       </div>
 
       <div class="stat-row">
         <span class="label">Renderer:</span>
-        <span class="value">Hybrid Ray-Trace/CA</span>
+        <span class="value">Hybrid ray-trace/CA</span>
       </div>
       <div class="stat-row">
-        <span class="label">Internal Grid:</span>
+        <span class="label">Internal grid:</span>
         <span class="value" id="resDisplay">Loading...</span>
       </div>
       <div class="stat-row">
-        <span class="label">View Mode:</span>
-        <span class="value" id="viewModeDisplay">Composite Output</span>
+        <span class="label">View mode:</span>
+        <span class="value" id="viewModeDisplay">Composite output</span>
       </div>
 
-      <div class="section-divider">Performance Telemetry</div>
+      <div class="section-divider">Performance telemetry</div>
       <div class="stat-row">
-        <span class="label">Frame Rate:</span>
+        <span class="label">Frame rate:</span>
         <span class="value" id="fps">0 FPS</span>
       </div>
       <div class="stat-row">
-        <span class="label">Compute Time:</span>
+        <span class="label">Compute time:</span>
         <span class="value" id="physTime">0.0ms</span>
       </div>
       <div class="perf-track">
@@ -41,30 +41,30 @@
       </div>
 
       <div class="stat-row" style="margin-top: 10px">
-        <span class="label">Data Source:</span>
+        <span class="label">Data source:</span>
         <span class="value" id="sceneSource">Loading...</span>
       </div>
 
-      <div class="section-divider">Optimisation Metrics</div>
+      <div class="section-divider">Optimisation metrics</div>
       <div class="stat-row">
-        <span class="label">Active Regions:</span>
+        <span class="label">Active regions:</span>
         <span class="value" id="activeBlocks">0</span>
       </div>
       <div class="stat-row">
-        <span class="label">Grid Sparsity:</span>
+        <span class="label">Grid sparsity:</span>
         <span class="value" id="budget">0%</span>
       </div>
 
       <div class="controls-hint">
-        <strong>CONTROLS:</strong><br />
+        <strong>Controls:</strong><br />
         <span class="key">WASD</span> Movement &nbsp;
         <span class="key">ARROWS</span> Look<br />
         <span class="key">L-CLICK</span> Rotate &nbsp;
-        <span class="key">R-CLICK</span> Move Light<br />
-        <span class="key">SPACE</span> Cycle Visualisation Modes
+        <span class="key">R-CLICK</span> Move light<br />
+        <span class="key">SPACE</span> Cycle visualisation modes
       </div>
 
-      <div class="section-divider">Physics Parameters</div>
+      <div class="section-divider">Physics parameters</div>
       <div class="stat-row control-row">
         <span class="label">Dissipation:</span>
         <input
@@ -101,7 +101,7 @@
     </div>
 
     <!-- MAIN RENDERING SURFACE -->
-    <canvas id="canvas" tabindex="0" role="img" aria-label="Fluid Light Transport Visualisation"></canvas>
+    <canvas id="canvas" tabindex="0" role="img" aria-label="Fluid light transport visualisation"></canvas>
 
     <script src="engine.js"></script>
   </body>

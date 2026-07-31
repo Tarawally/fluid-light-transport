@@ -1,8 +1,8 @@
 /**
- * @fileoverview Hybrid Fluid-Light Transport Engine.
+ * @fileoverview Hybrid fluid-light transport engine.
  *
- * Combines stochastic ray tracing for light injection with a 2D Cellular
- * Automata solver for real-time light propagation, fluid advection, and diffusion.
+ * Combines stochastic ray tracing for light injection with a 2D cellular
+ * automata solver for real-time light propagation, fluid advection, and diffusion.
  */
 "use strict";
 
@@ -21,9 +21,9 @@ const CONFIG = {
 const FIELD = {
   R: 0,
   G: 1,
-  B: 2,           // Spectral Energy (Colour)
+  B: 2,           // Spectral energy (colour)
   VEL_X: 3,
-  VEL_Y: 4,       // Momentum Vector (Flow direction)
+  VEL_Y: 4,       // Momentum vector (flow direction)
   ROUGHNESS: 5,   // Surface material friction
   DEPTH: 6,       // Distance from camera topology
   OBJECT_ID: 7,   // Object ID to prevent bleeding
@@ -66,6 +66,9 @@ const State = {
   },
 };
 
+/**
+ * Initialises system memory and calculates downsampled grid dimensions.
+ */
 function bootSystem() {
   const baseW = window.innerWidth;
   const baseH = window.innerHeight;
@@ -591,7 +594,7 @@ window.addEventListener('keydown', (e) => {
   State.input.keys[e.key.toLowerCase()] = true;
   if (e.code === 'Space') {
     State.viewMode = (State.viewMode + 1) % 3;
-    const modes = ['Composite Output', 'Active Tile Map', 'Velocity Vector Field'];
+    const modes = ['Composite output', 'Active tile map', 'Velocity vector field'];
     if (State.profiler.dom.viewMode) {
       State.profiler.dom.viewMode.innerText = modes[State.viewMode];
     }
@@ -615,7 +618,7 @@ async function initialiseEngine() {
     Scene.cacheLightSource();
 
     if (uiStatus) {
-      uiStatus.innerText = '● ACTIVE';
+      uiStatus.innerText = '● Active';
       uiStatus.style.color = '#28a745';
     }
 
@@ -626,9 +629,9 @@ async function initialiseEngine() {
 
     setupUIControlListeners();
   } catch (error) {
-    console.error('Data Flow Interruption:', error);
+    console.error('Data flow interruption:', error);
     if (uiStatus) {
-      uiStatus.innerText = '● DATA ERROR (See Console)';
+      uiStatus.innerText = '● Data error (see console)';
       uiStatus.style.color = '#dc3545';
     }
   }
