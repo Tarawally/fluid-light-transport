@@ -36,11 +36,11 @@ const STRIDE = 9;
 const canvas = document.getElementById('canvas');
 const ctx = canvas.getContext('2d', { alpha: false, willReadFrequently: true });
 
-let RESOLUTION = { W: 0, H: 0 };
-let TOTAL_PIXELS = 0;
-let TILES_X = 0;
-let TILES_Y = 0;
-let MASK_SIZE = 0;
+let gridResolution = { w: 0, h: 0 };
+let totalPixels = 0;
+let tilesX = 0;
+let tilesY = 0;
+let maskSize = 0;
 
 const State = {
   lattice: null,
@@ -74,30 +74,30 @@ function bootSystem() {
   const baseW = window.innerWidth;
   const baseH = window.innerHeight;
 
-  RESOLUTION.W = Math.max(
+  gridResolution.w = Math.max(
     CONFIG.TILE_SIZE * 10,
     Math.floor(baseW / (CONFIG.DOWNSAMPLE * CONFIG.TILE_SIZE)) * CONFIG.TILE_SIZE
   );
-  RESOLUTION.H = Math.max(
+  gridResolution.h = Math.max(
     CONFIG.TILE_SIZE * 10,
     Math.floor(baseH / (CONFIG.DOWNSAMPLE * CONFIG.TILE_SIZE)) * CONFIG.TILE_SIZE
   );
 
-  canvas.width = RESOLUTION.W;
-  canvas.height = RESOLUTION.H;
+  canvas.width = gridResolution.w;
+  canvas.height = gridResolution.h;
 
-  TOTAL_PIXELS = RESOLUTION.W * RESOLUTION.H;
-  TILES_X = Math.ceil(RESOLUTION.W / CONFIG.TILE_SIZE);
-  TILES_Y = Math.ceil(RESOLUTION.H / CONFIG.TILE_SIZE);
-  MASK_SIZE = Math.ceil((TILES_X * TILES_Y) / 32);
+  totalPixels = gridResolution.w * gridResolution.h;
+  tilesX = Math.ceil(gridResolution.w / CONFIG.TILE_SIZE);
+  tilesY = Math.ceil(gridResolution.h / CONFIG.TILE_SIZE);
+  maskSize = Math.ceil((tilesX * tilesY) / 32);
 
-  State.lattice = new Float32Array(TOTAL_PIXELS * STRIDE);
-  State.maskRead = new Uint32Array(MASK_SIZE);
-  State.maskWrite = new Uint32Array(MASK_SIZE);
-  State.displayImage = ctx.createImageData(RESOLUTION.W, RESOLUTION.H);
+  State.lattice = new Float32Array(totalPixels * STRIDE);
+  State.maskRead = new Uint32Array(maskSize);
+  State.maskWrite = new Uint32Array(maskSize);
+  State.displayImage = ctx.createImageData(gridResolution.w, gridResolution.h);
 
   if (State.profiler.dom.resDisplay) {
-    State.profiler.dom.resDisplay.innerText = `${RESOLUTION.W}x${RESOLUTION.H}`;
+    State.profiler.dom.resDisplay.innerText = `${gridResolution.w}x${gridResolution.h}`;
   }
 }
 
@@ -166,8 +166,8 @@ const Scene = {
 };
 
 function activateSpatialRegion(tx, ty) {
-  if (tx < 0 || tx >= TILES_X || ty < 0 || ty >= TILES_Y) return;
-  const tileIdx = ty * TILES_X + tx;
+  if (tx < 0 || tx >= tilesX || ty < 0 || ty >= tilesY) return;
+  const tileIdx = ty * tilesX + tx;
   const arrIdx = tileIdx >>> 5;
   const bit = 1 << (tileIdx & 31);
   State.maskRead[arrIdx] |= bit;
@@ -180,7 +180,7 @@ function evolveSimulation() {
 
   State.maskWrite.fill(0);
 
-  for (let i = 0; i < MASK_SIZE; i++) {
+  for (let i = 0; i < maskSize; i++) {
     const block = State.maskRead[i];
     if (block === 0) continue;
 
@@ -191,18 +191,18 @@ function evolveSimulation() {
     for (let b = 0; b < 32; b++) {
       if ((block & (1 << b)) !== 0) {
         const globalTileIdx = (i << 5) + b;
-        const tx = globalTileIdx % TILES_X;
-        const ty = (globalTileIdx / TILES_X) | 0;
+        const tx = globalTileIdx % tilesX;
+        const ty = (globalTileIdx / tilesX) | 0;
         const startX = tx * CONFIG.TILE_SIZE;
         const startY = ty * CONFIG.TILE_SIZE;
         let tileIsAlive = false;
 
         for (let py = startY; py < startY + CONFIG.TILE_SIZE; py++) {
-          if (py >= RESOLUTION.H) continue;
+          if (py >= gridResolution.h) continue;
           for (let px = startX; px < startX + CONFIG.TILE_SIZE; px++) {
-            if (px >= RESOLUTION.W) continue;
+            if (px >= gridResolution.w) continue;
 
-            const ptr = (py * RESOLUTION.W + px) * STRIDE;
+            const ptr = (py * gridResolution.w + px) * STRIDE;
 
             if (State.lattice[ptr + FIELD.SLEEP_TIMER] < 1.0) {
               let vx = State.lattice[ptr + FIELD.VEL_X];
@@ -223,8 +223,8 @@ function evolveSimulation() {
               const nx = px + dx;
               const ny = py + dy;
 
-              if (nx >= 0 && nx < RESOLUTION.W && ny >= 0 && ny < RESOLUTION.H) {
-                const nPtr = (ny * RESOLUTION.W + nx) * STRIDE;
+              if (nx >= 0 && nx < gridResolution.w && ny >= 0 && ny < gridResolution.h) {
+                const nPtr = (ny * gridResolution.w + nx) * STRIDE;
                 const depthDiff = Math.abs(
                   State.lattice[ptr + FIELD.DEPTH] - State.lattice[nPtr + FIELD.DEPTH]
                 );
@@ -326,8 +326,8 @@ function mainSimulationLoop() {
     State.maskWrite.fill(0);
   }
 
-  const W = RESOLUTION.W;
-  const H = RESOLUTION.H;
+  const W = gridResolution.w;
+  const H = gridResolution.h;
   const gridW = CONFIG.TILE_SIZE;
   const gridH = CONFIG.TILE_SIZE;
   const cols = (W / gridW) | 0;
@@ -461,7 +461,7 @@ function mainSimulationLoop() {
       } else if (State.viewMode === 1) {
         const tx = (x / CONFIG.TILE_SIZE) | 0;
         const ty = (y / CONFIG.TILE_SIZE) | 0;
-        const tIdx = ty * TILES_X + tx;
+        const tIdx = ty * tilesX + tx;
         if ((State.maskRead[tIdx >> 5] & (1 << (tIdx & 31))) !== 0) {
           g = 0.15;
         }
@@ -537,7 +537,7 @@ function updateTelemetry() {
   if (now - State.profiler.lastTime >= 1000) {
     const avgTiles = Math.round(State.profiler.accumulatedTiles / State.profiler.frameCount);
     const avgTime = (State.profiler.accumulatedTime / State.profiler.frameCount).toFixed(2);
-    const totalTiles = TILES_X * TILES_Y;
+    const totalTiles = tilesX * tilesY;
     const sparsity = totalTiles > 0 ? ((1.0 - (avgTiles / totalTiles)) * 100).toFixed(1) : 0;
 
     if (State.profiler.dom.fps) {
