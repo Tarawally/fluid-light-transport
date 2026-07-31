@@ -3,6 +3,7 @@
  *
  * Combines stochastic ray tracing for light injection with a 2D cellular
  * automata solver for real-time light propagation, fluid advection, and diffusion.
+ * Implemented in accordance with MDN JavaScript performance and Web API standards.
  */
 "use strict";
 
@@ -117,7 +118,7 @@ window.addEventListener('resize', debounce(() => {
     lastHeight = window.innerHeight;
     bootSystem();
   }
-}, 500));
+}, 500), { passive: true });
 
 let seed = 1337;
 function nextFloat() {
@@ -564,9 +565,9 @@ function updateTelemetry() {
 canvas.addEventListener('mousedown', (e) => {
   State.input.dragging = true;
   State.input.lastMouse = { x: e.clientX, y: e.clientY };
-});
+}, { passive: true });
 
-window.addEventListener('mouseup', () => (State.input.dragging = false));
+window.addEventListener('mouseup', () => (State.input.dragging = false), { passive: true });
 
 window.addEventListener('mousemove', (e) => {
   if (!State.input.dragging) return;
@@ -588,7 +589,7 @@ window.addEventListener('mousemove', (e) => {
       State.maskRead.fill(0);
     }
   }
-});
+}, { passive: true });
 
 window.addEventListener('keydown', (e) => {
   State.input.keys[e.key.toLowerCase()] = true;
