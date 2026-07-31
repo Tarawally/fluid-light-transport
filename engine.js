@@ -3,7 +3,6 @@
  *
  * Combines stochastic ray tracing for light injection with a 2D cellular
  * automata solver for real-time light propagation, fluid advection, and diffusion.
- * Implemented in accordance with MDN JavaScript performance and Web API standards.
  */
 "use strict";
 

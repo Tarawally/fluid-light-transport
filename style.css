@@ -1,7 +1,5 @@
 /* 
  * Presentation layer
- * ==================
- * Minimal scientific UI viewport overlay and canvas styling adhering to MDN CSS standards.
  */
 :root {
   --bg-app: #000;
