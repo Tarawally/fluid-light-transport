@@ -1,111 +1,104 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-GB">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Fluid Light Transport - Visualisation</title>
+    <meta name="description" content="Real-time hybrid stochastic ray tracing and cellular automata fluid light transport engine." />
+    <title>Fluid light transport - Visualisation</title>
     <link rel="stylesheet" href="style.css" />
   </head>
   <body>
-    <div class="simulation-root">
-      <div class="simulation-wrapper">
-        <!-- USER INTERFACE OVERLAY -->
-        <div id="ui">
-          <div class="header">
-            <span>VISUALISATION STATUS</span>
-            <span id="statusIndicator">● INITIALISING</span>
-          </div>
-
-          <div class="stat-row">
-            <span class="label">Renderer:</span>
-            <span class="value">Hybrid Ray-Trace/CA</span>
-          </div>
-          <div class="stat-row">
-            <span class="label">Internal Grid:</span>
-            <span class="value" id="resDisplay">Loading...</span>
-          </div>
-          <div class="stat-row">
-            <span class="label">View Mode:</span>
-            <span class="value" id="viewModeDisplay">Composite Output</span>
-          </div>
-
-          <div class="section-divider">Performance Telemetry</div>
-          <div class="stat-row">
-            <span class="label">Frame Rate:</span>
-            <span class="value" id="fps">0 FPS</span>
-          </div>
-          <div class="stat-row">
-            <span class="label">Compute Time:</span>
-            <span class="value" id="physTime">0.0ms</span>
-          </div>
-          <div class="perf-track">
-            <div id="loadBar" class="perf-bar"></div>
-          </div>
-
-          <div class="stat-row" style="margin-top: 10px">
-            <span class="label">Data Source:</span>
-            <span class="value" id="sceneSource">Loading...</span>
-          </div>
-
-          <div class="section-divider">Optimisation Metrics</div>
-          <div class="stat-row">
-            <span class="label">Active Regions:</span>
-            <span class="value" id="activeBlocks">0</span>
-          </div>
-          <div class="stat-row">
-            <span class="label">Grid Sparsity:</span>
-            <span class="value" id="budget">0%</span>
-          </div>
-
-          <div class="controls-hint">
-            <strong>CONTROLS:</strong><br />
-            <span class="key">WASD</span> Movement &nbsp;
-            <span class="key">ARROWS</span> Look<br />
-            <span class="key">L-CLICK</span> Rotate &nbsp;
-            <span class="key">R-CLICK</span> Move Light<br />
-            <span class="key">SPACE</span> Cycle Visualisation Modes
-          </div>
-
-          <div class="section-divider">Physics Parameters</div>
-          <div class="stat-row control-row">
-            <span class="label">Dissipation:</span>
-            <input
-              type="range"
-              id="dissipationSlider"
-              min="0.80"
-              max="0.99"
-              step="0.01"
-              value="0.97"
-            />
-          </div>
-          <div class="stat-row control-row">
-            <span class="label">Advection:</span>
-            <input
-              type="range"
-              id="advectionSlider"
-              min="0.0"
-              max="5.0"
-              step="0.1"
-              value="3.0"
-            />
-          </div>
-          <div class="stat-row control-row">
-            <span class="label">Decay:</span>
-            <input
-              type="range"
-              id="decaySlider"
-              min="0.5"
-              max="0.99"
-              step="0.01"
-              value="0.92"
-            />
-          </div>
-        </div>
-
-        <!-- MAIN RENDERING SURFACE -->
-        <canvas id="canvas" tabindex="0" role="img" aria-label="Fluid Light Transport Visualisation"></canvas>
+    <!-- USER INTERFACE OVERLAY -->
+    <main id="ui" aria-label="Simulation control panel">
+      <div class="stat-row">
+        <span class="label">Internal grid:</span>
+        <span class="value" id="resDisplay">Loading...</span>
       </div>
-    </div>
+      <div class="stat-row">
+        <span class="label">View mode:</span>
+        <span class="value" id="viewModeDisplay">Composite output</span>
+      </div>
+
+      <div class="section-divider">Performance telemetry</div>
+      <div class="stat-row">
+        <span class="label">Frame rate:</span>
+        <span class="value" id="fps">0 FPS</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Compute time:</span>
+        <span class="value" id="physTime">0.0ms</span>
+      </div>
+      <div class="perf-track" role="progressbar" aria-label="Compute budget load" aria-valuemin="0" aria-valuemax="100">
+        <div id="loadBar" class="perf-bar"></div>
+      </div>
+
+      <div class="stat-row" style="margin-top: 10px">
+        <span class="label">Data source:</span>
+        <span class="value" id="sceneSource">Loading...</span>
+      </div>
+
+      <div class="section-divider">Optimisation metrics</div>
+      <div class="stat-row">
+        <span class="label">Active regions:</span>
+        <span class="value" id="activeBlocks">0</span>
+      </div>
+      <div class="stat-row">
+        <span class="label">Grid sparsity:</span>
+        <span class="value" id="budget">0%</span>
+      </div>
+
+      <div class="controls-hint">
+        <strong>Controls:</strong><br />
+        <kbd class="key">WASD</kbd> Movement &nbsp;
+        <kbd class="key">ARROWS</kbd> Look<br />
+        <kbd class="key">L-CLICK</kbd> Rotate &nbsp;
+        <kbd class="key">R-CLICK</kbd> Move light<br />
+        <kbd class="key">SPACE</kbd> Cycle visualisation modes
+      </div>
+
+      <div class="section-divider">Physics parameters</div>
+      <div class="stat-row control-row">
+        <label class="label" for="dissipationSlider">Dissipation:</label>
+        <input
+          type="range"
+          id="dissipationSlider"
+          min="0.80"
+          max="0.99"
+          step="0.01"
+          value="0.97"
+          aria-label="Dissipation"
+        />
+      </div>
+      <div class="stat-row control-row">
+        <label class="label" for="advectionSlider">Advection:</label>
+        <input
+          type="range"
+          id="advectionSlider"
+          min="0.0"
+          max="5.0"
+          step="0.1"
+          value="3.0"
+          aria-label="Advection"
+        />
+      </div>
+      <div class="stat-row control-row">
+        <label class="label" for="decaySlider">Decay:</label>
+        <input
+          type="range"
+          id="decaySlider"
+          min="0.5"
+          max="0.99"
+          step="0.01"
+          value="0.92"
+          aria-label="Decay"
+        />
+      </div>
+    </main>
+
+    <!-- MAIN RENDERING SURFACE -->
+    <canvas id="canvas" tabindex="0" role="img" aria-label="Fluid light transport visualisation">
+      <p>Your browser does not support the HTML5 canvas element.</p>
+    </canvas>
 
     <script src="engine.js"></script>
   </body>

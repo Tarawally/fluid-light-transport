@@ -1,32 +1,43 @@
 /* 
- * PRESENTATION LAYER
- * ==================
- * The visual style is minimal and scientific. The canvas acts as a 
- * raw viewport into the simulation memory.
+ * Presentation layer
  */
-.simulation-root,
-.simulation-wrapper {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 100%;
-  overflow: hidden;
-  background: #000;
-  font-family:
-    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial,
-    sans-serif;
+:root {
+  --bg-app: #000;
+  --bg-ui: rgba(255, 255, 255, 0.9);
+  --border-ui: rgba(255, 255, 255, 0.3);
+  --color-text-primary: #111;
+  --color-text-body: #333;
+  --color-text-muted: #666;
+  --color-text-hint: #555;
+  --color-accent: #007bff;
+  --color-success: #28a745;
+  --font-family-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
-.simulation-root canvas#canvas,
-.simulation-wrapper canvas#canvas {
-  display: block;
-  width: 100%;
-  height: 100%;
+html, body {
   margin: 0;
   padding: 0;
-  position: absolute;
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--bg-app);
+  font-family: var(--font-family-sans);
+}
+
+#canvas {
+  display: block;
+  position: fixed;
   top: 0;
   left: 0;
+  width: 100vw;
+  height: 100vh;
+  width: 100dvw;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
   image-rendering: pixelated;
   object-fit: fill;
   z-index: 1;
@@ -37,33 +48,21 @@
   top: 20px;
   left: 20px;
   width: 280px;
-  background: rgba(255, 255, 255, 0.9);
+  background: var(--bg-ui);
   backdrop-filter: blur(10px);
   padding: 15px;
   border-radius: 8px;
   box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  border: 1px solid var(--border-ui);
   font-size: 13px;
   z-index: 10;
-  color: #333;
+  color: var(--color-text-body);
   pointer-events: none;
   user-select: none;
 }
 
-.header {
-  font-weight: 700;
-  font-size: 14px;
-  margin-bottom: 10px;
-  color: #111;
-  border-bottom: 2px solid #007bff;
-  padding-bottom: 5px;
-  display: flex;
-  justify-content: space-between;
-}
-
-/* Dynamic Status ID for JS manipulation */
-#statusIndicator {
-  color: #666;
+#ui * {
+  pointer-events: auto;
 }
 
 .stat-row {
@@ -73,22 +72,22 @@
 }
 
 .label {
-  color: #666;
+  color: var(--color-text-muted);
 }
+
 .value {
   font-weight: 600;
-  font-family: "Menlo", monospace;
-  color: #333;
+  font-family: var(--font-family-mono);
+  color: var(--color-text-body);
 }
 
 .section-divider {
-  margin: 12px 0 8px 0;
-  border-top: 1px solid #ccc;
-  padding-top: 8px;
+  margin: 12px 0 6px 0;
+  padding-top: 4px;
   font-weight: 600;
-  color: #007bff;
+  color: var(--color-accent);
   font-size: 11px;
-  text-transform: uppercase;
+  text-transform: none;
   letter-spacing: 0.5px;
 }
 
@@ -100,35 +99,30 @@
   overflow: hidden;
   margin-top: 4px;
 }
+
 .perf-bar {
   height: 100%;
-  background: #28a745;
+  background: var(--color-success);
   width: 0%;
-  transition: width 0.2s;
+  transition: width 0.2s ease-out;
 }
 
 .controls-hint {
   margin-top: 15px;
-  padding-top: 10px;
-  border-top: 1px solid #ddd;
+  padding-top: 4px;
   font-size: 11px;
-  color: #555;
+  color: var(--color-text-hint);
   line-height: 1.6;
 }
+
 .key {
   display: inline-block;
   background: #eee;
   padding: 1px 4px;
   border-radius: 3px;
   border: 1px solid #ccc;
-  font-family: monospace;
+  font-family: var(--font-family-mono);
   font-size: 10px;
-}
-
-
-/* Controls and UI Overrides */
-#ui * {
-  pointer-events: auto;
 }
 
 .control-row {
@@ -142,61 +136,3 @@
   flex: 1;
   cursor: pointer;
 }
-
-/* Dark theme overrides for simulation HUD overlay */
-.dark #ui,
-.theme-dark #ui,
-.quarto-dark #ui {
-  background: rgba(20, 20, 20, 0.85);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  color: #e0e0e0;
-  box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
-}
-
-.dark #ui .header,
-.theme-dark #ui .header,
-.quarto-dark #ui .header {
-  color: #ffffff;
-  border-bottom: 2px solid #0056b3;
-}
-
-.dark #ui .label,
-.theme-dark #ui .label,
-.quarto-dark #ui .label {
-  color: #aaa;
-}
-
-.dark #ui .value,
-.theme-dark #ui .value,
-.quarto-dark #ui .value {
-  color: #ffffff;
-}
-
-.dark #ui .section-divider,
-.theme-dark #ui .section-divider,
-.quarto-dark #ui .section-divider {
-  border-top: 1px solid #444;
-  color: #3b9eff;
-}
-
-.dark #ui .perf-track,
-.theme-dark #ui .perf-track,
-.quarto-dark #ui .perf-track {
-  background: #333;
-}
-
-.dark #ui .controls-hint,
-.theme-dark #ui .controls-hint,
-.quarto-dark #ui .controls-hint {
-  border-top: 1px solid #444;
-  color: #999;
-}
-
-.dark #ui .key,
-.theme-dark #ui .key,
-.quarto-dark #ui .key {
-  background: #2b2b2b;
-  border: 1px solid #444;
-  color: #e0e0e0;
-}
-
